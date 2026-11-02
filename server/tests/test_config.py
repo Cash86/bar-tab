@@ -75,7 +75,7 @@ def test_env_example_placeholders_fail_validation(monkeypatch):
     with pytest.raises(ValidationError) as exc:
         Settings(_env_file=example)
     failed = {err["loc"][0] for err in exc.value.errors()}
-    assert {"secret_key", "device_keys"} <= failed
+    assert {"secret_key", "device_keys", "initial_admin_pin"} <= failed
 
 
 def test_env_example_with_valid_keys_loads(monkeypatch, tmp_path):
@@ -87,6 +87,7 @@ def test_env_example_with_valid_keys_loads(monkeypatch, tmp_path):
             monkeypatch.delenv(key)
     example = Path(__file__).resolve().parents[2] / ".env.example"
     text = example.read_text().replace("<generate>", "x" * 32)
+    text = text.replace("<choose 4-8 digits>", "4821")
     env_file = tmp_path / ".env"
     env_file.write_text(text)
     assert Settings(_env_file=env_file).device_keys == ["x" * 32]

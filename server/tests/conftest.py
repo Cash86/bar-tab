@@ -31,17 +31,26 @@ def clock():
 
 @pytest.fixture
 def app(settings, clock):
+    engine = make_engine(settings.db_path)
+    Base.metadata.create_all(engine)
+    engine.dispose()
     return create_app(settings, clock)
 
 
 @pytest.fixture
 def client(app):
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture
 def device_headers():
     return {"Authorization": f"Bearer {DEVICE_KEYS[0]}"}
+
+
+@pytest.fixture
+def device_b_headers():
+    return {"Authorization": f"Bearer {DEVICE_KEYS[1]}"}
 
 
 @pytest.fixture
