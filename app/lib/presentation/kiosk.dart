@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+
+final _log = Logger('kiosk');
 
 /// The platform operations that make the tablet behave like a kiosk.
 abstract interface class KioskPlatform {
@@ -66,8 +69,8 @@ Future<void> configureKiosk(KioskPlatform p) async {
   for (final step in [p.setLandscape, p.setImmersive, p.keepScreenOn]) {
     try {
       await step();
-    } catch (e) {
-      debugPrint('Kiosk setup step failed: $e');
+    } catch (e, st) {
+      _log.warning('Kiosk setup step failed', e, st);
     }
   }
 }
