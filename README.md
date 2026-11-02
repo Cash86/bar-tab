@@ -7,6 +7,26 @@ offline-tolerant tablet app (Flutter) backed by a small Python service (FastAPI)
 
 **Status:** under construction. Not usable yet.
 
+## Quick start
+
+Requires Docker with Compose.
+
+```sh
+cp .env.example .env
+# Edit .env: set BARTAB_PUBLIC_URL, BARTAB_INITIAL_ADMIN_PIN and the keys below.
+openssl rand -hex 32   # run once per key: BARTAB_SECRET_KEY and each entry of BARTAB_DEVICE_KEYS
+cp docker-compose.override.example.yml docker-compose.override.yml  # pick the local or Traefik variant
+docker compose up -d
+docker compose exec server alembic upgrade head   # optional, the container already migrates on start
+docker compose exec server python -m bartab.cli seed-demo   # optional demo data
+```
+
+Then open `http://localhost:8000/api/v1/health` (local variant); it returns `{"status":"ok"}`.
+
+The placeholders in `.env.example` (such as `<generate>`) intentionally fail validation, so the
+server refuses to start until you replace them. Data lives in `./data` (mounted as `/data`).
+The server runs a single worker on purpose, as the admin-PIN lockout is kept in memory.
+
 ## Development
 
 Server tests, lint and format check run in Docker:

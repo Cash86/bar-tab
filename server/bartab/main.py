@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from bartab.api import routes_admin_session, routes_bookings, routes_catalog, routes_health
 from bartab.config import Settings
-from bartab.domain.clock import Clock
+from bartab.domain.clock import Clock, SystemClock
 from bartab.persistence.db import make_engine, make_session_factory
 from bartab.persistence.repos import ensure_open_period
 from bartab.security import PinLockout, seed_admin_pin
@@ -35,3 +35,8 @@ def create_app(settings: Settings, clock: Clock) -> FastAPI:
     app.include_router(routes_catalog.router, prefix="/api/v1")
     app.include_router(routes_bookings.router, prefix="/api/v1")
     return app
+
+
+def app_from_env() -> FastAPI:
+    """Uvicorn factory: settings come from BARTAB_* environment variables."""
+    return create_app(Settings(), SystemClock())

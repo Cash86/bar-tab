@@ -1,0 +1,22 @@
+# Copy to docker-compose.override.yml (git-ignored) and keep ONE variant.
+services:
+  server:
+    # --- Variant (a): local, reachable on http://localhost:8000 ---
+    ports:
+      - "8000:8000"
+
+    # --- Variant (b): behind Traefik (remove the `ports` block above) ---
+    # networks:
+    #   - proxy
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.docker.network=proxy
+    #   - traefik.http.routers.bartab.rule=Host(`bar.example.org`)
+    #   - traefik.http.routers.bartab.entrypoints=websecure
+    #   - traefik.http.routers.bartab.tls.certresolver=<your-certresolver>
+    #   - traefik.http.services.bartab.loadbalancer.server.port=8000
+
+# Variant (b) also needs this top-level block:
+# networks:
+#   proxy:
+#     external: true
