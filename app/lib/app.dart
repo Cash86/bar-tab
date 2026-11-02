@@ -1,4 +1,5 @@
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/kiosk.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/providers.dart';
 import 'package:bar_tab/presentation/setup/setup_screen.dart';
@@ -7,12 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class BarTabApp extends StatelessWidget {
+class BarTabApp extends ConsumerWidget {
   const BarTabApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
+      navigatorObservers: [ref.watch(routeObserverProvider)],
       onGenerateTitle: (context) =>
           AppLocalizations.of(context).appPlaceholderTitle,
       theme: BarTabTheme.data,

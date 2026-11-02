@@ -32,18 +32,46 @@ class IdleScreensaver extends ConsumerStatefulWidget {
   ConsumerState<IdleScreensaver> createState() => _IdleScreensaverState();
 }
 
-class _IdleScreensaverState extends ConsumerState<IdleScreensaver> {
+class _IdleScreensaverState extends ConsumerState<IdleScreensaver>
+    with WidgetsBindingObserver, RouteAware {
   Timer? _idleTimer;
   Timer? _hintTimer;
   bool _dimmed = false;
   int _hintIndex = 0;
   late KioskPlatform _kiosk;
+  late RouteObserver<ModalRoute<void>> _observer;
 
   @override
   void initState() {
     super.initState();
     _kiosk = ref.read(kioskPlatformProvider);
+    _observer = ref.read(routeObserverProvider);
+    WidgetsBinding.instance.addObserver(this);
     _armIdle();
+  }
+
+  ModalRoute<void>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is ModalRoute<void> && route != _route) {
+      if (_route != null) _observer.unsubscribe(this);
+      _route = route;
+      _observer.subscribe(this, route);
+    }
+  }
+
+  /// Back on the name list: pointer events on other routes never reached us.
+  @override
+  void didPopNext() => _onPointer(const PointerCancelEvent());
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _onPointer(const PointerCancelEvent());
+    }
   }
 
   void _armIdle() {
@@ -83,6 +111,8 @@ class _IdleScreensaverState extends ConsumerState<IdleScreensaver> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _observer.unsubscribe(this);
     _idleTimer?.cancel();
     _hintTimer?.cancel();
     if (_dimmed) unawaited(_kiosk.undim());

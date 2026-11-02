@@ -45,6 +45,7 @@ const _catalog = Catalog(
 
 void main() {
   late _FakeKiosk kiosk;
+  final observer = RouteObserver<ModalRoute<void>>();
   final hint = find.text('Zum Buchen antippen');
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -58,6 +59,7 @@ void main() {
           catalogProvider.overrideWith((ref) => Future.value(_catalog)),
           syncStateProvider.overrideWith((ref) => const Stream.empty()),
           kioskPlatformProvider.overrideWithValue(kiosk),
+          routeObserverProvider.overrideWithValue(observer),
         ],
         child: MaterialApp(
           theme: BarTabTheme.data,
@@ -69,6 +71,7 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
+          navigatorObservers: [observer],
           home: const NameListScreen(),
         ),
       ),
@@ -153,5 +156,55 @@ void main() {
     await unmount(tester);
     expect(kiosk.calls, ['dim', 'undim']);
     // Test framework fails on pending timers after this point.
+  });
+
+  Future<void> openDrinkScreen(WidgetTester tester) async {
+    await tester.tap(find.byType(NameTile).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+  }
+
+  testWidgets('returning from the drink screen re-arms a full timeout', (
+    tester,
+  ) async {
+    await pumpScreen(tester);
+    await openDrinkScreen(tester);
+    await tester.pump(const Duration(minutes: 1, seconds: 50));
+    final nav = tester.state<NavigatorState>(find.byType(Navigator));
+    nav.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(minutes: 1, seconds: 55));
+    expect(hint, findsNothing);
+    await tester.pump(const Duration(seconds: 6));
+    expect(hint, findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('screensaver never shows over the drink screen', (tester) async {
+    await pumpScreen(tester);
+    await openDrinkScreen(tester);
+    await tester.pump(const Duration(minutes: 3));
+    expect(hint, findsNothing);
+    expect(kiosk.calls, isEmpty);
+    await unmount(tester);
+  });
+
+  testWidgets('app resume wakes the screensaver and re-arms the timer', (
+    tester,
+  ) async {
+    await pumpScreen(tester);
+    await tester.pump(kIdleTimeout);
+    expect(hint, findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(hint, findsNothing);
+    expect(kiosk.calls, ['dim', 'undim']);
+    await tester.pump(const Duration(minutes: 1, seconds: 59));
+    expect(hint, findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    expect(hint, findsOneWidget);
+    await unmount(tester);
   });
 }

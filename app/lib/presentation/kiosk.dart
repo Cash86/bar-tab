@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_brightness/screen_brightness.dart';
@@ -19,6 +20,11 @@ const kIdleTimeout = Duration(minutes: 2);
 
 final kioskPlatformProvider = Provider<KioskPlatform>(
   (ref) => const SystemKioskPlatform(),
+);
+
+/// Lets the name list notice when it becomes the current route again.
+final routeObserverProvider = Provider<RouteObserver<ModalRoute<void>>>(
+  (ref) => RouteObserver<ModalRoute<void>>(),
 );
 
 final idleTimeoutProvider = Provider<Duration>((ref) => kIdleTimeout);
@@ -55,8 +61,13 @@ class SystemKioskPlatform implements KioskPlatform {
   }
 }
 
+/// Each step is guarded: a failing platform call must not stop the app.
 Future<void> configureKiosk(KioskPlatform p) async {
-  await p.setLandscape();
-  await p.setImmersive();
-  await p.keepScreenOn();
+  for (final step in [p.setLandscape, p.setImmersive, p.keepScreenOn]) {
+    try {
+      await step();
+    } catch (e) {
+      debugPrint('Kiosk setup step failed: $e');
+    }
+  }
 }
