@@ -38,6 +38,7 @@ void main() {
             alignment: Alignment.centerRight,
             child: StatefulBuilder(
               builder: (context, setState) => QuantitySheet(
+                key: ValueKey(initial),
                 drinkName: 'Lemon Fizz',
                 unitPriceCents: 115,
                 crateSize: crateSize,
@@ -119,10 +120,75 @@ void main() {
     expect(quantity, 5);
   });
 
-  testWidgets('crate key sets the crate size', (tester) async {
+  // Maintainer decision: value = crates × crate size + typed number.
+  Future<void> keys(WidgetTester tester, List<String> ks) async {
+    for (final k in ks) {
+      await press(tester, k);
+    }
+  }
+
+  testWidgets('crate key discards the opened quantity: 3, Kasten -> 20', (
+    tester,
+  ) async {
     await pump(tester);
-    await press(tester, '7');
     await press(tester, 'crate');
+    expect(quantity, 20);
+  });
+
+  testWidgets('each crate press adds a crate', (tester) async {
+    await pump(tester);
+    await keys(tester, ['crate', 'crate']);
+    expect(quantity, 40);
+    await press(tester, 'crate');
+    expect(quantity, 60);
+  });
+
+  testWidgets('digits after a crate add on top', (tester) async {
+    await pump(tester);
+    await keys(tester, ['crate', '2']);
+    expect(quantity, 22);
+    await pump(tester, initial: 5);
+    await keys(tester, ['crate', '1', '2']);
+    expect(quantity, 32);
+  });
+
+  testWidgets('digits before a crate count too: 7, Kasten -> 27', (
+    tester,
+  ) async {
+    await pump(tester);
+    await keys(tester, ['7', 'crate']);
+    expect(quantity, 27);
+  });
+
+  testWidgets('backspace removes typed digits, then crates', (tester) async {
+    await pump(tester);
+    await keys(tester, ['crate', '2']);
+    await press(tester, 'backspace');
+    expect(quantity, 20);
+    await press(tester, 'backspace');
+    expect(quantity, 0);
+  });
+
+  testWidgets('crates stop at 999', (tester) async {
+    await pump(tester);
+    for (var i = 0; i < 50; i++) {
+      await press(tester, 'crate');
+    }
+    expect(quantity, 980);
+    await keys(tester, ['1', '9']);
+    expect(quantity, 999);
+    await press(tester, '0');
+    expect(quantity, 999);
+  });
+
+  testWidgets('minus borrows from a crate, never below 0', (tester) async {
+    await pump(tester);
+    await press(tester, 'crate');
+    await tester.tap(find.byKey(QuantitySheet.minusKey));
+    await tester.pump();
+    expect(quantity, 19);
+    await tester.tap(find.byKey(QuantitySheet.plusKey));
+    await tester.pump();
     expect(quantity, 20);
   });
 
@@ -157,18 +223,6 @@ void main() {
     for (final k in [...List.generate(10, (i) => '$i'), 'crate', 'backspace']) {
       expect(find.byKey(Key('keypad-$k')), findsOneWidget, reason: k);
     }
-  });
-
-  testWidgets('after the crate key the next digit starts fresh', (
-    tester,
-  ) async {
-    await pump(tester);
-    await press(tester, 'crate');
-    expect(quantity, 20);
-    await press(tester, '2');
-    expect(quantity, 2);
-    await press(tester, '4');
-    expect(quantity, 24);
   });
 
   testWidgets('without a crate size there is no crate key', (tester) async {

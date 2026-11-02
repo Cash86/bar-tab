@@ -9,9 +9,11 @@ import 'order_bar.dart';
 
 /// Side sheet to set one drink's quantity with −/+ and an in-app keypad.
 ///
-/// The first keypad press after opening replaces the number, later presses
-/// append; the crate key also lets the next digit start fresh. The number
-/// stays within 0..999.
+/// The value is crates × crate size + a typed number. The first digit or
+/// crate press after opening discards the opened quantity; each crate press
+/// adds a crate, digits append to the typed number, backspace removes the
+/// last typed digit and then crates, −/+ step by one. The value stays within
+/// 0..999; a press that would leave that range is ignored.
 class QuantitySheet extends StatefulWidget {
   const QuantitySheet({
     required this.drinkName,
@@ -49,25 +51,49 @@ class QuantitySheet extends StatefulWidget {
 }
 
 class _QuantitySheetState extends State<QuantitySheet> {
+  // The value is `_crates × crateSize + _typed`.
+  late String _typed = '${widget.quantity}';
+  int _crates = 0;
+
+  /// Still showing the opened quantity: the first digit or crate press
+  /// discards it.
   bool _fresh = true;
 
-  void _set(int value) {
+  int get _crateSize => widget.crateSize ?? 0;
+
+  /// Applies an edit unless the result would leave 0..999.
+  void _apply(int crates, String typed) {
+    final value = crates * _crateSize + (int.tryParse(typed) ?? 0);
+    if (crates < 0 || value < 0 || value > maxLineQuantity) return;
     _fresh = false;
-    widget.onChanged(value.clamp(0, maxLineQuantity));
+    _crates = crates;
+    _typed = typed;
+    widget.onChanged(value);
   }
 
-  void _digit(int d) {
-    if (_fresh) return _set(d);
-    final next = widget.quantity * 10 + d;
-    if (next > maxLineQuantity) return;
-    _set(next);
-  }
+  void _digit(int d) => _fresh ? _apply(0, '$d') : _apply(_crates, '$_typed$d');
 
   void _crate() {
-    final size = widget.crateSize;
-    if (size == null) return;
-    _set(size);
-    _fresh = true;
+    if (widget.crateSize == null) return;
+    _fresh ? _apply(1, '') : _apply(_crates + 1, _typed);
+  }
+
+  void _backspace() {
+    if (_typed.isNotEmpty) {
+      _apply(_crates, _typed.substring(0, _typed.length - 1));
+    } else if (_crates > 0) {
+      _apply(_crates - 1, '');
+    }
+  }
+
+  /// ±1 on the typed part; going below 0 there takes from a crate.
+  void _step(int delta) {
+    final typed = (int.tryParse(_typed) ?? 0) + delta;
+    if (typed < 0) {
+      if (_crates > 0) _apply(_crates - 1, '${typed + _crateSize}');
+    } else {
+      _apply(_crates, '$typed');
+    }
   }
 
   @override
@@ -109,7 +135,7 @@ class _QuantitySheetState extends State<QuantitySheet> {
                 _StepButton(
                   key: QuantitySheet.minusKey,
                   icon: Icons.remove,
-                  onTap: () => _set(widget.quantity - 1),
+                  onTap: () => _step(-1),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -135,7 +161,7 @@ class _QuantitySheetState extends State<QuantitySheet> {
                 _StepButton(
                   key: QuantitySheet.plusKey,
                   icon: Icons.add,
-                  onTap: () => _set(widget.quantity + 1),
+                  onTap: () => _step(1),
                 ),
               ],
             ),
@@ -149,7 +175,7 @@ class _QuantitySheetState extends State<QuantitySheet> {
               },
               onDigit: _digit,
               onCrate: _crate,
-              onBackspace: () => _set(widget.quantity ~/ 10),
+              onBackspace: _backspace,
             ),
           ),
           const SizedBox(height: 14),
