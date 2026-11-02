@@ -121,94 +121,98 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
     final isEmpty = collective.isEmpty && tiers.isEmpty;
     final banner = _banner;
 
-    return IdleScreensaver(
-      child: Scaffold(
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l10n.nameListTitle,
-                        style: const TextStyle(
-                          color: BarTabTheme.paper,
-                          fontSize: 30,
-                          height: 1.2,
-                          fontVariations: [
-                            FontVariation('wdth', 118),
-                            FontVariation('wght', 850),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (banner != null) _BookedBanner(banner),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (catalogValue.isLoading && catalog == null)
-                  const Spacer()
-                else if (isEmpty)
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        l10n.nameListEmpty,
-                        style: const TextStyle(
-                          color: BarTabTheme.muted,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ),
-                  )
-                else ...[
-                  if (collective.isNotEmpty) ...[
-                    _CollectiveRow(accounts: collective, onTap: _open),
-                    const SizedBox(height: 16),
-                  ],
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final layout = chooseLayout(
-                          maxNamesInColumn: tiers.fold(
-                            0,
-                            (m, t) => t.$2.length > m ? t.$2.length : m,
-                          ),
-                          availableHeight:
-                              constraints.maxHeight - _columnTitleHeight,
-                        );
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            for (var i = 0; i < tiers.length; i++) ...[
-                              if (i > 0) const SizedBox(width: 20),
-                              Expanded(
-                                child: _TierColumn(
-                                  title: tiers[i].$1.name,
-                                  accent: tierColor(tiers[i].$1),
-                                  persons: tiers[i].$2,
-                                  layout: layout,
-                                  onTap: _open,
-                                ),
-                              ),
+    // System back must never exit the kiosk app.
+    return PopScope(
+      canPop: false,
+      child: IdleScreensaver(
+        child: Scaffold(
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.nameListTitle,
+                          style: const TextStyle(
+                            color: BarTabTheme.paper,
+                            fontSize: 30,
+                            height: 1.2,
+                            fontVariations: [
+                              FontVariation('wdth', 118),
+                              FontVariation('wght', 850),
                             ],
-                          ],
-                        );
-                      },
+                          ),
+                        ),
+                      ),
+                      if (banner != null) _BookedBanner(banner),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (catalogValue.isLoading && catalog == null)
+                    const Spacer()
+                  else if (isEmpty)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          l10n.nameListEmpty,
+                          style: const TextStyle(
+                            color: BarTabTheme.muted,
+                            fontSize: 20,
+                          ),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    if (collective.isNotEmpty) ...[
+                      _CollectiveRow(accounts: collective, onTap: _open),
+                      const SizedBox(height: 16),
+                    ],
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final layout = chooseLayout(
+                            maxNamesInColumn: tiers.fold(
+                              0,
+                              (m, t) => t.$2.length > m ? t.$2.length : m,
+                            ),
+                            availableHeight:
+                                constraints.maxHeight - _columnTitleHeight,
+                          );
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (var i = 0; i < tiers.length; i++) ...[
+                                if (i > 0) const SizedBox(width: 20),
+                                Expanded(
+                                  child: _TierColumn(
+                                    title: tiers[i].$1.name,
+                                    accent: tierColor(tiers[i].$1),
+                                    persons: tiers[i].$2,
+                                    layout: layout,
+                                    onTap: _open,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  const SizedBox(
+                    height: 28,
+                    width: double.infinity,
+                    child: Align(
+                      alignment: Alignment.bottomRight,
+                      child: SyncIndicator(),
                     ),
                   ),
                 ],
-                const SizedBox(
-                  height: 28,
-                  width: double.infinity,
-                  child: Align(
-                    alignment: Alignment.bottomRight,
-                    child: SyncIndicator(),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

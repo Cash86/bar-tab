@@ -264,4 +264,57 @@ void main() {
       expect(sync.syncNowCalls, 1);
     });
   });
+
+  test('nothing fires while a commit is in flight', () {
+    run((async, controller, c) {
+      final gate = Completer<void>();
+      bookings.addAllGate = gate;
+      controller.tap('d1', 115);
+      controller.commit();
+      async.flushMicrotasks();
+      expect(stateOf(c).committing, isTrue);
+
+      async.elapse(const Duration(seconds: 31));
+      expect(stateOf(c).idleLeft, isFalse);
+      expect(stateOf(c).committing, isTrue);
+      expect(bookings.bookings, isEmpty);
+
+      gate.complete();
+      async.flushMicrotasks();
+      expect(bookings.bookings, hasLength(1));
+      expect(stateOf(c).booked, isNotNull);
+      expect(stateOf(c).idleLeft, isFalse);
+    });
+  });
+
+  test('start() resets a reused controller and re-arms the idle timer', () {
+    run((async, controller, c) {
+      controller.tap('d1', 115);
+      async.elapse(kAutoBookDelay);
+      expect(stateOf(c).booked, isNotNull);
+      // Same person re-opened before the old instance was disposed.
+      controller.start();
+      expect(stateOf(c).booked, isNull);
+      expect(stateOf(c).idleLeft, isFalse);
+      async.elapse(const Duration(seconds: 29));
+      expect(stateOf(c).idleLeft, isFalse);
+      async.elapse(const Duration(seconds: 1));
+      expect(stateOf(c).idleLeft, isTrue);
+    });
+  });
+
+  test('start() does not interrupt a running commit', () {
+    run((async, controller, c) {
+      final gate = Completer<void>();
+      bookings.addAllGate = gate;
+      controller.tap('d1', 115);
+      controller.commit();
+      async.flushMicrotasks();
+      controller.start();
+      expect(stateOf(c).committing, isTrue);
+      gate.complete();
+      async.flushMicrotasks();
+      expect(stateOf(c).booked, isNotNull);
+    });
+  });
 }

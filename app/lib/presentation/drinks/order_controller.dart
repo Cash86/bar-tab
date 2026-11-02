@@ -114,6 +114,16 @@ class OrderController extends Notifier<OrderState> {
     return OrderState(draft: OrderDraft.empty(personId));
   }
 
+  /// Called when the drink screen opens: a controller reused from a screen
+  /// that is still popping (same person re-opened) starts clean, with the
+  /// idle timer armed. A running commit is left alone.
+  void start() {
+    if (state.committing) return;
+    _cancelTimer();
+    state = OrderState(draft: OrderDraft.empty(personId));
+    _startEmptyIdle();
+  }
+
   /// Any pointer activity on the screen: restarts the idle timer that
   /// applies (empty draft: leave; open sheet: close).
   void activity() {

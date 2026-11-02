@@ -561,6 +561,72 @@ void main() {
     expect(find.textContaining('Kasten'), findsNothing);
   });
 
+  testWidgets('a drink deactivated while pending still books at its price', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await open(tester, 'Kim Example');
+    await tapDrink(tester, 'd1');
+    expect(find.text('1× Lager'), findsOneWidget);
+
+    final full = testCatalog(lagerPrice: 999);
+    catalog = full.copyWith(
+      drinks: [
+        for (final d in full.drinks)
+          if (d.id == 'd1') d.copyWith(isActive: false) else d,
+      ],
+    );
+    ProviderScope.containerOf(
+      tester.element(find.byType(DrinkSelectionScreen)),
+    ).invalidate(catalogProvider);
+    await tester.pump();
+    await tester.pump();
+    expect(tile('d1'), findsNothing);
+    expect(find.text('1× Lager'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 8));
+    await settleRoute(tester);
+    expectOnNameList();
+    final booking = bookings.bookings.single;
+    expect(booking.drinkId, 'd1');
+    expect(booking.unitPriceCents, 115);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('re-opening the person while the old screen pops starts clean', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    final nameAt = tester.getCenter(find.text('Kim Example'));
+    await open(tester, 'Kim Example');
+    await tapDrink(tester, 'd1');
+    await tester.tap(find.text('Fertig'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100)); // popping
+
+    await tester.tapAt(nameAt);
+    await tester.pumpAndSettle(const Duration(milliseconds: 50));
+    expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 29));
+    expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    await settleRoute(tester);
+    expectOnNameList();
+    expect(bookings.bookings, hasLength(1));
+  });
+
+  testWidgets('system back on the name list does not exit the app', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expectOnNameList();
+    // handlePopRoute returns false when nothing consumed it (app would exit).
+    expect(handled, isTrue);
+  });
+
   testWidgets('back during a failing write keeps the order and retries', (
     tester,
   ) async {

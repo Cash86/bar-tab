@@ -43,6 +43,10 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
       onHide: _bookPending,
       onPause: _bookPending,
     );
+    // Providers must not change while the widget tree is building.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _controller.start();
+    });
   }
 
   @override
