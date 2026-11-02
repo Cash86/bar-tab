@@ -12,6 +12,9 @@ abstract interface class BookingRepository {
   Future<List<Booking>> queued({int limit});
   Future<void> applyResults(Map<String, BookingStatus> results);
   Future<void> markIncludedInTabs(Set<String> ids);
+
+  /// Ids of accepted bookings not yet reflected in the cached tabs.
+  Future<Set<String>> acceptedNotIncludedIds();
   Stream<List<Booking>> watchNotIncluded(String personId);
   Stream<SyncCounts> watchCounts();
 }

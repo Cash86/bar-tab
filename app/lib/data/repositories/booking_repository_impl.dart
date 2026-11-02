@@ -82,6 +82,17 @@ class BookingRepositoryImpl implements BookingRepository {
   }
 
   @override
+  Future<Set<String>> acceptedNotIncludedIds() async {
+    final q = _db.selectOnly(_db.bookings)
+      ..addColumns([_db.bookings.id])
+      ..where(
+        _db.bookings.status.equals(BookingStatus.accepted.name) &
+            _db.bookings.includedInTabs.equals(false),
+      );
+    return {for (final row in await q.get()) row.read(_db.bookings.id)!};
+  }
+
+  @override
   Stream<List<Booking>> watchNotIncluded(String personId) {
     final q = _db.select(_db.bookings)
       ..where(

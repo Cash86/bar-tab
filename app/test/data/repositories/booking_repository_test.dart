@@ -164,4 +164,20 @@ void main() {
       {'a': true, 'b': false, 'c': false},
     );
   });
+
+  test(
+    'acceptedNotIncludedIds returns only accepted, not yet included',
+    () async {
+      await repo.addAll([
+        booking('a', status: BookingStatus.accepted),
+        booking('b', status: BookingStatus.accepted),
+        booking('c'),
+        booking('d', status: BookingStatus.rejected),
+        booking('e', status: BookingStatus.conflict),
+        booking('f', personId: 'p2', status: BookingStatus.accepted),
+      ]);
+      await repo.markIncludedInTabs({'b'});
+      expect(await repo.acceptedNotIncludedIds(), {'a', 'f'});
+    },
+  );
 }
