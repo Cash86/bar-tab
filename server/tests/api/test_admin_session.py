@@ -119,3 +119,27 @@ def test_seed_admin_pin_without_initial_pin_does_nothing(db_session, settings):
     settings.initial_admin_pin = None
     seed_admin_pin(db_session, settings)
     assert get_setting(db_session, "admin_pin_hash") is None
+
+
+def test_concurrent_attempts_are_capped_before_verify(clock):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    from bartab.security import LockedOut, PinLockout
+
+    lockout = PinLockout(clock)
+    barrier = threading.Barrier(20)
+    reached_verify = []
+
+    def attempt():
+        barrier.wait()
+        try:
+            lockout.begin_attempt("dev")
+        except LockedOut:
+            return
+        reached_verify.append(1)
+
+    with ThreadPoolExecutor(20) as pool:
+        for future in [pool.submit(attempt) for _ in range(20)]:
+            future.result()
+    assert len(reached_verify) == 5

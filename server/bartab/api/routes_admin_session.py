@@ -36,14 +36,13 @@ def open_admin_session(
     session: Session = Depends(get_session),
 ) -> AdminSessionResponse | JSONResponse:
     try:
-        lockout.check(device_id)
+        lockout.begin_attempt(device_id)
     except LockedOut as locked:
         return JSONResponse(
             status_code=429, content={"detail": "locked", "retry_after": locked.retry_after}
         )
     pin_hash = get_setting(session, ADMIN_PIN_HASH_KEY)
     if pin_hash is None or not verify_pin(body.pin, pin_hash):
-        lockout.record_failure(device_id)
         raise HTTPException(status_code=401, detail="wrong_pin")
     lockout.reset(device_id)
     token = issue_admin_token(settings.secret_key, clock, device_id)

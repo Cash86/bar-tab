@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import math
+import threading
 from datetime import datetime, timedelta
 
 from argon2 import PasswordHasher
@@ -61,25 +62,31 @@ class PinLockout:
         self._lock = timedelta(seconds=lock_seconds)
         self._failures: dict[str, int] = {}
         self._locked_until: dict[str, datetime] = {}
+        self._mutex = threading.Lock()
 
-    def check(self, device_id: str) -> None:
-        until = self._locked_until.get(device_id)
-        if until is None:
-            return
-        remaining = (until - self._clock.now()).total_seconds()
-        if remaining > 0:
-            raise LockedOut(math.ceil(remaining))
-        self.reset(device_id)
+    def begin_attempt(self, device_id: str) -> None:
+        """Atomically reserves one attempt; call before the slow PIN verification.
 
-    def record_failure(self, device_id: str) -> None:
-        count = self._failures.get(device_id, 0) + 1
-        self._failures[device_id] = count
-        if count >= self._max_failures:
-            self._locked_until[device_id] = self._clock.now() + self._lock
+        Raises LockedOut when the device is locked. The reservation counts as a failure
+        until reset() is called on success, so parallel requests cannot exceed the limit.
+        """
+        with self._mutex:
+            until = self._locked_until.get(device_id)
+            if until is not None:
+                remaining = (until - self._clock.now()).total_seconds()
+                if remaining > 0:
+                    raise LockedOut(math.ceil(remaining))
+                self._failures.pop(device_id, None)
+                del self._locked_until[device_id]
+            count = self._failures.get(device_id, 0) + 1
+            self._failures[device_id] = count
+            if count >= self._max_failures:
+                self._locked_until[device_id] = self._clock.now() + self._lock
 
     def reset(self, device_id: str) -> None:
-        self._failures.pop(device_id, None)
-        self._locked_until.pop(device_id, None)
+        with self._mutex:
+            self._failures.pop(device_id, None)
+            self._locked_until.pop(device_id, None)
 
 
 class ClockSigner(TimestampSigner):
