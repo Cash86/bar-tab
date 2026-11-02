@@ -12,6 +12,7 @@ import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/domain/running_total.dart';
 import 'package:bar_tab/domain/sync_state.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -132,6 +133,21 @@ void main() {
       await sync.syncNow();
       expect(await serverTab(person.id), afterFirst);
       expect(await bookings.queued(), isEmpty);
+
+      // Lost response: the tablet never learned the booking was accepted and
+      // posts it again; the server answers duplicate, the tab is unchanged.
+      final resent = batch.first.id;
+      await (db.update(db.bookings)..where((r) => r.id.equals(resent))).write(
+        BookingsCompanion(status: Value(BookingStatus.queued.name)),
+      );
+      expect(await bookings.queued(), hasLength(1));
+      await sync.syncNow();
+      expect(await bookings.queued(), isEmpty);
+      final row = await (db.select(
+        db.bookings,
+      )..where((r) => r.id.equals(resent))).getSingle();
+      expect(row.status, BookingStatus.accepted.name);
+      expect(await serverTab(person.id), afterFirst);
 
       // Stale price: the server books exactly what the tablet sent.
       final stalePrice = pilsPrice + 7;

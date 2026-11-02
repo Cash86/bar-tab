@@ -94,6 +94,9 @@ rail and as an accent on its tiles, condensed type for names, prices only on dri
 - Overflow: tiles shrink first (3 → 4 per row, flatter), then each column scrolls independently
   with a fade hint; the collective row stays fixed. Deactivating people keeps the list short.
 - An unobtrusive "Admin" button bottom-right opens the PIN prompt.
+- **Screensaver:** after 2 minutes without a touch the screen goes dark with a small, slowly
+  moving hint and the brightness is dimmed. The wakelock stays on, so there is no Android lock
+  screen. The first touch only wakes the app and is not passed on to the tiles.
 
 ### 4.2 Drink selection — approved
 - Header: person's name (large), their price tier, and their running total since the last
@@ -105,15 +108,22 @@ rail and as an accent on its tiles, condensed type for names, prices only on dri
 - A bar at the bottom shows the pending order and its total, with **"Verwerfen"** (discard all) and
   **"Fertig"** (book now).
 - **On the third tap** on the same drink, a quantity sheet slides in from the right: −/+ buttons,
-  a large number field, an in-app numeric keypad (no system keyboard), and a "Kasten (n)" key that
-  sets the drink's crate size. Actions: **"Buchen"** books the *whole* pending order (same as
+  a large number field and an in-app numeric keypad (no system keyboard) with a "Kasten (n)" key.
+  The quantity is crates × crate size + typed digits: each "Kasten" press adds one crate, digits
+  typed after a crate add to it, and the first key pressed after opening the sheet discards the
+  quantity tapped so far. "⌫" removes the last digit, then a crate; ± change the quantity by 1;
+  the cap is 999. Actions: **"Buchen"** books the *whole* pending order (same as
   "Fertig"); **"Weitere Getränke"** closes the sheet, keeps the entered quantity and returns to the
   drink grid. The sheet has no discard button — discarding stays on the bottom bar only, so a
   whole order cannot be thrown away by accident. Quantity 0 removes that drink from the order.
 - **8 seconds after the last tap** the pending order is booked automatically and the app returns
   to the name list. Every tap restarts the 8 seconds. While the quantity sheet is open, the timer
-  is paused (*builder's call, see §12*).
-- "Andere Person" returns to the name list; a pending order is booked first (decided 2026-11-02, so tapped drinks are never lost).
+  is paused (decided, see §12), with a 30-second idle close: an open sheet left untouched for
+  30 seconds closes and keeps its quantity, and the 8-second auto-booking then runs.
+- **Idle:** an empty drink screen (nothing pending) returns to the name list after 30 seconds
+  without touch; nothing is booked.
+- "Andere Person" returns to the name list; a pending order is booked first (decided 2026-11-02, so tapped drinks are never lost). System back and the app being paused
+  (screen off, app switched) behave the same way: a pending order is booked, never dropped.
 
 There is no undo after booking on the main screens; wrong bookings are corrected in admin (§4.3).
 
@@ -164,7 +174,7 @@ nothing club-specific is copied).
 shrinkage, settlement figures, PDF content. The app only displays.
 
 - **API:** JSON over HTTPS, versioned under `/api/v1`. The OpenAPI schema FastAPI generates is
-  the contract; the app's DTOs are generated from it, and a test fails when app and schema
+  the contract; the app's DTOs are hand-written, guarded by a contract test that fails when app and schema
   diverge.
 - **Auth:** each tablet sends a device key (bearer token). Admin endpoints additionally require an
   admin session obtained by posting the PIN; the PIN is stored as a slow hash in the DB. Rate
@@ -257,7 +267,8 @@ data, enabling screen pinning.
 
 1. Server core: domain, DB, sync API, auth — test-driven.
 2. App: name list + drink selection + offline queue against the real API.
-3. Admin: master data, deliveries, event bookings, booking corrections.
+3. Admin: master data, deliveries, event bookings, booking corrections, including re-pairing
+   the tablet (new server URL/device key) without losing queued bookings.
 4. Inventory & settlement flow + PDF + mail; monthly interim report.
 5. Legacy import, deployment on netcup, README/operator docs; cut-over from the old script.
 6. **Later:** members book from their own phones — personal login, same Flutter app or a phone
@@ -274,6 +285,8 @@ server; one monorepo; public repo `bar-tab` under `Cash86`; all configuration in
 
 ## 12. Calls made by Claude (please check)
 - Auto-book 8 s after the last tap; "Fertig" books immediately; several drinks per order.
+- The 8 s timer is paused while the quantity sheet is open (decided), with a 30 s idle close of
+  the sheet.
 - Quantity sheet: "Buchen" books the whole order, "Weitere Getränke" returns to the grid; no
   discard inside the sheet.
 - Tablet's stored unit price is final; no price history.
@@ -290,5 +303,5 @@ server; one monorepo; public repo `bar-tab` under `Cash86`; all configuration in
 
 ## 13. Left to the builder
 Exact API shape, DB schema, package choices within the stack above, PDF layout, sync interval,
-whether the 8 s timer pauses while the quantity sheet is open, colours per group (configurable or
+colours per group (configurable or
 from a palette), tablet minimum Android version (Flutter default), CI details.

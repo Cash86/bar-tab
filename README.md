@@ -57,10 +57,6 @@ config and demo data, port 18080, everything removed afterwards). It needs Docke
 app/tool/e2e.sh
 ```
 
-## Licence
-
-MIT, see [LICENSE](LICENSE).
-
 ## Tablet
 
 The tablet app is sideloaded; it is not distributed through an app store.
@@ -91,3 +87,28 @@ pinning), then open the app and pin it from the recent-apps view.
 **Screensaver.** After 2 minutes without a touch on the name list, the app dims to a black
 screen with a small, slowly moving hint and lowers the brightness (the screen stays on, so
 there is no Android lock screen). The first touch only wakes it and is not passed on.
+
+**Queued bookings and data loss.** Bookings made while the server is unreachable live only in
+the tablet's local database until they are synced. Never "clear app data" and never uninstall the
+app while bookings are queued (the sync indicator on the name list shows the count): they would be
+lost for good. If the server rejects the device key (key revoked or changed), fix the key on the
+server side (`BARTAB_DEVICE_KEYS`); do not reinstall the app. Re-pairing the tablet with a new
+server URL or key from inside the app will follow with the admin area.
+
+### Hands-on test (debug build)
+
+To try a debug build against a server on your own machine:
+
+1. Copy `docker-compose.override.example.yml` to `docker-compose.override.yml`, keep variant (a)
+   (published port 8000), then `docker compose up -d --build`.
+2. Connect the tablet by USB and run `adb reverse tcp:8000 tcp:8000`, so `localhost` on the
+   tablet reaches the server.
+3. Start the debug build (`cd app && flutter run`, or install the debug APK).
+4. On first start enter the URL `http://localhost:8000` and one device key from
+   `BARTAB_DEVICE_KEYS` in `.env`. Tip: `adb shell input text <key>` types the key into the
+   focused field.
+
+
+## Licence
+
+MIT, see [LICENSE](LICENSE).
