@@ -33,9 +33,36 @@ void main() {
     expect(await store.read('b'), '2');
   });
 
+  test('writeAll rolls back when a later entry fails', () async {
+    final failing = _FailingOnKeyStore(db, 'b');
+    await failing.write('a', 'old-a');
+    await failing.write('b', 'old-b');
+    await expectLater(
+      failing.writeAll({'a': 'new-a', 'b': 'new-b'}),
+      throwsStateError,
+    );
+    expect(await store.read('a'), 'old-a');
+    expect(await store.read('b'), 'old-b');
+  });
+
   test('delete removes the key', () async {
     await store.write('a', '1');
     await store.delete('a');
     expect(await store.read('a'), isNull);
   });
+}
+
+/// Fails the per-key write of [failKey], for new values only.
+class _FailingOnKeyStore extends DriftConfigStore {
+  _FailingOnKeyStore(super.db, this.failKey);
+
+  final String failKey;
+
+  @override
+  Future<void> write(String key, String value) async {
+    await super.write(key, value);
+    if (key == failKey && value.startsWith('new')) {
+      throw StateError('write failed');
+    }
+  }
 }
