@@ -30,6 +30,10 @@ void main() {
           secureStoreProvider.overrideWithValue(store),
           httpClientProvider.overrideWithValue(server.client),
           syncIntervalProvider.overrideWithValue(null),
+          // The name list watches these; drift streams leave timers behind
+          // when the tree is disposed inside a widget test.
+          syncStateProvider.overrideWith((ref) => const Stream.empty()),
+          catalogProvider.overrideWith((ref) async => null),
         ],
         child: const BarTabApp(),
       ),

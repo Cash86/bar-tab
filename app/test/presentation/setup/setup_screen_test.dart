@@ -37,6 +37,9 @@ void main() {
           secureStoreProvider.overrideWithValue(store),
           httpClientProvider.overrideWithValue(server.client),
           syncIntervalProvider.overrideWithValue(null),
+          // The name list watches this; drift streams leave timers behind
+          // when the tree is disposed inside a widget test.
+          syncStateProvider.overrideWith((ref) => const Stream.empty()),
         ],
         child: const BarTabApp(),
       ),

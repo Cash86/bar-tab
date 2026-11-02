@@ -1,5 +1,5 @@
 import 'package:bar_tab/l10n/app_localizations.dart';
-import 'package:bar_tab/presentation/name_list/name_list_screen.dart';
+import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/providers.dart';
 import 'package:bar_tab/presentation/setup/setup_screen.dart';
 import 'package:bar_tab/presentation/theme.dart';

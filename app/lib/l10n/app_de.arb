@@ -11,5 +11,16 @@
   "setupErrorInvalidUrl": "Adresse ungültig",
   "setupErrorUnauthorised": "Geräteschlüssel ungültig",
   "setupErrorUnreachable": "Server nicht erreichbar",
-  "nameListTitle": "Wer trinkt?"
+  "nameListTitle": "Wer trinkt?",
+  "nameListCollective": "Sammelkonten",
+  "nameListEmpty": "Noch keine Personen angelegt – bitte im Admin-Bereich anlegen.",
+  "syncQueued": "{count, plural, one{1 Buchung wartet} other{{count} Buchungen warten}}",
+  "@syncQueued": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "syncFailed": "{count, plural, one{1 Buchung abgelehnt} other{{count} Buchungen abgelehnt}}",
+  "@syncFailed": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "syncUnauthorised": "Gerät nicht autorisiert"
 }
