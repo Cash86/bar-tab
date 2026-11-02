@@ -1,15 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:http/http.dart' as http;
 
 import '../data/api/api_client.dart';
+import '../data/api/mappers.dart';
 import '../data/db/database.dart';
 import '../data/repositories/booking_repository_impl.dart';
 import '../data/repositories/catalog_repository_impl.dart';
 import '../data/repositories/server_config_repository_impl.dart';
 import '../data/repositories/tabs_repository_impl.dart';
 import '../data/sync/sync_service.dart';
+import '../domain/booking.dart';
 import '../domain/catalog.dart';
 import '../domain/clock.dart';
 import '../domain/repositories.dart';
@@ -118,57 +121,75 @@ final catalogProvider = FutureProvider<Catalog?>((ref) {
   return ref.watch(catalogRepositoryProvider).cached();
 });
 
+final _tabProvider = StreamProvider.family<int, String>(
+  (ref, personId) => ref.watch(tabsRepositoryProvider).watchTab(personId),
+);
+
+final _localBookingsProvider = StreamProvider.family<List<Booking>, String>(
+  (ref, personId) =>
+      ref.watch(bookingRepositoryProvider).watchNotIncluded(personId),
+);
+
 /// Server tab plus not-yet-included local bookings of [personId], in cents.
-final runningTotalProvider = StreamProvider.family<int, String>((
+/// Loading until both sources have emitted.
+final runningTotalProvider = Provider.family<AsyncValue<int>, String>((
   ref,
   personId,
 ) {
-  final tabs = ref.watch(tabsRepositoryProvider).watchTab(personId);
-  final bookings = ref
-      .watch(bookingRepositoryProvider)
-      .watchNotIncluded(personId);
-  return _combineLatest(
-    tabs,
-    bookings,
-    (tab, local) =>
-        runningTotalCents(serverTabCents: tab, localBookings: local),
+  final tab = ref.watch(_tabProvider(personId));
+  final local = ref.watch(_localBookingsProvider(personId));
+  if (tab.hasError) return AsyncError(tab.error!, tab.stackTrace!);
+  if (local.hasError) return AsyncError(local.error!, local.stackTrace!);
+  final tabCents = tab.value;
+  final bookings = local.value;
+  if (tabCents == null || bookings == null) return const AsyncLoading();
+  return AsyncData(
+    runningTotalCents(serverTabCents: tabCents, localBookings: bookings),
   );
 });
 
-/// Emits [combine] of the latest values once both streams have produced one.
-Stream<R> _combineLatest<A, B, R>(
-  Stream<A> a,
-  Stream<B> b,
-  R Function(A, B) combine,
-) {
-  late StreamController<R> controller;
-  StreamSubscription<A>? subA;
-  StreamSubscription<B>? subB;
-  A? lastA;
-  B? lastB;
-  var hasA = false;
-  var hasB = false;
-  void emit() {
-    if (hasA && hasB) controller.add(combine(lastA as A, lastB as B));
-  }
+enum PairingResult { success, unauthorised, unreachable }
 
-  controller = StreamController<R>(
-    onListen: () {
-      subA = a.listen((v) {
-        lastA = v;
-        hasA = true;
-        emit();
-      }, onError: controller.addError);
-      subB = b.listen((v) {
-        lastB = v;
-        hasB = true;
-        emit();
-      }, onError: controller.addError);
-    },
-    onCancel: () async {
-      await subA?.cancel();
-      await subB?.cancel();
-    },
-  );
-  return controller.stream;
+final _pairingLog = Logger('pairing');
+
+class Pairing {
+  Pairing(this._ref);
+
+  final Ref _ref;
+
+  /// Checks [config] against the server, then stores catalog and config.
+  /// Never throws; on any failure neither is left changed.
+  Future<PairingResult> pair(ServerConfig config) async {
+    final catalogs = _ref.read(catalogRepositoryProvider);
+    final api = BarTabApi(
+      client: _ref.read(httpClientProvider),
+      config: config,
+    );
+    try {
+      final fetch = await api.getCatalog();
+      if (fetch is! CatalogUpdated) return PairingResult.unreachable;
+      final catalog = catalogFromDto(fetch.catalog);
+      final previous = await catalogs.cached();
+      await catalogs.save(catalog);
+      try {
+        await _ref.read(serverConfigProvider.notifier).save(config);
+      } on Object {
+        // Config is saved last, so only the catalog needs undoing.
+        if (previous == null) {
+          await catalogs.clear();
+        } else {
+          await catalogs.save(previous);
+        }
+        rethrow;
+      }
+      return PairingResult.success;
+    } on UnauthorisedException {
+      return PairingResult.unauthorised;
+    } on Object catch (e, st) {
+      _pairingLog.warning('Pairing failed', e, st);
+      return PairingResult.unreachable;
+    }
+  }
 }
+
+final pairingProvider = Provider<Pairing>(Pairing.new);

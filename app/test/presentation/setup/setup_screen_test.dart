@@ -129,6 +129,27 @@ void main() {
     expect(find.text('Tablet einrichten'), findsNothing);
   });
 
+  testWidgets('storage failure shows an error, re-enables, leaves no state', (
+    tester,
+  ) async {
+    store.writeError = StateError('keystore broken');
+    await pumpApp(tester);
+    await submit(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Server nicht erreichbar'), findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNotNull,
+    );
+    expect(store.values, isEmpty);
+    final cached = await tester.runAsync(
+      () => db.select(db.catalogCache).get(),
+    );
+    expect(cached, isEmpty);
+    expect(find.text('Tablet einrichten'), findsOneWidget);
+  });
+
   testWidgets('button is disabled while the request is pending', (
     tester,
   ) async {

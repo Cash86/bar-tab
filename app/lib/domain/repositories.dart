@@ -5,6 +5,7 @@ import 'sync_state.dart';
 abstract interface class CatalogRepository {
   Future<Catalog?> cached();
   Future<void> save(Catalog catalog);
+  Future<void> clear();
 }
 
 abstract interface class BookingRepository {

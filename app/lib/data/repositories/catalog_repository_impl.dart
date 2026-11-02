@@ -36,4 +36,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
           ),
         );
   }
+
+  @override
+  Future<void> clear() => _db.delete(_db.catalogCache).go();
 }

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/api/api_client.dart';
-import '../../data/api/mappers.dart';
 import '../../domain/sync_state.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers.dart';
@@ -50,31 +48,20 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
       _checking = true;
       _error = null;
     });
-    final error = await _verifyAndSave(config);
-    if (!mounted) return;
-    setState(() {
-      _checking = false;
-      _error = error;
-    });
-  }
-
-  /// Returns the failure, or null after config and catalog were saved.
-  Future<_SetupError?> _verifyAndSave(ServerConfig config) async {
-    final api = BarTabApi(client: ref.read(httpClientProvider), config: config);
+    _SetupError? error = _SetupError.unreachable;
     try {
-      final fetch = await api.getCatalog();
-      if (fetch is! CatalogUpdated) return _SetupError.unreachable;
-      await ref
-          .read(catalogRepositoryProvider)
-          .save(catalogFromDto(fetch.catalog));
-      await ref.read(serverConfigProvider.notifier).save(config);
-      return null;
-    } on UnauthorisedException {
-      return _SetupError.unauthorised;
-    } on ApiException {
-      return _SetupError.unreachable;
-    } on FormatException {
-      return _SetupError.unreachable;
+      error = switch (await ref.read(pairingProvider).pair(config)) {
+        PairingResult.success => null,
+        PairingResult.unauthorised => _SetupError.unauthorised,
+        PairingResult.unreachable => _SetupError.unreachable,
+      };
+    } finally {
+      if (mounted) {
+        setState(() {
+          _checking = false;
+          _error = error;
+        });
+      }
     }
   }
 

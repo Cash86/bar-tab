@@ -1,5 +1,11 @@
 import 'package:bar_tab/data/db/database.dart';
+import 'dart:async';
+
+import 'package:bar_tab/data/repositories/booking_repository_impl.dart';
+import 'package:bar_tab/data/repositories/tabs_repository_impl.dart';
+import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
+import 'package:bar_tab/domain/repositories.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:bar_tab/presentation/providers.dart';
 import 'package:drift/native.dart';
@@ -73,4 +79,116 @@ void main() {
     expect(server.requests.length, greaterThan(afterRepair));
     expect(server.authHeaders.last, 'Bearer B');
   });
+
+  group('runningTotalProvider', () {
+    Booking booking(String id, BookingStatus status, {String person = 'p1'}) =>
+        Booking(
+          id: id,
+          personId: person,
+          drinkId: 'd1',
+          quantity: 2,
+          unitPriceCents: 150,
+          bookedAt: DateTime.utc(2026, 11, 2, 18),
+          status: status,
+          includedInTabs: false,
+        );
+
+    Future<void> pump() =>
+        Future<void>.delayed(const Duration(milliseconds: 20));
+
+    test('loading until both sources emitted, then tab plus local', () async {
+      final tabs = StreamController<int>();
+      final bookings = StreamController<List<Booking>>();
+      final c = ProviderContainer(
+        overrides: [
+          tabsRepositoryProvider.overrideWithValue(_FakeTabs(tabs.stream)),
+          bookingRepositoryProvider.overrideWithValue(
+            _FakeBookings(bookings.stream),
+          ),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.listen(runningTotalProvider('p1'), (_, _) {});
+      expect(c.read(runningTotalProvider('p1')).isLoading, isTrue);
+
+      tabs.add(500);
+      await pump();
+      expect(c.read(runningTotalProvider('p1')).isLoading, isTrue);
+
+      bookings.add([booking('a', BookingStatus.queued)]);
+      await pump();
+      expect(c.read(runningTotalProvider('p1')).value, 800);
+      await tabs.close();
+      await bookings.close();
+    });
+
+    test(
+      'follows new bookings and tab changes; rejected is excluded',
+      () async {
+        final bookings = BookingRepositoryImpl(
+          db,
+          FixedClock(DateTime.utc(2026)),
+        );
+        final tabs = TabsRepositoryImpl(db, FixedClock(DateTime.utc(2026)));
+        container.listen(runningTotalProvider('p1'), (_, _) {});
+        await pump();
+        expect(container.read(runningTotalProvider('p1')).value, 0);
+
+        await bookings.addAll([booking('a', BookingStatus.queued)]);
+        await pump();
+        expect(container.read(runningTotalProvider('p1')).value, 300);
+
+        await bookings.addAll([booking('r', BookingStatus.rejected)]);
+        await pump();
+        expect(container.read(runningTotalProvider('p1')).value, 300);
+
+        await tabs.save({'p1': 1000});
+        await pump();
+        expect(container.read(runningTotalProvider('p1')).value, 1300);
+      },
+    );
+
+    test('dropping the last listener cancels both source streams', () async {
+      var tabsCancelled = false;
+      var bookingsCancelled = false;
+      final tabs = StreamController<int>(onCancel: () => tabsCancelled = true);
+      final bookings = StreamController<List<Booking>>(
+        onCancel: () => bookingsCancelled = true,
+      );
+      final c = ProviderContainer(
+        overrides: [
+          tabsRepositoryProvider.overrideWithValue(_FakeTabs(tabs.stream)),
+          bookingRepositoryProvider.overrideWithValue(
+            _FakeBookings(bookings.stream),
+          ),
+        ],
+      );
+      addTearDown(c.dispose);
+      final sub = c.listen(runningTotalProvider('p1'), (_, _) {});
+      await pump();
+      sub.close();
+      c.dispose();
+      await pump();
+      expect(tabsCancelled, isTrue);
+      expect(bookingsCancelled, isTrue);
+    });
+  });
+}
+
+class _FakeTabs implements TabsRepository {
+  _FakeTabs(this._stream);
+  final Stream<int> _stream;
+  @override
+  Stream<int> watchTab(String personId) => _stream;
+  @override
+  Future<void> save(Map<String, int> tabs) => throw UnimplementedError();
+}
+
+class _FakeBookings implements BookingRepository {
+  _FakeBookings(this._stream);
+  final Stream<List<Booking>> _stream;
+  @override
+  Stream<List<Booking>> watchNotIncluded(String personId) => _stream;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }

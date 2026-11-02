@@ -13,11 +13,18 @@ class FakeSecureStore implements SecureStore {
 
   final Map<String, String> values;
 
+  /// When set, every write throws it (simulates a keystore failure).
+  Object? writeError;
+
   @override
   Future<String?> read(String key) async => values[key];
 
   @override
-  Future<void> write(String key, String value) async => values[key] = value;
+  Future<void> write(String key, String value) async {
+    final error = writeError;
+    if (error != null) throw error;
+    values[key] = value;
+  }
 
   @override
   Future<void> delete(String key) async => values.remove(key);
