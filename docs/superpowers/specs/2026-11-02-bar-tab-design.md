@@ -113,7 +113,7 @@ rail and as an accent on its tiles, condensed type for names, prices only on dri
 - **8 seconds after the last tap** the pending order is booked automatically and the app returns
   to the name list. Every tap restarts the 8 seconds. While the quantity sheet is open, the timer
   is paused (*builder's call, see §12*).
-- "Andere Person" returns to the name list and discards the pending order.
+- "Andere Person" returns to the name list; a pending order is booked first (decided 2026-11-02, so tapped drinks are never lost).
 
 There is no undo after booking on the main screens; wrong bookings are corrected in admin (§4.3).
 
