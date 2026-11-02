@@ -48,3 +48,45 @@ def test_invalid_admin_pin_is_rejected(monkeypatch, tmp_path, pin):
     _base_env(monkeypatch, tmp_path, BARTAB_INITIAL_ADMIN_PIN=pin)
     with pytest.raises(ValidationError):
         Settings()
+
+
+def test_dotenv_file_comma_separated_device_keys(monkeypatch, tmp_path):
+    for key in list(__import__("os").environ):
+        if key.startswith("BARTAB_"):
+            monkeypatch.delenv(key)
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "BARTAB_PUBLIC_URL=http://localhost:8000\n"
+        f"BARTAB_DB_PATH={tmp_path}/db.sqlite\n"
+        f"BARTAB_DATA_DIR={tmp_path}\n"
+        f"BARTAB_SECRET_KEY={'s' * 32}\n"
+        f"BARTAB_DEVICE_KEYS={'a' * 32},{'b' * 32}\n"
+    )
+    assert Settings(_env_file=env_file).device_keys == ["a" * 32, "b" * 32]
+
+
+def test_env_example_placeholders_fail_validation(monkeypatch):
+    from pathlib import Path
+
+    for key in list(__import__("os").environ):
+        if key.startswith("BARTAB_"):
+            monkeypatch.delenv(key)
+    example = Path(__file__).resolve().parents[2] / ".env.example"
+    with pytest.raises(ValidationError) as exc:
+        Settings(_env_file=example)
+    failed = {err["loc"][0] for err in exc.value.errors()}
+    assert {"secret_key", "device_keys"} <= failed
+
+
+def test_env_example_with_valid_keys_loads(monkeypatch, tmp_path):
+    """Guards the previous test: only the placeholders make .env.example fail."""
+    from pathlib import Path
+
+    for key in list(__import__("os").environ):
+        if key.startswith("BARTAB_"):
+            monkeypatch.delenv(key)
+    example = Path(__file__).resolve().parents[2] / ".env.example"
+    text = example.read_text().replace("<generate>", "x" * 32)
+    env_file = tmp_path / ".env"
+    env_file.write_text(text)
+    assert Settings(_env_file=env_file).device_keys == ["x" * 32]

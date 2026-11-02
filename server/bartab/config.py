@@ -5,6 +5,7 @@ from pydantic import Field, field_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
+    DotEnvSettingsSource,
     EnvSettingsSource,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
@@ -13,15 +14,23 @@ from pydantic_settings import (
 MIN_KEY_LENGTH = 32
 
 
-class _CommaListEnvSource(EnvSettingsSource):
-    """Reads list[str] fields from comma-separated values instead of JSON."""
+class _CommaListMixin:
+    """Reads device_keys from comma-separated values instead of JSON."""
 
     def prepare_field_value(
         self, field_name: str, field: FieldInfo, value: Any, value_is_complex: bool
     ) -> Any:
         if field_name == "device_keys" and isinstance(value, str):
             return [part.strip() for part in value.split(",") if part.strip()]
-        return super().prepare_field_value(field_name, field, value, value_is_complex)
+        return super().prepare_field_value(field_name, field, value, value_is_complex)  # type: ignore[misc]
+
+
+class _CommaListEnvSource(_CommaListMixin, EnvSettingsSource):
+    pass
+
+
+class _CommaListDotEnvSource(_CommaListMixin, DotEnvSettingsSource):
+    pass
 
 
 class Settings(BaseSettings):
@@ -61,6 +70,10 @@ class Settings(BaseSettings):
         return (
             init_settings,
             _CommaListEnvSource(settings_cls),
-            dotenv_settings,
+            _CommaListDotEnvSource(
+                settings_cls,
+                env_file=dotenv_settings.env_file,  # type: ignore[attr-defined]
+                env_file_encoding=dotenv_settings.env_file_encoding,  # type: ignore[attr-defined]
+            ),
             file_secret_settings,
         )
