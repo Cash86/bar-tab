@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
@@ -66,14 +68,26 @@ class _FakeKiosk implements KioskPlatform {
   Future<void> undim() async {}
 }
 
+/// Follows the test's fake time, so holds expire while the test pumps;
+/// [advance] makes the clock jump on top of that.
+class _FakeTimeClock implements Clock {
+  Duration _offset = Duration.zero;
+
+  @override
+  DateTime now() =>
+      TestWidgetsFlutterBinding.instance.clock.now().toUtc().add(_offset);
+
+  void advance(Duration d) => _offset += d;
+}
+
 void main() {
-  late FixedClock clock;
+  late _FakeTimeClock clock;
   late FakeBookingRepository bookings;
   late FakeSyncService sync;
   final undo = find.text('Rückgängig');
 
   setUp(() {
-    clock = FixedClock(DateTime.utc(2026, 11, 2, 21));
+    clock = _FakeTimeClock();
     bookings = FakeBookingRepository(clock: clock);
     sync = FakeSyncService();
   });
@@ -152,17 +166,48 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  testWidgets('the banner ends exactly when the hold expires', (tester) async {
+    await pumpApp(tester);
+    // A slow write: the name list is back 2 s after the hold started.
+    final gate = Completer<void>();
+    bookings.addAllGate = gate;
+    await tester.tap(find.text('Kim Example'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('drink-d1')));
+    await tester.pump();
+    await tester.tap(find.text('Fertig'));
+    await tester.pump(const Duration(seconds: 2));
+    gate.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(undo, findsOneWidget);
+
+    final until = bookings.bookings.single.holdUntil!;
+    await tester.pump(
+      until.difference(clock.now()) - const Duration(milliseconds: 1),
+    );
+    expect(undo, findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(undo, findsNothing);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
   testWidgets('the held bookings are synced once the undo window is over', (
     tester,
   ) async {
     await pumpApp(tester);
     await book(tester, 'Kim Example');
-    expect(bookings.bookings.single.holdUntil, clock.now().add(kUndoWindow));
+    final booking = bookings.bookings.single;
+    expect(booking.holdUntil, booking.bookedAt.add(kUndoWindow));
     // The sync right after the commit (it pushes older bookings only).
     expect(sync.syncNowCalls, 1);
-    await tester.pump(kUndoWindow);
+    // One second after the hold expires.
+    final syncAt = booking.holdUntil!.add(const Duration(seconds: 1));
+    await tester.pump(
+      syncAt.difference(clock.now()) - const Duration(milliseconds: 1),
+    );
     expect(sync.syncNowCalls, 1);
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 1));
     expect(sync.syncNowCalls, 2);
   });
 
@@ -171,7 +216,6 @@ void main() {
     await book(tester, 'Kim Example', 2);
     final ids = {for (final b in bookings.bookings) b.id};
     await tester.pump(const Duration(seconds: 10));
-    clock.advance(const Duration(seconds: 10));
 
     await tester.tap(undo);
     await tester.pump();
@@ -195,7 +239,7 @@ void main() {
   ) async {
     await pumpApp(tester);
     await book(tester, 'Kim Example');
-    // The hold runs on the clock; the banner may still be up a moment.
+    // The clock jumps past the hold while the banner is still up.
     clock.advance(kUndoWindow);
 
     await tester.tap(undo);

@@ -31,14 +31,15 @@ final quantitySheetIdleTimeoutProvider = Provider<Duration>(
 final _log = Logger('order');
 const _uuid = Uuid();
 
-/// A committed order: what was booked and the ids of its bookings (held for
-/// [kUndoWindow], so it can be undone from the name list).
+/// A committed order: what was booked and the ids of its bookings, held
+/// until [holdUntil] so it can be undone from the name list.
 @immutable
 class BookedOrder {
-  const BookedOrder(this.draft, this.bookingIds);
+  const BookedOrder(this.draft, this.bookingIds, this.holdUntil);
 
   final OrderDraft draft;
   final Set<String> bookingIds;
+  final DateTime holdUntil;
 }
 
 /// The order being built on the drink selection screen.
@@ -207,6 +208,7 @@ class OrderController extends Notifier<OrderState> {
     }
 
     final now = ref.read(clockProvider).now();
+    final holdUntil = now.add(kUndoWindow);
     final bookings = [
       for (final line in draft.lines)
         Booking(
@@ -218,7 +220,7 @@ class OrderController extends Notifier<OrderState> {
           bookedAt: now,
           status: BookingStatus.queued,
           includedInTabs: false,
-          holdUntil: now.add(kUndoWindow),
+          holdUntil: holdUntil,
         ),
     ];
     final repository = ref.read(bookingRepositoryProvider);
@@ -242,7 +244,9 @@ class OrderController extends Notifier<OrderState> {
       );
     }
     if (ref.mounted) {
-      final booked = BookedOrder(draft, {for (final b in bookings) b.id});
+      final booked = BookedOrder(draft, {
+        for (final b in bookings) b.id,
+      }, holdUntil);
       state = state._copy(committing: false, booked: () => booked);
     }
   }

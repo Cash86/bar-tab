@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 
 import '../../domain/booking.dart';
@@ -11,6 +13,21 @@ class BookingRepositoryImpl implements BookingRepository {
 
   final AppDatabase _db;
   final Clock _clock;
+
+  /// Held: `holdUntil` lies in the future, but no further than one undo
+  /// window. A hold further out can only come from the clock stepping back
+  /// after the commit; it is ignored, so such bookings are not stuck for the
+  /// length of the jump. (A sub-second backward step while a push is in
+  /// flight could still let an undo delete a booking being sent; excluding
+  /// that would need a "sending" mark. Accepted.)
+  static bool _isHeld(DateTime? holdUntil, DateTime now) =>
+      holdUntil != null &&
+      holdUntil.isAfter(now) &&
+      !holdUntil.isAfter(now.add(kUndoWindow));
+
+  static Expression<bool> _heldExpr($BookingsTable t, DateTime now) =>
+      t.holdUntil.isBiggerThanValue(now) &
+      t.holdUntil.isSmallerOrEqualValue(now.add(kUndoWindow));
 
   static Booking _toDomain(BookingRow r) => Booking(
     id: r.id,
@@ -56,7 +73,7 @@ class BookingRepositoryImpl implements BookingRepository {
       ..where(
         (t) =>
             t.status.equals(BookingStatus.queued.name) &
-            (t.holdUntil.isNull() | t.holdUntil.isSmallerOrEqualValue(now)),
+            (t.holdUntil.isNull() | _heldExpr(t, now).not()),
       )
       ..orderBy([(t) => OrderingTerm.asc(t.bookedAt)])
       ..limit(limit);
@@ -73,7 +90,7 @@ class BookingRepositoryImpl implements BookingRepository {
       Expression<bool> undoable($BookingsTable t) =>
           t.id.isIn(ids) &
           t.status.equals(BookingStatus.queued.name) &
-          t.holdUntil.isBiggerThanValue(now);
+          _heldExpr(t, now);
       final count = _db.bookings.id.count(filter: undoable(_db.bookings));
       final q = _db.selectOnly(_db.bookings)..addColumns([count]);
       if ((await q.getSingle()).read(count) != ids.length) return false;
@@ -128,20 +145,55 @@ class BookingRepositoryImpl implements BookingRepository {
     return q.watch().map((rows) => rows.map(_toDomain).toList());
   }
 
+  /// Held bookings are not counted as queued (they are not waiting for the
+  /// server yet); the counts are re-emitted when the next hold expires.
   @override
   Stream<SyncCounts> watchCounts() {
-    final queued = _db.bookings.id.count(
-      filter: _db.bookings.status.equals(BookingStatus.queued.name),
-    );
-    final failed = _db.bookings.id.count(
-      filter: _db.bookings.status.isIn([
-        BookingStatus.rejected.name,
-        BookingStatus.conflict.name,
-      ]),
-    );
-    final q = _db.selectOnly(_db.bookings)..addColumns([queued, failed]);
-    return q.watchSingle().map(
-      (row) => SyncCounts(queued: row.read(queued)!, failed: row.read(failed)!),
-    );
+    final status = _db.bookings.status;
+    final holdUntil = _db.bookings.holdUntil;
+    final rows =
+        (_db.selectOnly(_db.bookings)
+              ..addColumns([status, holdUntil])
+              ..where(status.equals(BookingStatus.accepted.name).not()))
+            .watch()
+            .map(
+              (rs) => [
+                for (final r in rs) (r.read(status)!, r.read(holdUntil)),
+              ],
+            );
+    return Stream.multi((listener) {
+      List<(String, DateTime?)>? latest;
+      Timer? nextExpiry;
+      void emit() {
+        nextExpiry?.cancel();
+        nextExpiry = null;
+        final current = latest;
+        if (current == null) return;
+        final now = _clock.now();
+        var queued = 0;
+        var failed = 0;
+        DateTime? soonest;
+        for (final (s, hold) in current) {
+          if (s != BookingStatus.queued.name) {
+            failed++;
+          } else if (_isHeld(hold, now)) {
+            if (soonest == null || hold!.isBefore(soonest)) soonest = hold;
+          } else {
+            queued++;
+          }
+        }
+        if (soonest != null) nextExpiry = Timer(soonest.difference(now), emit);
+        listener.add(SyncCounts(queued: queued, failed: failed));
+      }
+
+      final sub = rows.listen((rs) {
+        latest = rs;
+        emit();
+      }, onError: listener.addError);
+      listener.onCancel = () {
+        nextExpiry?.cancel();
+        return sub.cancel();
+      };
+    });
   }
 }

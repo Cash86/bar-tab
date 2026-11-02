@@ -81,10 +81,13 @@ final _log = Logger('names');
 
 /// The latest order, undoable while its bookings are held.
 class _UndoOffer {
-  const _UndoOffer(this.text, this.bookingIds);
+  const _UndoOffer(this.text, this.bookingIds, this.holdUntil);
 
   final String text;
   final Set<String> bookingIds;
+
+  /// The offer ends with the hold: "Rückgängig" is never shown after it.
+  final DateTime holdUntil;
 }
 
 class NameListScreen extends ConsumerStatefulWidget {
@@ -100,8 +103,11 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
   bool _undoing = false;
   String? _info;
 
-  /// Counts the offer down, or ends the info note.
+  /// Ends the offer at its hold's expiry, or ends the info note.
   Timer? _bannerTimer;
+
+  /// Updates the offer's draining bar once per second.
+  Timer? _tickTimer;
 
   /// Uploads the held bookings once the undo window is over.
   Timer? _syncTimer;
@@ -109,6 +115,7 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _tickTimer?.cancel();
     _syncTimer?.cancel();
     super.dispose();
   }
@@ -122,7 +129,7 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
     if (booked == null || !mounted) return;
     final l10n = AppLocalizations.of(context);
     final catalog = ref.read(catalogProvider).value;
-    _scheduleSync();
+    _scheduleSync(_holdLeft(booked.holdUntil));
     _showOffer(
       _UndoOffer(
         l10n.nameListUndoBanner(
@@ -130,15 +137,25 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
           orderSummary(l10n, booked.draft, catalog),
         ),
         booked.bookingIds,
+        booked.holdUntil,
       ),
     );
   }
 
+  /// Time until [holdUntil], within 0..[kUndoWindow] (the clock may step).
+  Duration _holdLeft(DateTime holdUntil) {
+    final left = holdUntil.difference(ref.read(clockProvider).now());
+    if (left.isNegative) return Duration.zero;
+    return left > kUndoWindow ? kUndoWindow : left;
+  }
+
   /// One second after the hold expires; a newer order's timer also covers
-  /// the older one's bookings. The regular sync loop picks them up anyway.
-  void _scheduleSync() {
+  /// the older one's bookings. This sync may join a run already in flight
+  /// (which may have read the queue before the hold ended); the regular
+  /// 30 s sync loop is the backstop.
+  void _scheduleSync(Duration holdLeft) {
     _syncTimer?.cancel();
-    _syncTimer = Timer(kUndoWindow + const Duration(seconds: 1), () {
+    _syncTimer = Timer(holdLeft + const Duration(seconds: 1), () {
       ref.read(syncServiceProvider)?.syncNow().catchError((
         Object e,
         StackTrace st,
@@ -151,25 +168,36 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
   /// Replaces whatever the banner shows: only the latest order is undoable.
   void _showOffer(_UndoOffer offer) {
     _bannerTimer?.cancel();
+    _tickTimer?.cancel();
+    final left = _holdLeft(offer.holdUntil);
+    if (left == Duration.zero) {
+      // Already expired (very slow write): nothing to offer.
+      setState(() {
+        _offer = null;
+        _info = null;
+      });
+      return;
+    }
+    int secondsLeft() =>
+        (_holdLeft(offer.holdUntil).inMilliseconds / 1000).ceil();
     setState(() {
       _offer = offer;
-      _offerSecondsLeft = kUndoWindow.inSeconds;
+      _offerSecondsLeft = secondsLeft();
       _undoing = false;
       _info = null;
     });
-    _bannerTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _offerSecondsLeft--;
-        if (_offerSecondsLeft <= 0) {
-          timer.cancel();
-          _offer = null;
-        }
-      });
+    _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() => _offerSecondsLeft = secondsLeft());
+    });
+    _bannerTimer = Timer(left, () {
+      _tickTimer?.cancel();
+      setState(() => _offer = null);
     });
   }
 
   void _showInfo(String text, Duration duration) {
     _bannerTimer?.cancel();
+    _tickTimer?.cancel();
     setState(() {
       _offer = null;
       _info = text;
@@ -182,6 +210,7 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
     if (offer == null || _undoing) return;
     // Stop the countdown: the answer must not be lost to the banner ending.
     _bannerTimer?.cancel();
+    _tickTimer?.cancel();
     setState(() => _undoing = true);
     bool undone;
     try {

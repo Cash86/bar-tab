@@ -650,4 +650,25 @@ void main() {
     ]);
     expect(await statuses(), {'free': 'accepted', 'held': 'accepted'});
   });
+
+  test(
+    'held bookings are not reported as waiting until the hold ends',
+    () async {
+      server.offline = true;
+      final soon = clock.now().add(const Duration(milliseconds: 200));
+      await bookings.addAll([booking('held').copyWith(holdUntil: soon)]);
+      final seen = <SyncState>[];
+      final sub = service.state.listen(seen.add);
+      addTearDown(sub.cancel);
+      await pumpEventQueue();
+      expect(seen.last.queued, 0);
+
+      clock.advance(const Duration(milliseconds: 200));
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await service.syncNow();
+      await pumpEventQueue();
+      expect(seen.last.queued, 1);
+      expect(seen.last.isOffline, isTrue);
+    },
+  );
 }

@@ -170,6 +170,10 @@ void main() {
       }
       expect(kUndoWindow, const Duration(seconds: 15));
       expect(stateOf(c).booked!.bookingIds, {for (final b in written) b.id});
+      expect(
+        stateOf(c).booked!.holdUntil,
+        DateTime.utc(2026, 11, 2, 20, 1, 15),
+      );
       expect(written[0].id, isNot(written[1].id));
       expect(sync.syncNowCalls, 1);
       // No second commit from the cancelled timer.

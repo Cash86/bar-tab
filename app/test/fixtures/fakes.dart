@@ -124,9 +124,14 @@ class FakeBookingRepository implements BookingRepository {
     });
   }
 
+  /// Same rule as the real repository: a hold further out than one undo
+  /// window (clock stepped back) does not count.
   bool _held(Booking b) {
     final until = b.holdUntil;
-    return until != null && until.isAfter(clock.now());
+    final now = clock.now();
+    return until != null &&
+        until.isAfter(now) &&
+        !until.isAfter(now.add(kUndoWindow));
   }
 
   @override

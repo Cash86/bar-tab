@@ -260,6 +260,38 @@ void main() {
       );
     });
 
+    test(
+      'a clock moved back after the commit does not hold the booking',
+      () async {
+        await repo.addAll([booking('a', holdUntil: until)]);
+        clock.advance(const Duration(hours: -1));
+        // holdUntil is now 1 h away: more than the undo window, so not a hold.
+        expect((await repo.queued()).map((b) => b.id), ['a']);
+        expect(await repo.undoHeld({'a'}), isFalse);
+        expect(await db.select(db.bookings).get(), hasLength(1));
+        final counts = await repo.watchCounts().first;
+        expect(counts, const SyncCounts(queued: 1, failed: 0));
+      },
+    );
+
+    test(
+      'watchCounts leaves out held bookings until the hold expires',
+      () async {
+        // Short hold so the re-count at expiry happens in real time.
+        final soon = clock.now().add(const Duration(milliseconds: 200));
+        final emissions = <SyncCounts>[];
+        final sub = repo.watchCounts().listen(emissions.add);
+        addTearDown(sub.cancel);
+        await repo.addAll([booking('free'), booking('held', holdUntil: soon)]);
+        await pumpEventQueue();
+        expect(emissions.last, const SyncCounts(queued: 1, failed: 0));
+
+        clock.advance(const Duration(milliseconds: 200));
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        expect(emissions.last, const SyncCounts(queued: 2, failed: 0));
+      },
+    );
+
     test('undo of an empty set does nothing', () async {
       await repo.addAll([booking('a', holdUntil: until)]);
       expect(await repo.undoHeld({}), isFalse);
