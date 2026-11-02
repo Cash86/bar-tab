@@ -52,3 +52,30 @@ Generated files (`*.g.dart`, `*.freezed.dart`, `lib/l10n/app_localizations*.dart
 ## Licence
 
 MIT, see [LICENSE](LICENSE).
+
+## Tablet
+
+The tablet app is sideloaded; it is not distributed through an app store.
+
+**Build.** The release APK is built by the maintainer, from `app/`:
+
+```sh
+flutter build apk --release
+```
+
+The result is `app/build/app/outputs/flutter-apk/app-release.apk`. Release builds only talk
+to the server over HTTPS, so `BARTAB_PUBLIC_URL` must be an `https://` URL. Debug builds
+additionally allow plain HTTP to `10.0.2.2`, `localhost` and `127.0.0.1` for local development.
+
+**Install.** Enable USB debugging on the tablet and run:
+
+```sh
+adb install -r app/build/app/outputs/flutter-apk/app-release.apk
+```
+
+**First start.** The app asks for the server URL (for example `https://bar.example.org`) and a
+device key. Use one of the keys listed in `BARTAB_DEVICE_KEYS` in the server's `.env`.
+
+**Kiosk mode.** The app locks to landscape, hides the system bars and keeps the screen on. To
+stop members from leaving it, enable Android screen pinning (Settings → Security → App
+pinning), then open the app and pin it from the recent-apps view.

@@ -1,4 +1,4 @@
-package dev.bartab.bar_tab
+package dev.bartab.app
 
 import io.flutter.embedding.android.FlutterActivity
 
