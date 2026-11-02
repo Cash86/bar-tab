@@ -3,7 +3,6 @@ import 'package:bar_tab/data/repositories/booking_repository_impl.dart';
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/domain/sync_state.dart';
-import 'package:drift/drift.dart' show SqliteException;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
