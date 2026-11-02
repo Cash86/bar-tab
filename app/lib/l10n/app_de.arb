@@ -11,6 +11,7 @@
   "setupErrorInvalidUrl": "Adresse ungültig",
   "setupErrorUnauthorised": "Geräteschlüssel ungültig",
   "setupErrorUnreachable": "Server nicht erreichbar",
+  "screensaverHint": "Zum Buchen antippen",
   "nameListTitle": "Wer trinkt?",
   "nameListCollective": "Sammelkonten",
   "nameListEmpty": "Noch keine Personen angelegt – bitte im Admin-Bereich anlegen.",

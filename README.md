@@ -79,3 +79,7 @@ device key. Use one of the keys listed in `BARTAB_DEVICE_KEYS` in the server's `
 **Kiosk mode.** The app locks to landscape, hides the system bars and keeps the screen on. To
 stop members from leaving it, enable Android screen pinning (Settings → Security → App
 pinning), then open the app and pin it from the recent-apps view.
+
+**Screensaver.** After 2 minutes without a touch on the name list, the app dims to a black
+screen with a small, slowly moving hint and lowers the brightness (the screen stays on, so
+there is no Android lock screen). The first touch only wakes it and is not passed on.

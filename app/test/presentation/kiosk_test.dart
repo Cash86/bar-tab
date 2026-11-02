@@ -12,6 +12,12 @@ class _FakeKioskPlatform implements KioskPlatform {
 
   @override
   Future<void> keepScreenOn() async => calls.add('screenOn');
+
+  @override
+  Future<void> dim() async => calls.add('dim');
+
+  @override
+  Future<void> undim() async => calls.add('undim');
 }
 
 void main() {
