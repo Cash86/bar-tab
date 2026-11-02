@@ -97,6 +97,15 @@ rail and as an accent on its tiles, condensed type for names, prices only on dri
 - **Screensaver:** after 2 minutes without a touch the screen goes dark with a small, slowly
   moving hint and the brightness is dimmed. The wakelock stays on, so there is no Android lock
   screen. The first touch only wakes the app and is not passed on to the tiles.
+- **Undo of the latest order** (decided 2026-11-02): after an order is booked, the name list shows
+  "{name}: 2× Apfelschorle gebucht" with a **"Rückgängig"** button and a draining bar for
+  15 seconds. During these 15 seconds the order's bookings are held back from upload (they already
+  count in the running total). "Rückgängig" deletes them locally — only if all of them are still
+  held and not yet sent — and shows "Buchung zurückgenommen"; if it is too late it shows "Zu spät –
+  bitte beim Admin stornieren". Only the latest order can be undone; a newer booking replaces the
+  banner. One second after the window the app syncs; the regular sync loop also picks the bookings
+  up. The screensaver does not start while the banner is shown. Later corrections are an admin
+  storno (§4.3, milestone 3).
 
 ### 4.2 Drink selection — approved
 - Header: person's name (large), their price tier, and their running total since the last
@@ -116,16 +125,19 @@ rail and as an accent on its tiles, condensed type for names, prices only on dri
   "Fertig"); **"Weitere Getränke"** closes the sheet, keeps the entered quantity and returns to the
   drink grid. The sheet has no discard button — discarding stays on the bottom bar only, so a
   whole order cannot be thrown away by accident. Quantity 0 removes that drink from the order.
-- **8 seconds after the last tap** the pending order is booked automatically and the app returns
-  to the name list. Every tap restarts the 8 seconds. While the quantity sheet is open, the timer
-  is paused (decided, see §12), with a 30-second idle close: an open sheet left untouched for
-  30 seconds closes and keeps its quantity, and the 8-second auto-booking then runs.
+- **5 seconds after the last tap** the pending order is booked automatically and the app returns
+  to the name list (decided 2026-11-02, was 8 seconds); "Fertig" books immediately. A thick bar
+  across the order bar drains towards the booking. Every tap restarts the 5 seconds. While the
+  quantity sheet is open, the timer is paused (decided, see §12), with a 30-second idle close: an
+  open sheet left untouched for 30 seconds closes and keeps its quantity, and the 5-second
+  auto-booking then runs.
 - **Idle:** an empty drink screen (nothing pending) returns to the name list after 30 seconds
   without touch; nothing is booked.
 - "Andere Person" returns to the name list; a pending order is booked first (decided 2026-11-02, so tapped drinks are never lost). System back and the app being paused
   (screen off, app switched) behave the same way: a pending order is booked, never dropped.
 
-There is no undo after booking on the main screens; wrong bookings are corrected in admin (§4.3).
+After booking, the latest order can be undone on the name list for 15 seconds (§4.1); later,
+wrong bookings are corrected by an admin storno (§4.3).
 
 ### 4.3 Admin area
 Entered with the shared admin PIN. Auto-logout after 2 minutes without interaction. Admin
@@ -287,8 +299,9 @@ editable in admin; price tiers (Aktive/AH) with different prices; settlement as 
 server; one monorepo; public repo `bar-tab` under `Cash86`; all configuration in DB or `.env`.
 
 ## 12. Calls made by Claude (please check)
-- Auto-book 8 s after the last tap; "Fertig" books immediately; several drinks per order.
-- The 8 s timer is paused while the quantity sheet is open (decided), with a 30 s idle close of
+- Auto-book 5 s after the last tap (maintainer, 2026-11-02; was 8 s); "Fertig" books
+  immediately; several drinks per order.
+- The auto-book timer is paused while the quantity sheet is open (decided), with a 30 s idle close of
   the sheet.
 - Quantity sheet: "Buchen" books the whole order, "Weitere Getränke" returns to the grid; no
   discard inside the sheet.
@@ -297,7 +310,8 @@ server; one monorepo; public repo `bar-tab` under `Cash86`; all configuration in
 - Legacy hidden persons default to the "Alte Herren" tier.
 - In-app keypad and "Kasten (n)" key in the quantity sheet.
 - Admin auto-logout after 2 minutes; admin functions online-only.
-- Corrections via storno in admin instead of undo after booking.
+- Corrections via storno in admin; in addition the latest order can be undone on the name list
+  for 15 s, with its upload held back for that window (maintainer, 2026-11-02).
 - Server owns all calculations; app only sums stored prices for the header.
 - Late bookings from an offline second device go into the next period, marked as late.
 - Legacy transactions not imported; cut-over via final old settlement + initial inventory.
