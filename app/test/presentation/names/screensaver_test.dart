@@ -27,8 +27,8 @@ class _FakeKiosk implements KioskPlatform {
 }
 
 const _catalog = Catalog(
-  tiers: const [PriceTier(id: 't1', name: 'Members', sortOrder: 1)],
-  persons: const [
+  tiers: [PriceTier(id: 't1', name: 'Members', sortOrder: 1)],
+  persons: [
     Person(
       id: 'a',
       name: 'Anton',
@@ -38,8 +38,8 @@ const _catalog = Catalog(
       isActive: true,
     ),
   ],
-  groups: const [],
-  drinks: const [],
+  groups: [],
+  drinks: [],
   etag: 'e',
 );
 
