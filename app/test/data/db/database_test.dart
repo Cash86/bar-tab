@@ -31,12 +31,25 @@ void main() {
     await old.customStatement(
       "INSERT INTO tabs (person_id, cents, fetched_at) VALUES ('p1', 5, '2026-11-02T18:30:15.000Z')",
     );
+    await old.customStatement(
+      "INSERT INTO bookings (id, person_id, drink_id, quantity, "
+      "unit_price_cents, booked_at, status, included_in_tabs, created_at, "
+      "updated_at) VALUES ('b1', 'p1', 'd1', 2, 250, "
+      "'2026-11-02T18:30:15.000Z', 'queued', 0, '2026-11-02T18:30:15.000Z', "
+      "'2026-11-02T18:30:15.000Z')",
+    );
+    await old.customStatement(
+      "INSERT INTO catalog_cache (id, json, etag, saved_at) "
+      "VALUES (1, '{}', 'e1', '2026-11-02T18:30:15.000Z')",
+    );
     await old.close();
 
     final db = AppDatabase(schema.newConnection());
     addTearDown(db.close);
     await verifier.migrateAndValidate(db, 2);
     expect((await db.select(db.tabs).getSingle()).personId, 'p1');
+    expect((await db.select(db.bookings).getSingle()).id, 'b1');
+    expect((await db.select(db.catalogCache).getSingle()).etag, 'e1');
     expect(await db.select(db.appConfig).get(), isEmpty);
   });
 

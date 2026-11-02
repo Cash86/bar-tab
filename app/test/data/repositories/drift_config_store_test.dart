@@ -26,6 +26,13 @@ void main() {
     expect(await store.read('b'), isNull);
   });
 
+  test('writeAll stores every entry and overwrites', () async {
+    await store.write('a', 'old');
+    await store.writeAll({'a': '1', 'b': '2'});
+    expect(await store.read('a'), '1');
+    expect(await store.read('b'), '2');
+  });
+
   test('delete removes the key', () async {
     await store.write('a', '1');
     await store.delete('a');

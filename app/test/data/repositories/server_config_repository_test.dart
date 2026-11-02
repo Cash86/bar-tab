@@ -7,11 +7,25 @@ import 'package:flutter_test/flutter_test.dart';
 class FakeConfigStore implements ConfigStore {
   final values = <String, String>{};
 
+  /// Writing this key throws.
+  String? failingKey;
+
+  @override
+  Future<void> writeAll(Map<String, String> entries) async {
+    if (failingKey != null && entries.containsKey(failingKey)) {
+      throw StateError('write failed');
+    }
+    values.addAll(entries);
+  }
+
   @override
   Future<String?> read(String key) async => values[key];
 
   @override
-  Future<void> write(String key, String value) async => values[key] = value;
+  Future<void> write(String key, String value) async {
+    if (key == failingKey) throw StateError('write failed');
+    values[key] = value;
+  }
 
   @override
   Future<void> delete(String key) async => values.remove(key);
@@ -54,6 +68,20 @@ void main() {
     expect(store.values['server_base_url'], 'http://192.0.2.10:8000');
   });
 
+  group('a failing save', () {
+    const previous = ServerConfig(baseUrl: 'http://old', deviceKey: 'old-key');
+    const next = ServerConfig(baseUrl: 'http://new', deviceKey: 'new-key');
+
+    for (final key in ['server_base_url', 'device_key']) {
+      test('failing on $key leaves the previous config intact', () async {
+        await repo.save(previous);
+        store.failingKey = key;
+        await expectLater(repo.save(next), throwsStateError);
+        expect(await repo.load(), previous);
+      });
+    }
+  });
+
   group('a store that never answers', () {
     late ServerConfigRepositoryImpl stuck;
 
@@ -78,6 +106,10 @@ void main() {
 }
 
 class _HangingStore implements ConfigStore {
+  @override
+  Future<void> writeAll(Map<String, String> entries) =>
+      Completer<void>().future;
+
   @override
   Future<String?> read(String key) => Completer<String?>().future;
 

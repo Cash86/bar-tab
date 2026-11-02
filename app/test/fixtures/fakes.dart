@@ -31,6 +31,13 @@ class FakeConfigStore implements ConfigStore {
   }
 
   @override
+  Future<void> writeAll(Map<String, String> entries) async {
+    final error = writeError;
+    if (error != null) throw error;
+    values.addAll(entries);
+  }
+
+  @override
   Future<void> delete(String key) async => values.remove(key);
 }
 

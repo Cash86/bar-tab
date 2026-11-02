@@ -23,6 +23,14 @@ class DriftConfigStore implements ConfigStore {
       );
 
   @override
+  Future<void> writeAll(Map<String, String> entries) =>
+      _db.transaction(() async {
+        for (final e in entries.entries) {
+          await write(e.key, e.value);
+        }
+      });
+
+  @override
   Future<void> delete(String key) =>
       (_db.delete(_db.appConfig)..where((t) => t.key.equals(key))).go();
 }

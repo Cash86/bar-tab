@@ -10,6 +10,9 @@ import '../../domain/sync_state.dart';
 abstract interface class ConfigStore {
   Future<String?> read(String key);
   Future<void> write(String key, String value);
+
+  /// Writes all [entries] or none of them.
+  Future<void> writeAll(Map<String, String> entries);
   Future<void> delete(String key);
 }
 
@@ -45,11 +48,10 @@ class ServerConfigRepositoryImpl implements ServerConfigRepository {
   @override
   Future<void> save(ServerConfig config) async {
     await _store
-        .write(
-          baseUrlKey,
-          config.baseUrl.trim().replaceFirst(RegExp(r'/+$'), ''),
-        )
+        .writeAll({
+          baseUrlKey: config.baseUrl.trim().replaceFirst(RegExp(r'/+$'), ''),
+          deviceKeyKey: config.deviceKey,
+        })
         .timeout(timeout);
-    await _store.write(deviceKeyKey, config.deviceKey).timeout(timeout);
   }
 }
