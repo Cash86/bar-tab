@@ -14,12 +14,12 @@ import 'package:http/http.dart' as http;
 import '../../fixtures/fakes.dart';
 
 void main() {
-  late FakeSecureStore store;
+  late FakeConfigStore store;
   late FakeApiServer server;
   late AppDatabase db;
 
   setUp(() {
-    store = FakeSecureStore();
+    store = FakeConfigStore();
     server = FakeApiServer();
     db = AppDatabase(NativeDatabase.memory());
   });
@@ -34,7 +34,7 @@ void main() {
       ProviderScope(
         overrides: [
           databaseProvider.overrideWithValue(db),
-          secureStoreProvider.overrideWithValue(store),
+          configStoreProvider.overrideWithValue(store),
           httpClientProvider.overrideWithValue(server.client),
           syncIntervalProvider.overrideWithValue(null),
           // The name list watches this; drift streams leave timers behind
@@ -135,7 +135,7 @@ void main() {
   testWidgets('storage failure shows an error, re-enables, leaves no state', (
     tester,
   ) async {
-    store.writeError = StateError('keystore broken');
+    store.writeError = StateError('storage broken');
     await pumpApp(tester);
     await submit(tester);
     await tester.pumpAndSettle();
@@ -170,5 +170,16 @@ void main() {
     gate.complete(catalogResponse());
     await tester.pumpAndSettle();
     expect(find.text('Wer trinkt?'), findsOneWidget);
+  });
+
+  testWidgets('system back does not leave the setup screen', (tester) async {
+    await pumpApp(tester);
+    expect(find.text('Tablet einrichten'), findsOneWidget);
+
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(handled, isTrue);
+    expect(find.text('Tablet einrichten'), findsOneWidget);
   });
 }

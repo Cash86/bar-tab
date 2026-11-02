@@ -74,64 +74,68 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
       _SetupError.unreachable => l10n.setupErrorUnreachable,
       null => null,
     };
-    return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l10n.setupTitle,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  key: const Key('setup-url'),
-                  controller: _url,
-                  enabled: !_checking,
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
-                  decoration: InputDecoration(
-                    labelText: l10n.setupServerUrlLabel,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  key: const Key('setup-key'),
-                  controller: _key,
-                  enabled: !_checking,
-                  obscureText: true,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  decoration: InputDecoration(
-                    labelText: l10n.setupDeviceKeyLabel,
-                  ),
-                ),
-                if (errorText != null) ...[
-                  const SizedBox(height: 16),
+    // Setup is the only way forward; back must never exit the kiosk app.
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   Text(
-                    errorText,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                    l10n.setupTitle,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    key: const Key('setup-url'),
+                    controller: _url,
+                    enabled: !_checking,
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                    decoration: InputDecoration(
+                      labelText: l10n.setupServerUrlLabel,
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const Key('setup-key'),
+                    controller: _key,
+                    enabled: !_checking,
+                    obscureText: true,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    decoration: InputDecoration(
+                      labelText: l10n.setupDeviceKeyLabel,
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      errorText,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _checking ? null : _connect,
+                    child: _checking
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(l10n.setupConnectButton),
+                  ),
                 ],
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _checking ? null : _connect,
-                  child: _checking
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(l10n.setupConnectButton),
-                ),
-              ],
+              ),
             ),
           ),
         ),
