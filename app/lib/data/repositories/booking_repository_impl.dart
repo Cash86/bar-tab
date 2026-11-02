@@ -26,22 +26,24 @@ class BookingRepositoryImpl implements BookingRepository {
   @override
   Future<void> addAll(List<Booking> bookings) async {
     final now = _clock.now();
-    await _db.batch((b) {
-      b.insertAll(_db.bookings, [
-        for (final x in bookings)
-          BookingsCompanion.insert(
-            id: x.id,
-            personId: x.personId,
-            drinkId: x.drinkId,
-            quantity: x.quantity,
-            unitPriceCents: x.unitPriceCents,
-            bookedAt: x.bookedAt.toUtc(),
-            status: x.status.name,
-            includedInTabs: Value(x.includedInTabs),
-            createdAt: now,
-            updatedAt: now,
-          ),
-      ]);
+    await _db.transaction(() async {
+      await _db.batch((b) {
+        b.insertAll(_db.bookings, [
+          for (final x in bookings)
+            BookingsCompanion.insert(
+              id: x.id,
+              personId: x.personId,
+              drinkId: x.drinkId,
+              quantity: x.quantity,
+              unitPriceCents: x.unitPriceCents,
+              bookedAt: x.bookedAt.toUtc(),
+              status: x.status.name,
+              includedInTabs: Value(x.includedInTabs),
+              createdAt: now,
+              updatedAt: now,
+            ),
+        ]);
+      });
     });
   }
 

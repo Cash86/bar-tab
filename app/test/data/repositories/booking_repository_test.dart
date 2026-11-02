@@ -3,6 +3,7 @@ import 'package:bar_tab/data/repositories/booking_repository_impl.dart';
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/domain/sync_state.dart';
+import 'package:drift/drift.dart' show SqliteException;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -125,5 +126,43 @@ void main() {
     });
     await pumpEventQueue();
     expect(emissions.last, const SyncCounts(queued: 1, failed: 2));
+  });
+
+  test(
+    'addAll with an existing id throws and rolls back the whole batch',
+    () async {
+      await repo.addAll([booking('a', minute: 1)]);
+      await expectLater(
+        repo.addAll([booking('b', minute: 2), booking('a', minute: 55)]),
+        throwsA(isA<SqliteException>()),
+      );
+      final rows = await db.select(db.bookings).get();
+      expect(rows.map((r) => r.id), ['a']);
+      expect(rows.single.bookedAt, DateTime.utc(2026, 11, 2, 18, 1));
+    },
+  );
+
+  test('applyResults ignores unknown ids and an empty map', () async {
+    await repo.addAll([booking('a')]);
+    await repo.applyResults({'ghost': BookingStatus.accepted});
+    await repo.applyResults({});
+    final rows = await db.select(db.bookings).get();
+    expect(rows.map((r) => r.id), ['a']);
+    expect(rows.single.status, 'queued');
+  });
+
+  test('markIncludedInTabs touches only the given ids', () async {
+    await repo.addAll([
+      booking('a'),
+      booking('b'),
+      booking('c', personId: 'p2'),
+    ]);
+    await repo.markIncludedInTabs({'a', 'ghost'});
+    await repo.markIncludedInTabs({});
+    final rows = await db.select(db.bookings).get();
+    expect(
+      {for (final r in rows) r.id: r.includedInTabs},
+      {'a': true, 'b': false, 'c': false},
+    );
   });
 }

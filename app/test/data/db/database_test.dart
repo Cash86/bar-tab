@@ -43,7 +43,7 @@ void main() {
               savedAt: DateTime.utc(2026),
             ),
           ),
-      throwsA(isA<Exception>()),
+      throwsA(isA<SqliteException>()),
     );
   });
 }
