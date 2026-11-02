@@ -38,6 +38,9 @@ class FakeServer {
   /// instead of the posted ones.
   List<String>? resultIdsOverride;
 
+  /// When set, POST /bookings only answers the posted ids contained here.
+  Set<String>? answerOnly;
+
   /// Throw a SocketException for every request.
   bool offline = false;
 
@@ -73,7 +76,12 @@ class FakeServer {
             (b as Map<String, dynamic>)['id'] as String,
         ];
         postBatches.add(ids);
-        final resultIds = resultIdsOverride ?? ids;
+        final resultIds =
+            resultIdsOverride ??
+            [
+              for (final id in ids)
+                if (answerOnly?.contains(id) ?? true) id,
+            ];
         return _json({
           'results': [
             for (final id in resultIds)
@@ -405,6 +413,37 @@ void main() {
     expect((await service.state.first).lastSuccessAt, isNull);
     expect(records.single.loggerName, 'sync');
   });
+
+  test(
+    'a partial result terminates; unanswered ids go out next pass',
+    () async {
+      await bookings.addAll([booking('a'), booking('b'), booking('c')]);
+      server.answerOnly = {'a', 'b'};
+
+      await service.syncNow();
+
+      // c got no answer: the retry batch [c] makes no progress and stops.
+      expect(server.postBatches, [
+        ['a', 'b', 'c'],
+        ['c'],
+      ]);
+      expect(await statuses(), {
+        'a': 'accepted',
+        'b': 'accepted',
+        'c': 'queued',
+      });
+
+      server.answerOnly = null;
+      await service.syncNow();
+
+      expect(server.postBatches.last, ['c']);
+      expect(await statuses(), {
+        'a': 'accepted',
+        'b': 'accepted',
+        'c': 'accepted',
+      });
+    },
+  );
 
   test('concurrent syncNow calls share one push sequence', () async {
     await bookings.addAll([booking('a'), booking('b')]);
