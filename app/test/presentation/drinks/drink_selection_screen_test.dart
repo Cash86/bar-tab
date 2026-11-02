@@ -341,7 +341,7 @@ void main() {
       findsOneWidget,
     );
     // Sheet open: no auto-booking.
-    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(const Duration(seconds: 29));
     expect(bookings.bookings, isEmpty);
 
     await tester.tap(find.text('Weitere Getränke'));
@@ -596,5 +596,85 @@ void main() {
     expect(bookings.bookings.single.drinkId, 'd1');
     expectOnNameList();
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  group('idle timeouts', () {
+    Future<void> openSheetOnLager(WidgetTester tester) async {
+      await open(tester, 'Kim Example');
+      await tapDrink(tester, 'd1', 3);
+      expect(find.byType(QuantitySheet), findsOneWidget);
+    }
+
+    testWidgets('empty draft: leaves without booking after 30 s', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await open(tester, 'Kim Example');
+      await tester.pump(const Duration(seconds: 29));
+      expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      await settleRoute(tester);
+      expectOnNameList();
+      expect(bookings.bookings, isEmpty);
+      expect(find.textContaining('Gebucht'), findsNothing);
+    });
+
+    testWidgets('a tap on empty space restarts the 30 s', (tester) async {
+      await pumpApp(tester);
+      await open(tester, 'Kim Example');
+      await tester.pump(const Duration(seconds: 20));
+      await tester.tapAt(const Offset(2, 400));
+      await tester.pump(const Duration(seconds: 29));
+      expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      await settleRoute(tester);
+      expectOnNameList();
+    });
+
+    testWidgets('Verwerfen restarts the 30 s', (tester) async {
+      await pumpApp(tester);
+      await open(tester, 'Kim Example');
+      await tapDrink(tester, 'd1');
+      await tester.pump(const Duration(seconds: 5));
+      await tester.tap(find.text('Verwerfen'));
+      await tester.pump(const Duration(seconds: 29));
+      expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      await settleRoute(tester);
+      expectOnNameList();
+      expect(bookings.bookings, isEmpty);
+    });
+
+    testWidgets('untouched sheet closes at 30 s, books 8 s later', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openSheetOnLager(tester);
+      await tester.pump(const Duration(seconds: 29));
+      expect(find.byType(QuantitySheet), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(QuantitySheet), findsNothing);
+      expect(bookings.bookings, isEmpty);
+      await tester.pump(const Duration(seconds: 8));
+      await settleRoute(tester);
+      expect(bookings.bookings.single.quantity, 3);
+      expectOnNameList();
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('a key press restarts the sheet idle timer', (tester) async {
+      await pumpApp(tester);
+      await openSheetOnLager(tester);
+      await tester.pump(const Duration(seconds: 25));
+      await tester.tap(find.byKey(const Key('keypad-5')));
+      await tester.pump(const Duration(seconds: 29));
+      expect(find.byType(QuantitySheet), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(QuantitySheet), findsNothing);
+      await tester.pump(const Duration(seconds: 8));
+      await settleRoute(tester);
+      expect(bookings.bookings.single.quantity, 5);
+      await tester.pump(const Duration(seconds: 3));
+    });
   });
 }

@@ -103,7 +103,7 @@ void main() {
       controller.tap('d1', 115);
       expect(stateOf(c).sheetDrinkId, 'd1');
       expect(stateOf(c).sheetQuantity, 3);
-      async.elapse(const Duration(seconds: 30));
+      async.elapse(const Duration(seconds: 29));
       expect(bookings.bookings, isEmpty);
 
       controller.setQuantity(24);

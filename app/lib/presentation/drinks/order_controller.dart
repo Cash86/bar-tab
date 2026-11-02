@@ -12,6 +12,22 @@ import '../providers.dart';
 /// Time after the last change before a pending order is booked.
 const kAutoBookDelay = Duration(seconds: 8);
 
+/// Idle time on the drink screen with an empty draft before it is left.
+const kDrinkScreenIdleTimeout = Duration(seconds: 30);
+
+/// Idle time in the open quantity sheet before it closes.
+const kQuantitySheetIdleTimeout = Duration(seconds: 30);
+
+/// Overridable in tests.
+final drinkScreenIdleTimeoutProvider = Provider<Duration>(
+  (ref) => kDrinkScreenIdleTimeout,
+);
+
+/// Overridable in tests.
+final quantitySheetIdleTimeoutProvider = Provider<Duration>(
+  (ref) => kQuantitySheetIdleTimeout,
+);
+
 final _log = Logger('order');
 const _uuid = Uuid();
 
@@ -26,6 +42,7 @@ class OrderState {
     this.booked,
     this.saveFailed = false,
     this.committing = false,
+    this.idleLeft = false,
   });
 
   final OrderDraft draft;
@@ -50,6 +67,10 @@ class OrderState {
   /// be left until it is done.
   final bool committing;
 
+  /// The empty drink screen was idle too long: the screen leaves without
+  /// booking.
+  final bool idleLeft;
+
   /// [draft] with the open sheet's quantity applied (a 0 removes the line).
   OrderDraft get effectiveDraft {
     final id = sheetDrinkId;
@@ -64,6 +85,7 @@ class OrderState {
     OrderDraft? Function()? booked,
     bool? saveFailed,
     bool? committing,
+    bool? idleLeft,
   }) => OrderState(
     draft: draft ?? this.draft,
     sheetDrinkId: sheetDrinkId != null ? sheetDrinkId() : this.sheetDrinkId,
@@ -72,6 +94,7 @@ class OrderState {
     booked: booked != null ? booked() : this.booked,
     saveFailed: saveFailed ?? this.saveFailed,
     committing: committing ?? this.committing,
+    idleLeft: idleLeft ?? this.idleLeft,
   );
 }
 
@@ -82,11 +105,20 @@ class OrderController extends Notifier<OrderState> {
 
   final String personId;
   Timer? _timer;
+  Timer? _idleTimer;
 
   @override
   OrderState build() {
     ref.onDispose(_cancelTimer);
+    _startEmptyIdle();
     return OrderState(draft: OrderDraft.empty(personId));
+  }
+
+  /// Any pointer activity on the screen: restarts the idle timer that
+  /// applies (empty draft: leave; open sheet: close).
+  void activity() {
+    if (state.committing || state.idleLeft) return;
+    if (state.sheetDrinkId != null || state.draft.isEmpty) _restartTimer();
   }
 
   /// Adds one of [drinkId]; [unitPriceCents] is kept from the first tap.
@@ -110,6 +142,7 @@ class OrderController extends Notifier<OrderState> {
       sheetDrinkId: () => drinkId,
       sheetQuantity: line.quantity,
     );
+    _restartTimer();
   }
 
   /// Sets the quantity in the open sheet (0..999).
@@ -119,6 +152,7 @@ class OrderController extends Notifier<OrderState> {
       throw ArgumentError.value(quantity, 'quantity', 'must be 0..999');
     }
     state = state._copy(sheetQuantity: quantity);
+    _restartTimer();
   }
 
   /// Applies the sheet quantity, closes the sheet and restarts the timer.
@@ -135,6 +169,7 @@ class OrderController extends Notifier<OrderState> {
     if (state.committing) return;
     _cancelTimer();
     state = OrderState(draft: OrderDraft.empty(personId));
+    _restartTimer();
   }
 
   /// Books every line (open sheet included) and triggers a sync. Does
@@ -145,7 +180,10 @@ class OrderController extends Notifier<OrderState> {
     _cancelTimer();
     final draft = state.effectiveDraft;
     state = OrderState(draft: OrderDraft.empty(personId));
-    if (draft.isEmpty) return;
+    if (draft.isEmpty) {
+      _restartTimer();
+      return;
+    }
 
     final now = ref.read(clockProvider).now();
     final bookings = [
@@ -188,7 +226,18 @@ class OrderController extends Notifier<OrderState> {
 
   void _restartTimer() {
     _cancelTimer();
-    if (state.draft.isEmpty || state.sheetDrinkId != null) return;
+    if (state.committing) return;
+    if (state.sheetDrinkId != null) {
+      _idleTimer = Timer(
+        ref.read(quantitySheetIdleTimeoutProvider),
+        closeSheet,
+      );
+      return;
+    }
+    if (state.draft.isEmpty) {
+      _startEmptyIdle();
+      return;
+    }
     state = state._copy(secondsLeft: kAutoBookDelay.inSeconds);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       final left = state.secondsLeft - 1;
@@ -200,9 +249,17 @@ class OrderController extends Notifier<OrderState> {
     });
   }
 
+  void _startEmptyIdle() {
+    _idleTimer = Timer(ref.read(drinkScreenIdleTimeoutProvider), () {
+      if (!state.committing) state = state._copy(idleLeft: true);
+    });
+  }
+
   void _cancelTimer() {
     _timer?.cancel();
     _timer = null;
+    _idleTimer?.cancel();
+    _idleTimer = null;
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/drinks/drink_selection_screen.dart';
+import 'package:bar_tab/presentation/drinks/order_controller.dart';
 import 'package:bar_tab/presentation/kiosk.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/names/name_tile.dart';
@@ -60,6 +61,11 @@ void main() {
           syncStateProvider.overrideWith((ref) => const Stream.empty()),
           kioskPlatformProvider.overrideWithValue(kiosk),
           routeObserverProvider.overrideWithValue(observer),
+          // These tests are about the screensaver, not the drink screen's own
+          // 30 s idle exit.
+          drinkScreenIdleTimeoutProvider.overrideWithValue(
+            const Duration(hours: 1),
+          ),
         ],
         child: MaterialApp(
           theme: BarTabTheme.data,
