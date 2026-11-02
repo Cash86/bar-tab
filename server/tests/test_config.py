@@ -91,3 +91,16 @@ def test_env_example_with_valid_keys_loads(monkeypatch, tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text(text)
     assert Settings(_env_file=env_file).device_keys == ["x" * 32]
+
+
+@pytest.fixture
+def ambient_env(monkeypatch, tmp_path_factory):
+    env_dir = tmp_path_factory.mktemp("envdir")
+    (env_dir / ".env").write_text("BARTAB_SMTP_HOST=leak.example\n")
+    monkeypatch.setenv("BARTAB_TZ", "Mars/Base")
+    monkeypatch.chdir(env_dir)
+
+
+def test_settings_fixture_ignores_ambient_env_and_dotenv(ambient_env, settings):
+    assert settings.tz == "Europe/Berlin"
+    assert settings.smtp_host is None

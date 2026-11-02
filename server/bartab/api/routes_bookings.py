@@ -25,12 +25,13 @@ router = APIRouter()
 
 MIN_QUANTITY = 1
 MAX_QUANTITY = 999
+MAX_UNIT_PRICE_CENTS = 1_000_000
 
 
 def _validation_error(item: BookingIn, session: Session) -> str | None:
     if not MIN_QUANTITY <= item.quantity <= MAX_QUANTITY:
         return "invalid_quantity"
-    if item.unit_price_cents < 0:
+    if not 0 <= item.unit_price_cents <= MAX_UNIT_PRICE_CENTS:
         return "invalid_price"
     if item.booked_at.tzinfo is None or item.booked_at.utcoffset() is None:
         return "invalid_booked_at"
@@ -86,7 +87,9 @@ def _process(item: BookingIn, session: Session, device_id: str, clock: Clock) ->
                 clock=clock,
             )
     except IntegrityError:
-        # A concurrent request inserted the same id first; classify by what is stored.
+        # Defensive: writers are serialised by BEGIN IMMEDIATE, so on SQLite this is not
+        # reachable. Should another writer ever insert the same id between the lookup
+        # and the insert, classify by what is stored.
         session.expire_all()
         stored = get_booking(session, booking_id)
         if stored is None:

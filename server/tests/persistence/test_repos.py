@@ -117,3 +117,16 @@ def test_settings_roundtrip(db_session):
     repos.set_setting(db_session, "k", "v1")
     repos.set_setting(db_session, "k", "v2")
     assert repos.get_setting(db_session, "k") == "v2"
+
+
+def test_persons_with_equal_names_are_ordered_by_id(db_session, clock):
+    now = clock.now()
+    stamps = {"created_at": now, "updated_at": now}
+    db_session.add(PriceTier(id="t", name="T", sort_order=1, **stamps))
+    db_session.flush()
+    for pid in ["pz", "pb", "pm", "pa"]:
+        db_session.add(Person(id=pid, name="Same", price_tier_id="t", **stamps))
+    db_session.flush()
+    first = repos.get_catalog(db_session)
+    assert [p.id for p in first.persons] == ["pa", "pb", "pm", "pz"]
+    assert repos.get_catalog(db_session) == first

@@ -1,3 +1,4 @@
+import os
 from datetime import UTC, datetime
 
 import pytest
@@ -13,8 +14,12 @@ DEVICE_KEYS = ["k" * 32, "l" * 32]
 
 
 @pytest.fixture
-def settings(tmp_path):
+def settings(tmp_path, monkeypatch):
+    # independent of ambient BARTAB_* variables and of any .env file
+    for name in [n for n in os.environ if n.startswith("BARTAB_")]:
+        monkeypatch.delenv(name)
     return Settings(
+        _env_file=None,
         public_url="http://localhost:8000",
         db_path=tmp_path / "bartab.db",
         data_dir=tmp_path,

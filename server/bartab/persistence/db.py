@@ -16,6 +16,9 @@ NAMING_CONVENTION = {
 }
 
 
+BUSY_TIMEOUT_SECONDS = 5
+
+
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
@@ -40,7 +43,11 @@ class UtcDateTime(TypeDecorator[datetime]):
 
 
 def make_engine(db_path: Path | str) -> Engine:
-    engine = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(
+        f"sqlite:///{db_path}",
+        # serialised writers wait for the lock instead of failing immediately
+        connect_args={"timeout": BUSY_TIMEOUT_SECONDS},
+    )
 
     @event.listens_for(engine, "connect")
     def _set_pragmas(dbapi_connection: Any, _record: Any) -> None:
@@ -54,7 +61,10 @@ def make_engine(db_path: Path | str) -> Engine:
 
     @event.listens_for(engine, "begin")
     def _begin(conn: Any) -> None:
-        conn.exec_driver_sql("BEGIN")
+        # IMMEDIATE takes the write lock up front. A deferred BEGIN would start with a read
+        # snapshot and fail later writes with SQLITE_BUSY_SNAPSHOT if another writer
+        # committed in between (the busy timeout cannot help there).
+        conn.exec_driver_sql("BEGIN IMMEDIATE")
 
     return engine
 

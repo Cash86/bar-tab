@@ -239,7 +239,9 @@ def test_concurrent_insert_race_is_classified_from_stored_row(
 
     post(client, device_headers, item(B1))
     real = routes_bookings.get_booking
-    calls = iter([None])  # the pre-insert lookup misses, as if the other writer was not yet visible
+    # Defensive branch: under BEGIN IMMEDIATE this race cannot happen on SQLite, so it is
+    # simulated: the pre-insert lookup misses as if the other writer was not yet visible.
+    calls = iter([None])
     monkeypatch.setattr(
         routes_bookings,
         "get_booking",
@@ -285,3 +287,67 @@ def test_failed_item_keeps_earlier_accepted_items_after_commit(app, client, devi
     # a rejected item between accepted ones must not undo the earlier accepted one
     post(client, device_headers, item(B1), item(B2, quantity=0), item(B3, person_id="nobody"))
     assert count(app) == 1
+
+
+def test_price_upper_bound_is_per_item(app, client, device_headers, seeded):
+    response = post(
+        client,
+        device_headers,
+        item(B1, unit_price_cents=1_000_000),
+        item(B2, unit_price_cents=1_000_001),
+        item(B3, unit_price_cents=10**19),
+    )
+    assert response.status_code == 200
+    assert statuses(response) == [
+        ("accepted", None),
+        ("rejected", "invalid_price"),
+        ("rejected", "invalid_price"),
+    ]
+    assert count(app) == 1
+
+
+def test_huge_price_does_not_fail_batch(app, client, device_headers, seeded):
+    response = post(client, device_headers, item(B1), item(B2, unit_price_cents=10**40))
+    assert response.status_code == 200
+    assert statuses(response) == [("accepted", None), ("rejected", "invalid_price")]
+
+
+def test_commit_failure_is_not_reported_as_success(
+    app, client, device_headers, seeded, monkeypatch
+):
+    from sqlalchemy.orm import Session
+
+    def boom(self):
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(Session, "commit", boom)
+    with pytest.raises(RuntimeError):
+        post(client, device_headers, item(B1))
+    monkeypatch.undo()
+    assert count(app) == 0
+
+
+def test_concurrent_batches_from_several_threads_all_succeed(
+    app, client, device_headers, device_b_headers, seeded
+):
+    import threading
+    import uuid
+
+    results = []
+
+    def worker(headers):
+        for _ in range(5):
+            ids = [str(uuid.uuid4()) for _ in range(40)]
+            response = client.post(URL, headers=headers, json={"bookings": [item(i) for i in ids]})
+            results.append((response.status_code, ids))
+
+    threads = [
+        threading.Thread(target=worker, args=(h,))
+        for h in (device_headers, device_b_headers, device_headers)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert [code for code, _ in results] == [200] * 15
+    assert count(app) == sum(len(ids) for _, ids in results) == 600

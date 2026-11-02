@@ -78,10 +78,14 @@ def ensure_open_period(session: Session, clock: Clock) -> Period:
 
 
 def get_catalog(session: Session) -> Catalog:
-    tiers = session.scalars(select(PriceTier).order_by(PriceTier.sort_order, PriceTier.name))
-    persons = session.scalars(select(Person).order_by(Person.name))
-    groups = session.scalars(select(DrinkGroup).order_by(DrinkGroup.sort_order, DrinkGroup.name))
-    drinks = session.scalars(select(Drink).order_by(Drink.sort_order, Drink.name))
+    tiers = session.scalars(
+        select(PriceTier).order_by(PriceTier.sort_order, PriceTier.name, PriceTier.id)
+    )
+    persons = session.scalars(select(Person).order_by(Person.name, Person.id))
+    groups = session.scalars(
+        select(DrinkGroup).order_by(DrinkGroup.sort_order, DrinkGroup.name, DrinkGroup.id)
+    )
+    drinks = session.scalars(select(Drink).order_by(Drink.sort_order, Drink.name, Drink.id))
     prices: dict[str, dict[str, int]] = {}
     for price in session.scalars(select(DrinkPrice)):
         prices.setdefault(price.drink_id, {})[price.price_tier_id] = price.price_cents
