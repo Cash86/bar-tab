@@ -41,7 +41,6 @@ dependencies:
   json_annotation: ^4.12.0
   http: ^1.6.0
   drift: 2.34.0
-  sqlite3_flutter_libs: ^0.6.0+eol
   path_provider: ^2.1.6
   path: ^1.9.1
   flutter_secure_storage: ^11.2.0
