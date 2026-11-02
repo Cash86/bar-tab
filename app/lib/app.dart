@@ -1,7 +1,11 @@
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/name_list/name_list_screen.dart';
+import 'package:bar_tab/presentation/providers.dart';
+import 'package:bar_tab/presentation/setup/setup_screen.dart';
 import 'package:bar_tab/presentation/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class BarTabApp extends StatelessWidget {
   const BarTabApp({super.key});
@@ -20,24 +24,25 @@ class BarTabApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const _PlaceholderHome(),
+      home: const _Root(),
     );
   }
 }
 
-/// Replaced by the real home screen in a later task.
-class _PlaceholderHome extends StatelessWidget {
-  const _PlaceholderHome();
+/// Chooses the screen from the stored pairing.
+class _Root extends ConsumerWidget {
+  const _Root();
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text(
-          AppLocalizations.of(context).appPlaceholderTitle,
-          style: Theme.of(context).textTheme.displayMedium,
-        ),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(serverConfigProvider);
+    // Keeps the sync loop alive while the app runs.
+    ref.watch(syncServiceProvider);
+    return config.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (_, _) => const SetupScreen(),
+      data: (c) => c == null ? const SetupScreen() : const NameListScreen(),
     );
   }
 }

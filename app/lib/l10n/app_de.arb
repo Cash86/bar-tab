@@ -3,5 +3,13 @@
   "appPlaceholderTitle": "bar-tab",
   "@appPlaceholderTitle": {
     "description": "Placeholder home screen title until the real screens exist."
-  }
+  },
+  "setupTitle": "Tablet einrichten",
+  "setupServerUrlLabel": "Server-Adresse",
+  "setupDeviceKeyLabel": "Geräteschlüssel",
+  "setupConnectButton": "Verbinden",
+  "setupErrorInvalidUrl": "Adresse ungültig",
+  "setupErrorUnauthorised": "Geräteschlüssel ungültig",
+  "setupErrorUnreachable": "Server nicht erreichbar",
+  "nameListTitle": "Wer trinkt?"
 }
