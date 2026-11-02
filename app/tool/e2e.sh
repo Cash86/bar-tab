@@ -9,37 +9,24 @@ repo_dir="$(dirname "$app_dir")"
 port=18080
 base_url="http://localhost:${port}"
 
+umask 077
 tmp="$(mktemp -d)"
-device_key="$(openssl rand -hex 32)"
-
-cat > "$tmp/.env" <<ENV
-BARTAB_SECRET_KEY=$(openssl rand -hex 32)
-BARTAB_DEVICE_KEYS=${device_key}
-BARTAB_INITIAL_ADMIN_PIN=4711
-BARTAB_PUBLIC_URL=${base_url}
-ENV
-chmod 600 "$tmp/.env"
-
-# --project-directory makes env_file (.env) and the ./data volume resolve
-# inside the temp dir; the build context must point back at the repo.
-cat > "$tmp/override.yml" <<YML
-services:
-  server:
-    build:
-      context: ${repo_dir}/server
-    ports:
-      - "${port}:8000"
-YML
-
+e2e_image="bartab-e2e-server:local"
 compose=(docker compose -p bartab-e2e --project-directory "$tmp"
   -f "$repo_dir/docker-compose.yml" -f "$tmp/override.yml"
   --env-file "$tmp/.env")
 
+# Installed right after mktemp: tolerates partially created state.
 cleanup() {
   status=$?
   set +e
   echo "== cleanup"
-  "${compose[@]}" down -v --remove-orphans >/dev/null 2>&1
+  if [ -f "$tmp/override.yml" ] && [ -f "$tmp/.env" ]; then
+    "${compose[@]}" down -v --remove-orphans >/dev/null ||
+      echo "WARNING: docker compose down failed; check 'docker ps -a' for bartab-e2e" >&2
+  fi
+  # Only the e2e image; the developer's bartab-server:latest is untouched.
+  docker rmi "$e2e_image" >/dev/null 2>&1
   # The data dir is created root-owned by Docker.
   rm -rf "$tmp" 2>/dev/null
   if [ -e "$tmp" ]; then
@@ -50,13 +37,34 @@ cleanup() {
 }
 trap cleanup EXIT
 
+device_key="$(openssl rand -hex 32)"
+
+cat > "$tmp/.env" <<ENV
+BARTAB_SECRET_KEY=$(openssl rand -hex 32)
+BARTAB_DEVICE_KEYS=${device_key}
+BARTAB_INITIAL_ADMIN_PIN=4711
+BARTAB_PUBLIC_URL=${base_url}
+ENV
+
+# --project-directory makes env_file (.env) and the ./data volume resolve
+# inside the temp dir; the build context must point back at the repo.
+cat > "$tmp/override.yml" <<YML
+services:
+  server:
+    image: ${e2e_image}
+    build:
+      context: ${repo_dir}/server
+    ports:
+      - "${port}:8000"
+YML
+
 echo "== starting server"
 "${compose[@]}" up -d --build
 
 echo "== waiting for ${base_url}/api/v1/health"
 ready=0
 for _ in $(seq 1 60); do
-  if curl -fsS -o /dev/null "${base_url}/api/v1/health" 2>/dev/null; then
+  if curl -fsS -m 2 -o /dev/null "${base_url}/api/v1/health" 2>/dev/null; then
     ready=1
     break
   fi
