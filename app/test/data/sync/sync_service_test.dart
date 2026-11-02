@@ -12,6 +12,7 @@ import 'package:bar_tab/data/repositories/tabs_repository_impl.dart';
 import 'package:bar_tab/data/sync/sync_service.dart';
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
+import 'package:bar_tab/domain/repositories.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:drift/native.dart';
 import 'package:fake_async/fake_async.dart';
@@ -107,6 +108,36 @@ class FakeServer {
       );
 }
 
+/// Real repository whose [markIncludedInTabs] can be made to fail.
+class FlakyBookings implements BookingRepository {
+  FlakyBookings(this._inner);
+  final BookingRepository _inner;
+  bool failMark = false;
+
+  @override
+  Future<void> addAll(List<Booking> bookings) => _inner.addAll(bookings);
+  @override
+  Future<List<Booking>> queued({int limit = 100}) =>
+      _inner.queued(limit: limit);
+  @override
+  Future<void> applyResults(Map<String, BookingStatus> results) =>
+      _inner.applyResults(results);
+  @override
+  Future<void> markIncludedInTabs(Set<String> ids) async {
+    await _inner.markIncludedInTabs(ids);
+    if (failMark) throw StateError('disk full');
+  }
+
+  @override
+  Future<Set<String>> acceptedNotIncludedIds() =>
+      _inner.acceptedNotIncludedIds();
+  @override
+  Stream<List<Booking>> watchNotIncluded(String personId) =>
+      _inner.watchNotIncluded(personId);
+  @override
+  Stream<SyncCounts> watchCounts() => _inner.watchCounts();
+}
+
 Booking booking(
   String id, {
   int minute = 0,
@@ -126,7 +157,7 @@ void main() {
   late AppDatabase db;
   late FixedClock clock;
   late FakeServer server;
-  late BookingRepositoryImpl bookings;
+  late FlakyBookings bookings;
   late TabsRepositoryImpl tabs;
   late CatalogRepositoryImpl catalog;
   late SyncService service;
@@ -143,13 +174,14 @@ void main() {
     tabs: tabs,
     catalog: catalog,
     clock: clock,
+    transaction: db.transaction,
   );
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     clock = FixedClock(DateTime.utc(2026, 11, 2, 19));
     server = FakeServer();
-    bookings = BookingRepositoryImpl(db, clock);
+    bookings = FlakyBookings(BookingRepositoryImpl(db, clock));
     tabs = TabsRepositoryImpl(db, clock);
     catalog = CatalogRepositoryImpl(db, clock);
     service = makeService();
@@ -423,6 +455,8 @@ void main() {
       timed.stop();
       async.elapse(const Duration(seconds: 90));
       expect(server.count('GET tabs'), 3);
+      timed.dispose();
+      async.flushMicrotasks();
     });
   });
 
@@ -433,6 +467,121 @@ void main() {
       async.elapse(const Duration(seconds: 10));
       expect(server.count('GET tabs'), 3);
       timed.stop();
+      timed.dispose();
+      async.flushMicrotasks();
     });
+  });
+
+  test('401 after an offline run clears isOffline', () async {
+    server.offline = true;
+    await service.syncNow();
+    expect((await service.state.first).isOffline, isTrue);
+
+    server.offline = false;
+    server.forcedStatus = 401;
+    await service.syncNow();
+
+    final state = await service.state.first;
+    expect(state.isOffline, isFalse);
+    expect(state.isUnauthorised, isTrue);
+  });
+
+  test(
+    'server and contract errors after an offline run clear isOffline',
+    () async {
+      final sub = Logger.root.onRecord.listen((_) {});
+      addTearDown(sub.cancel);
+      for (final fail in <void Function()>[
+        () => server.forcedStatus = 500,
+        () => server.catalog = {...catalogFixtureJson, 'drinks': 'x'},
+      ]) {
+        server.offline = true;
+        await service.syncNow();
+        expect((await service.state.first).isOffline, isTrue);
+
+        server.offline = false;
+        fail();
+        await service.syncNow();
+        expect((await service.state.first).isOffline, isFalse);
+        server.forcedStatus = null;
+      }
+    },
+  );
+
+  test('a network error keeps isUnauthorised', () async {
+    server.forcedStatus = 401;
+    await service.syncNow();
+    server.forcedStatus = null;
+    server.offline = true;
+    await service.syncNow();
+
+    final state = await service.state.first;
+    expect(state.isUnauthorised, isTrue);
+    expect(state.isOffline, isTrue);
+  });
+
+  test('if marking included fails, the tabs are not saved either', () async {
+    await tabs.save({'p1': 100});
+    await bookings.addAll([booking('a')]);
+    server.tabs = {'p1': 250};
+    bookings.failMark = true;
+
+    await expectLater(service.syncNow(), throwsStateError);
+
+    expect(await tabs.watchTab('p1').first, 100);
+    expect(await notIncluded(), {'a'});
+    expect((await statuses())['a'], 'accepted', reason: 'push committed');
+
+    bookings.failMark = false;
+    await service.syncNow();
+    expect(await tabs.watchTab('p1').first, 250);
+    expect(await notIncluded(), isEmpty);
+  });
+
+  test('dispose logs an in-flight run failure instead of rethrowing', () async {
+    final records = <LogRecord>[];
+    final sub = Logger.root.onRecord.listen(records.add);
+    addTearDown(sub.cancel);
+    await bookings.addAll([booking('a')]);
+    bookings.failMark = true;
+    server.tabsGate = Completer<void>();
+
+    final run = service.syncNow();
+    final runFailed = expectLater(run, throwsStateError);
+    await server.tabsRequested.future;
+    final disposed = service.dispose();
+    server.tabsGate!.complete();
+
+    await disposed;
+    await runFailed;
+    expect(records.single.loggerName, 'sync');
+    expect(records.single.level, Level.SEVERE);
+  });
+
+  test(
+    'dispose waits for an in-flight run that ends in a network error',
+    () async {
+      server.tabsGate = Completer<void>();
+      final run = service.syncNow();
+      await server.tabsRequested.future;
+      final disposed = service.dispose();
+      server.offline = true;
+      server.tabsGate!.complete();
+
+      await disposed;
+      await run;
+    },
+  );
+
+  test('syncNow after dispose does nothing and does not throw', () async {
+    await bookings.addAll([booking('a')]);
+    await service.dispose();
+
+    await service.syncNow();
+    service.start();
+    service.stop();
+
+    expect(server.requests, isEmpty);
+    await service.dispose();
   });
 }

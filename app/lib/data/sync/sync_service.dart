@@ -10,6 +10,10 @@ import '../api/mappers.dart';
 
 final _log = Logger('sync');
 
+/// Runs [action] in one database transaction (e.g. `AppDatabase.transaction`).
+typedef TransactionRunner =
+    Future<void> Function(Future<void> Function() action);
+
 /// Pushes queued bookings, refreshes tabs and the catalog. Local data is
 /// never deleted here: failures leave everything in place for the next run.
 class SyncService {
@@ -19,6 +23,7 @@ class SyncService {
     required this._tabs,
     required this._catalog,
     required this._clock,
+    required this._transaction,
   });
 
   static const batchSize = 200;
@@ -29,6 +34,7 @@ class SyncService {
   final TabsRepository _tabs;
   final CatalogRepository _catalog;
   final Clock _clock;
+  final TransactionRunner _transaction;
 
   bool _isUnauthorised = false;
   bool _isOffline = false;
@@ -36,6 +42,7 @@ class SyncService {
   final _flagsChanged = StreamController<void>.broadcast();
 
   Future<void>? _running;
+  bool _disposed = false;
   Timer? _timer;
 
   /// Broadcast; every listener gets the current state first (once the
@@ -70,12 +77,16 @@ class SyncService {
   }, isBroadcast: true);
 
   /// Runs one sync; a call while one is running returns the running one.
-  Future<void> syncNow() =>
-      _running ??= _run().whenComplete(() => _running = null);
+  /// After [dispose] it does nothing.
+  Future<void> syncNow() {
+    if (_disposed) return Future.value();
+    return _running ??= _run().whenComplete(() => _running = null);
+  }
 
   /// Syncs now and then every [interval] until [stop].
   void start({Duration interval = defaultInterval}) {
     stop();
+    if (_disposed) return;
     _syncInBackground();
     _timer = Timer.periodic(interval, (_) => _syncInBackground());
   }
@@ -85,9 +96,15 @@ class SyncService {
     _timer = null;
   }
 
+  /// Stops the timer and waits for a running sync; its failure is logged.
   Future<void> dispose() async {
+    _disposed = true;
     stop();
-    await _running;
+    try {
+      await _running;
+    } on Object catch (e, st) {
+      _log.severe('Sync failed during dispose', e, st);
+    }
     await _flagsChanged.close();
   }
 
@@ -108,13 +125,15 @@ class SyncService {
         lastSuccessAt: _clock.now(),
       );
     } on UnauthorisedException {
-      _setFlags(isUnauthorised: true);
+      _setFlags(isUnauthorised: true, isOffline: false);
     } on NetworkException {
       _setFlags(isOffline: true);
     } on ServerException catch (e) {
       _log.warning('Sync stopped: $e');
+      _setFlags(isOffline: false);
     } on ContractException catch (e) {
       _log.warning('Sync stopped: $e');
+      _setFlags(isOffline: false);
     }
   }
 
@@ -143,8 +162,12 @@ class SyncService {
     // the server's answer, so it must keep counting locally.
     final included = await _bookings.acceptedNotIncludedIds();
     final tabs = await _api.getTabs();
-    await _tabs.save(tabs.tabs);
-    await _bookings.markIncludedInTabs(included);
+    // One transaction: tabs that contain a booking never coexist with that
+    // booking still counted locally.
+    await _transaction(() async {
+      await _tabs.save(tabs.tabs);
+      await _bookings.markIncludedInTabs(included);
+    });
   }
 
   Future<void> _refreshCatalog() async {
@@ -167,6 +190,6 @@ class SyncService {
     _isUnauthorised = isUnauthorised ?? _isUnauthorised;
     _isOffline = isOffline ?? _isOffline;
     _lastSuccessAt = lastSuccessAt ?? _lastSuccessAt;
-    _flagsChanged.add(null);
+    if (!_flagsChanged.isClosed) _flagsChanged.add(null);
   }
 }
