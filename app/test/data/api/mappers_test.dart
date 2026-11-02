@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../fixtures/catalog_fixture.dart';
 
 void main() {
+  catalogToDtoTests();
   test('colorFromHex converts #RRGGBB to opaque ARGB', () {
     expect(colorFromHex('#C8A02B'), 0xFFC8A02B);
     expect(colorFromHex('#000000'), 0xFF000000);
@@ -49,5 +50,35 @@ void main() {
     expect(json['unit_price_cents'], 150);
     expect(json['person_id'], 'p1');
     expect(json.containsKey('status'), isFalse);
+  });
+}
+
+void catalogToDtoTests() {
+  test('catalogToDto round-trips the fixture through the domain model', () {
+    final dto = CatalogDto.fromJson(catalogFixtureJson);
+    final back = catalogToDto(catalogFromDto(dto));
+    expect(back, dto);
+    expect(back.toJson()['groups'], [
+      {'id': 'g1', 'name': 'Beer', 'sort_order': 1, 'color': '#C8A02B'},
+    ]);
+  });
+
+  test('bookingStatusFromResult maps duplicate to accepted', () {
+    expect(
+      bookingStatusFromResult(BookingResultStatus.accepted),
+      BookingStatus.accepted,
+    );
+    expect(
+      bookingStatusFromResult(BookingResultStatus.duplicate),
+      BookingStatus.accepted,
+    );
+    expect(
+      bookingStatusFromResult(BookingResultStatus.conflict),
+      BookingStatus.conflict,
+    );
+    expect(
+      bookingStatusFromResult(BookingResultStatus.rejected),
+      BookingStatus.rejected,
+    );
   });
 }

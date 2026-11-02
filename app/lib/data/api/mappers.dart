@@ -59,3 +59,56 @@ BookingInDto bookingToDto(Booking b) => BookingInDto(
   unitPriceCents: b.unitPriceCents,
   bookedAt: b.bookedAt.toUtc(),
 );
+
+String _hexFromColor(int argb) =>
+    '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+/// Inverse of [catalogFromDto]; used to serialise the catalog cache.
+CatalogDto catalogToDto(Catalog c) => CatalogDto(
+  priceTiers: [
+    for (final t in c.tiers)
+      PriceTierDto(id: t.id, name: t.name, sortOrder: t.sortOrder),
+  ],
+  persons: [
+    for (final p in c.persons)
+      PersonDto(
+        id: p.id,
+        name: p.name,
+        priceTierId: p.priceTierId,
+        isHidden: p.isHidden,
+        isCollective: p.isCollective,
+        isActive: p.isActive,
+      ),
+  ],
+  groups: [
+    for (final g in c.groups)
+      GroupDto(
+        id: g.id,
+        name: g.name,
+        sortOrder: g.sortOrder,
+        color: _hexFromColor(g.color),
+      ),
+  ],
+  drinks: [
+    for (final d in c.drinks)
+      DrinkDto(
+        id: d.id,
+        name: d.name,
+        groupId: d.groupId,
+        crateSize: d.crateSize,
+        sortOrder: d.sortOrder,
+        isHidden: d.isHidden,
+        isActive: d.isActive,
+        prices: Map.of(d.prices),
+      ),
+  ],
+  etag: c.etag,
+);
+
+/// Server result to local booking status; a duplicate counts as accepted.
+BookingStatus bookingStatusFromResult(BookingResultStatus s) => switch (s) {
+  BookingResultStatus.accepted ||
+  BookingResultStatus.duplicate => BookingStatus.accepted,
+  BookingResultStatus.conflict => BookingStatus.conflict,
+  BookingResultStatus.rejected => BookingStatus.rejected,
+};

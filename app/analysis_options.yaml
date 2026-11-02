@@ -9,6 +9,7 @@ analyzer:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "lib/l10n/app_localizations*.dart"
+    - "test/data/db/generated/**"
 
 linter:
   rules:
