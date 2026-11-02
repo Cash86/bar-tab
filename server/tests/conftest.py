@@ -2,10 +2,12 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from bartab.config import Settings
 from bartab.domain.clock import FixedClock
 from bartab.main import create_app
+from bartab.persistence.db import Base, make_engine
 
 DEVICE_KEYS = ["k" * 32, "l" * 32]
 
@@ -40,3 +42,15 @@ def client(app):
 @pytest.fixture
 def device_headers():
     return {"Authorization": f"Bearer {DEVICE_KEYS[0]}"}
+
+
+@pytest.fixture
+def db_session(tmp_path):
+    engine = make_engine(tmp_path / "test.db")
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    try:
+        yield session
+    finally:
+        session.close()
+        engine.dispose()
