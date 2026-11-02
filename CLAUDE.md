@@ -48,3 +48,5 @@ Design spec: `docs/superpowers/specs/2026-11-02-bar-tab-design.md` (read it befo
 - Strings via `.arb` l10n files only (`app/lib/l10n/app_de.arb`).
 - Run everything with `app/tool/check.sh` (pub get, build_runner, gen-l10n, analyze, format check,
   tests). Must be clean before commit. Generated files are not committed.
+- `app/tool/e2e.sh` runs `app/test_e2e/` against the real server in Docker (needs Docker; not in
+  check.sh/CI). Run it before merging a milestone that touches sync or the API.

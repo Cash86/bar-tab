@@ -49,6 +49,14 @@ app/tool/check.sh
 
 Generated files (`*.g.dart`, `*.freezed.dart`, `lib/l10n/app_localizations*.dart`) are not committed.
 
+An end-to-end sync test runs the real app sync code against the real server in Docker (throwaway
+config and demo data, port 18080, everything removed afterwards). It needs Docker, `openssl` and
+`curl`, is not part of `check.sh`/CI, and should be run locally before merging a milestone:
+
+```sh
+app/tool/e2e.sh
+```
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE).
