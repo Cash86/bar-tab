@@ -51,8 +51,22 @@ abstract class Drink with _$Drink {
   }) = _Drink;
 }
 
+/// Sort key: lowercase, umlauts as their base letter, ß as ss.
+String _fold(String s) => s
+    .toLowerCase()
+    .replaceAll('ä', 'a')
+    .replaceAll('ö', 'o')
+    .replaceAll('ü', 'u')
+    .replaceAll('ß', 'ss');
+
+/// Folded name, then raw name.
+int _compareNames(String a, String b) {
+  final c = _fold(a).compareTo(_fold(b));
+  return c != 0 ? c : a.compareTo(b);
+}
+
 int _byNameThenId(Person a, Person b) {
-  final c = a.name.compareTo(b.name);
+  final c = _compareNames(a.name, b.name);
   return c != 0 ? c : a.id.compareTo(b.id);
 }
 
@@ -116,7 +130,9 @@ abstract class Catalog with _$Catalog {
               .toList()
             ..sort((a, b) {
               final c = a.sortOrder.compareTo(b.sortOrder);
-              return c != 0 ? c : a.name.compareTo(b.name);
+              if (c != 0) return c;
+              final n = _compareNames(a.name, b.name);
+              return n != 0 ? n : a.id.compareTo(b.id);
             });
       if (inGroup.isNotEmpty) result.add((group, inGroup));
     }

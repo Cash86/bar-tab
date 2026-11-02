@@ -134,4 +134,37 @@ void main() {
     expect(c.priceFor(d, person('p1', 'A', tier: 't1')), 250);
     expect(c.priceFor(d, person('p2', 'B', tier: 't2')), isNull);
   });
+
+  test('names sort German-friendly: case-insensitive, umlauts as base', () {
+    final c = catalog(
+      persons: [
+        person('p1', 'Zoe'),
+        person('p2', 'Ömer'),
+        person('p3', 'de Vries'),
+        person('p4', 'Anna'),
+        person('p5', 'Uwe'),
+        person('p6', 'Ünal'),
+        person('p7', 'Ärztin'),
+        person('p9', 'Ömer'),
+      ],
+    );
+    expect(c.personsByTier().single.$2.map((p) => p.id), [
+      'p4', // Anna
+      'p7', // Ärztin (a-r)
+      'p3', // de Vries
+      'p2', // Ömer (o), id tie-break
+      'p9',
+      'p6', // Ünal (u-n) before Uwe (u-w)
+      'p5',
+      'p1',
+    ]);
+  });
+
+  test('drink name tie-break is folded too', () {
+    final c = catalog(
+      drinks: [drink('d1', 'Zitrone'), drink('d2', 'Öl'), drink('d3', 'apfel')],
+    );
+    final result = c.drinksFor(person('p1', 'Ann'));
+    expect(result[0].$2.map((d) => d.id), ['d3', 'd2', 'd1']);
+  });
 }
