@@ -62,6 +62,8 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
   }
 
   void _otherPerson() {
+    // A running commit pops by itself once written, or stays on failure.
+    if (ref.read(orderControllerProvider(widget.personId)).committing) return;
     if (_hasPending) {
       unawaited(_controller.commit()); // pops once booked
     } else {
@@ -94,7 +96,7 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
 
     // System back leaves like "Andere Person": a pending order is booked.
     return PopScope<OrderDraft>(
-      canPop: draft.isEmpty,
+      canPop: draft.isEmpty && !order.committing,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _otherPerson();
       },

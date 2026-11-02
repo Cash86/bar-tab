@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
@@ -557,5 +559,42 @@ void main() {
     expect(find.byType(QuantitySheet), findsOneWidget);
     expect(find.byKey(const Key('keypad-crate')), findsNothing);
     expect(find.textContaining('Kasten'), findsNothing);
+  });
+
+  testWidgets('back during a failing write keeps the order and retries', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    bookings
+      ..addAllGate = gate
+      ..addAllError = StateError('disk full');
+    await pumpApp(tester);
+    await open(tester, 'Kim Example');
+    await tapDrink(tester, 'd1');
+    await tester.tap(find.text('Fertig'));
+    await tester.pump();
+
+    // Write still in flight: back must not leave.
+    await tester.binding.handlePopRoute();
+    await settleRoute(tester);
+    expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.text('Speichern fehlgeschlagen – neuer Versuch …'),
+      findsOneWidget,
+    );
+    expect(find.text('1× Lager'), findsOneWidget);
+
+    bookings
+      ..addAllGate = null
+      ..addAllError = null;
+    await tester.pump(const Duration(seconds: 8));
+    await settleRoute(tester);
+    expect(bookings.bookings.single.drinkId, 'd1');
+    expectOnNameList();
+    await tester.pump(const Duration(seconds: 3));
   });
 }
