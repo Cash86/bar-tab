@@ -1,5 +1,4 @@
 import 'package:bar_tab/domain/catalog.dart';
-import 'package:bar_tab/domain/sync_state.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/drinks/drink_selection_screen.dart';
 import 'package:bar_tab/presentation/kiosk.dart';
@@ -27,7 +26,7 @@ class _FakeKiosk implements KioskPlatform {
   Future<void> undim() async => calls.add('undim');
 }
 
-final _catalog = Catalog(
+const _catalog = Catalog(
   tiers: const [PriceTier(id: 't1', name: 'Members', sortOrder: 1)],
   persons: const [
     Person(

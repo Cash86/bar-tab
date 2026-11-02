@@ -9,7 +9,6 @@ import '../../l10n/app_localizations.dart';
 import '../common/sync_indicator.dart';
 import '../drinks/drink_selection_screen.dart';
 import '../drinks/order_bar.dart';
-import '../kiosk.dart';
 import '../providers.dart';
 import '../theme.dart';
 import 'name_tile.dart';
