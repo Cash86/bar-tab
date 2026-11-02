@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:bar_tab/data/repositories/server_config_repository_impl.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class FakeSecureStore implements SecureStore {
+class FakeConfigStore implements ConfigStore {
   final values = <String, String>{};
 
   @override
@@ -16,11 +18,11 @@ class FakeSecureStore implements SecureStore {
 }
 
 void main() {
-  late FakeSecureStore store;
+  late FakeConfigStore store;
   late ServerConfigRepositoryImpl repo;
 
   setUp(() {
-    store = FakeSecureStore();
+    store = FakeConfigStore();
     repo = ServerConfigRepositoryImpl(store);
   });
 
@@ -51,4 +53,37 @@ void main() {
     );
     expect(store.values['server_base_url'], 'http://192.0.2.10:8000');
   });
+
+  group('a store that never answers', () {
+    late ServerConfigRepositoryImpl stuck;
+
+    setUp(() {
+      stuck = ServerConfigRepositoryImpl(
+        _HangingStore(),
+        timeout: const Duration(milliseconds: 20),
+      );
+    });
+
+    test('load gives up and reports no config', () async {
+      expect(await stuck.load(), isNull);
+    });
+
+    test('save fails with a timeout', () async {
+      await expectLater(
+        stuck.save(const ServerConfig(baseUrl: 'http://x', deviceKey: 'k')),
+        throwsA(isA<TimeoutException>()),
+      );
+    });
+  });
+}
+
+class _HangingStore implements ConfigStore {
+  @override
+  Future<String?> read(String key) => Completer<String?>().future;
+
+  @override
+  Future<void> write(String key, String value) => Completer<void>().future;
+
+  @override
+  Future<void> delete(String key) => Completer<void>().future;
 }

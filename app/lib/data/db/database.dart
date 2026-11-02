@@ -55,12 +55,29 @@ class Tabs extends Table {
   Set<Column> get primaryKey => {personId};
 }
 
-@DriftDatabase(tables: [CatalogCache, Bookings, Tabs])
+/// App-private key-value settings (server URL, device key).
+class AppConfig extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
+@DriftDatabase(tables: [CatalogCache, Bookings, Tabs, AppConfig])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.createTable(appConfig);
+    },
+  );
 }
 
 /// Opens the production database in the app documents directory.

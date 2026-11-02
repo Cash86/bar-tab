@@ -17,17 +17,17 @@ import '../fixtures/fakes.dart';
 void main() {
   late AppDatabase db;
   late FakeApiServer server;
-  late FakeSecureStore store;
+  late FakeConfigStore store;
   late ProviderContainer container;
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     server = FakeApiServer();
-    store = FakeSecureStore();
+    store = FakeConfigStore();
     container = ProviderContainer(
       overrides: [
         databaseProvider.overrideWithValue(db),
-        secureStoreProvider.overrideWithValue(store),
+        configStoreProvider.overrideWithValue(store),
         httpClientProvider.overrideWithValue(server.client),
         clockProvider.overrideWithValue(FixedClock(DateTime.utc(2026, 11, 2))),
         // Long enough that the periodic timer never fires during a test.

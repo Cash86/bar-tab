@@ -19,7 +19,7 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<void> pumpApp(WidgetTester tester, FakeSecureStore store) async {
+  Future<void> pumpApp(WidgetTester tester, FakeConfigStore store) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -27,7 +27,7 @@ void main() {
       ProviderScope(
         overrides: [
           databaseProvider.overrideWithValue(db),
-          secureStoreProvider.overrideWithValue(store),
+          configStoreProvider.overrideWithValue(store),
           httpClientProvider.overrideWithValue(server.client),
           syncIntervalProvider.overrideWithValue(null),
           // The name list watches these; drift streams leave timers behind
@@ -43,13 +43,13 @@ void main() {
   testWidgets('shows a progress indicator while the config loads', (
     tester,
   ) async {
-    await pumpApp(tester, FakeSecureStore());
+    await pumpApp(tester, FakeConfigStore());
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     await tester.pumpAndSettle();
   });
 
   testWidgets('no config leads to the setup screen', (tester) async {
-    await pumpApp(tester, FakeSecureStore());
+    await pumpApp(tester, FakeConfigStore());
     await tester.pumpAndSettle();
     expect(find.text('Tablet einrichten'), findsOneWidget);
     expect(find.text('Wer trinkt?'), findsNothing);

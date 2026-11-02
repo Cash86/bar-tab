@@ -5,6 +5,7 @@ import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'generated/schema.dart';
+import 'generated/schema_v1.dart' as v1;
 
 void main() {
   late SchemaVerifier verifier;
@@ -15,6 +16,28 @@ void main() {
     final db = AppDatabase(connection);
     addTearDown(db.close);
     await verifier.migrateAndValidate(db, 1);
+  });
+
+  test('a fresh schema v2 database matches the committed dump', () async {
+    final connection = await verifier.startAt(2);
+    final db = AppDatabase(connection);
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 2);
+  });
+
+  test('migrating v1 to v2 adds app_config and keeps existing rows', () async {
+    final schema = await verifier.schemaAt(1);
+    final old = v1.DatabaseAtV1(schema.newConnection());
+    await old.customStatement(
+      "INSERT INTO tabs (person_id, cents, fetched_at) VALUES ('p1', 5, '2026-11-02T18:30:15.000Z')",
+    );
+    await old.close();
+
+    final db = AppDatabase(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 2);
+    expect((await db.select(db.tabs).getSingle()).personId, 'p1');
+    expect(await db.select(db.appConfig).get(), isEmpty);
   });
 
   test('UTC DateTime values round-trip as UTC', () async {

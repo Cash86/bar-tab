@@ -9,6 +9,7 @@ import '../data/api/mappers.dart';
 import '../data/db/database.dart';
 import '../data/repositories/booking_repository_impl.dart';
 import '../data/repositories/catalog_repository_impl.dart';
+import '../data/repositories/drift_config_store.dart';
 import '../data/repositories/server_config_repository_impl.dart';
 import '../data/repositories/tabs_repository_impl.dart';
 import '../data/sync/sync_service.dart';
@@ -26,8 +27,8 @@ final databaseProvider = Provider<AppDatabase>(
   (ref) => throw UnimplementedError('databaseProvider must be overridden'),
 );
 
-final secureStoreProvider = Provider<SecureStore>(
-  (ref) => FlutterSecureStore(),
+final configStoreProvider = Provider<ConfigStore>(
+  (ref) => DriftConfigStore(ref.watch(databaseProvider)),
 );
 
 final httpClientProvider = Provider<http.Client>((ref) {
@@ -42,7 +43,7 @@ final syncIntervalProvider = Provider<Duration?>(
 );
 
 final serverConfigRepositoryProvider = Provider<ServerConfigRepository>(
-  (ref) => ServerConfigRepositoryImpl(ref.watch(secureStoreProvider)),
+  (ref) => ServerConfigRepositoryImpl(ref.watch(configStoreProvider)),
 );
 
 final catalogRepositoryProvider = Provider<CatalogRepository>(

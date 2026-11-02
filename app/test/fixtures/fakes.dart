@@ -11,13 +11,13 @@ import 'package:http/testing.dart';
 
 import 'catalog_fixture.dart';
 
-/// In-memory stand-in for the platform secure storage.
-class FakeSecureStore implements SecureStore {
-  FakeSecureStore([Map<String, String>? initial]) : values = {...?initial};
+/// In-memory stand-in for the app-private config storage.
+class FakeConfigStore implements ConfigStore {
+  FakeConfigStore([Map<String, String>? initial]) : values = {...?initial};
 
   final Map<String, String> values;
 
-  /// When set, every write throws it (simulates a keystore failure).
+  /// When set, every write throws it (simulates a storage failure).
   Object? writeError;
 
   @override
@@ -34,11 +34,11 @@ class FakeSecureStore implements SecureStore {
   Future<void> delete(String key) async => values.remove(key);
 }
 
-/// A secure store that already holds a pairing.
-FakeSecureStore pairedStore({
+/// A config store that already holds a pairing.
+FakeConfigStore pairedStore({
   String baseUrl = 'https://bar.example',
   String deviceKey = 'key-a',
-}) => FakeSecureStore({
+}) => FakeConfigStore({
   ServerConfigRepositoryImpl.baseUrlKey: baseUrl,
   ServerConfigRepositoryImpl.deviceKeyKey: deviceKey,
 });
