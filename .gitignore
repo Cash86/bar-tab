@@ -2,7 +2,7 @@
 .env
 *.env.local
 legacy/
-data/
+/data/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
