@@ -248,3 +248,40 @@ def test_concurrent_insert_race_is_classified_from_stored_row(
     response = post(client, device_headers, item(B1, quantity=quantity), item(B2))
     assert statuses(response) == [(expected, None), ("accepted", None)]
     assert count(app) == 2
+
+
+def test_stored_id_resent_with_invalid_fields_is_conflict_not_rejected(
+    app, client, device_headers, seeded
+):
+    post(client, device_headers, item(B1))
+    response = post(client, device_headers, item(B1, quantity=0))
+    assert statuses(response) == [("conflict", None)]
+    with app.state.session_factory() as session:
+        assert session.get(Booking, B1).quantity == 1
+    assert count(app) == 1
+
+
+def test_unexpected_error_on_later_item_rolls_back_whole_request(
+    app, client, device_headers, seeded, monkeypatch
+):
+    from bartab.api import routes_bookings
+
+    real = routes_bookings.add_booking
+    calls = []
+
+    def flaky(session, **kwargs):
+        calls.append(kwargs["id"])
+        if len(calls) == 3:
+            raise RuntimeError("boom")
+        return real(session, **kwargs)
+
+    monkeypatch.setattr(routes_bookings, "add_booking", flaky)
+    with pytest.raises(RuntimeError):
+        post(client, device_headers, item(B1), item(B2), item(B3))
+    assert count(app) == 0
+
+
+def test_failed_item_keeps_earlier_accepted_items_after_commit(app, client, device_headers, seeded):
+    # a rejected item between accepted ones must not undo the earlier accepted one
+    post(client, device_headers, item(B1), item(B2, quantity=0), item(B3, person_id="nobody"))
+    assert count(app) == 1

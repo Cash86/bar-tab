@@ -44,10 +44,17 @@ def make_engine(db_path: Path | str) -> Engine:
 
     @event.listens_for(engine, "connect")
     def _set_pragmas(dbapi_connection: Any, _record: Any) -> None:
+        # pysqlite workaround (SQLAlchemy docs): take over transaction control so that
+        # SAVEPOINT / RELEASE behave and only an explicit BEGIN opens a transaction.
+        dbapi_connection.isolation_level = None
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
+
+    @event.listens_for(engine, "begin")
+    def _begin(conn: Any) -> None:
+        conn.exec_driver_sql("BEGIN")
 
     return engine
 

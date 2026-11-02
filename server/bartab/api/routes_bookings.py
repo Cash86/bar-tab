@@ -30,7 +30,7 @@ def _validation_error(item: BookingIn, session: Session) -> str | None:
     return None
 
 
-def _same_content(stored: Booking, item: BookingIn, booked_at: datetime) -> bool:
+def _same_content(stored: Booking, item: BookingIn, booked_at: datetime | None) -> bool:
     return (
         stored.person_id == item.person_id
         and stored.drink_id == item.drink_id
@@ -40,20 +40,26 @@ def _same_content(stored: Booking, item: BookingIn, booked_at: datetime) -> bool
     )
 
 
-def _classify_existing(stored: Booking, item: BookingIn, booked_at: datetime) -> BookingResult:
+def _classify_existing(
+    stored: Booking, item: BookingIn, booked_at: datetime | None
+) -> BookingResult:
     status = "duplicate" if _same_content(stored, item, booked_at) else "conflict"
     return BookingResult(id=str(item.id), status=status)
 
 
 def _process(item: BookingIn, session: Session, device_id: str, clock: Clock) -> BookingResult:
     booking_id = str(item.id)
-    reason = _validation_error(item, session)
-    if reason is not None:
-        return BookingResult(id=booking_id, status="rejected", reason=reason)
-    booked_at = item.booked_at.astimezone(UTC)
+    # An existing id is always duplicate/conflict, whatever the new payload looks like,
+    # so a client never mistakes a stored booking for a rejected one.
+    naive = item.booked_at.tzinfo is None or item.booked_at.utcoffset() is None
+    booked_at = None if naive else item.booked_at.astimezone(UTC)
     stored = get_booking(session, booking_id)
     if stored is not None:
         return _classify_existing(stored, item, booked_at)
+    reason = _validation_error(item, session)
+    if reason is not None:
+        return BookingResult(id=booking_id, status="rejected", reason=reason)
+    assert booked_at is not None
     try:
         # SAVEPOINT: a failing insert rolls back only this item.
         with session.begin_nested():
