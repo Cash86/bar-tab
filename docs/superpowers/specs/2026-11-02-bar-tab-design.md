@@ -153,7 +153,10 @@ functions require a server connection (only bookings work offline).
 
 ### 4.4 First start
 The APK is generic. On first launch it asks for the server URL and a device key, validates both
-against the server, then syncs master data.
+against the server, then syncs master data. Server URL and device key are stored in app-private
+storage (the local Drift database; the Android sandbox is the protection, the Keystore is not used
+because it is broken on some tablets). The device key is a per-tablet secret: revoke it on the
+server if a tablet is lost.
 
 ### 4.5 Offline behaviour
 - Bookings are written to a local Drift database first, each with a client-generated UUID, then

@@ -78,7 +78,11 @@ adb install -r app/build/app/outputs/flutter-apk/app-release.apk
 ```
 
 **First start.** The app asks for the server URL (for example `https://bar.example.org`) and a
-device key. Use one of the keys listed in `BARTAB_DEVICE_KEYS` in the server's `.env`.
+device key. Use one of the keys listed in `BARTAB_DEVICE_KEYS` in the server's `.env`. The server
+URL and the device key are kept in app-private storage (the app's local database, protected by the
+Android app sandbox, not the hardware keystore, which is unreliable on some tablets). The device key
+is a per-tablet secret: if a tablet is lost, revoke its key on the server (remove it from
+`BARTAB_DEVICE_KEYS`).
 
 **Kiosk mode.** The app locks to landscape, hides the system bars and keeps the screen on. To
 stop members from leaving it, enable Android screen pinning (Settings → Security → App
