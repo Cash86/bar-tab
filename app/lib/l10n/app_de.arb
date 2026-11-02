@@ -1,0 +1,7 @@
+{
+  "@@locale": "de",
+  "appPlaceholderTitle": "bar-tab",
+  "@appPlaceholderTitle": {
+    "description": "Placeholder home screen title until the real screens exist."
+  }
+}

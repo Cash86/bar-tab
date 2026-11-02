@@ -45,4 +45,6 @@ Design spec: `docs/superpowers/specs/2026-11-02-bar-tab-design.md` (read it befo
 - Layers: `domain/` pure Dart, `data/` implements repositories, `presentation/` uses Riverpod.
 - Models with `freezed`, local storage with Drift, mocks with `mocktail`.
 - `flutter analyze` and `dart format` must be clean.
-- Strings via `.arb` l10n files only.
+- Strings via `.arb` l10n files only (`app/lib/l10n/app_de.arb`).
+- Run everything with `app/tool/check.sh` (pub get, build_runner, gen-l10n, analyze, format check,
+  tests). Must be clean before commit. Generated files are not committed.

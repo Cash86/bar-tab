@@ -38,6 +38,17 @@ server/tool/test.sh -k health  # extra arguments are passed to pytest
 
 Copy `.env.example` to `.env` and adjust it for local runs. A full operator guide will follow.
 
+### App
+
+The Flutter tablet app lives in `app/` (Flutter 3.44.8, landscape tablet). One command runs
+dependencies, code generation, l10n, analysis, format check and tests:
+
+```sh
+app/tool/check.sh
+```
+
+Generated files (`*.g.dart`, `*.freezed.dart`, `lib/l10n/app_localizations*.dart`) are not committed.
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE).
