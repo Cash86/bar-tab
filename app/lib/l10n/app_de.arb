@@ -22,5 +22,38 @@
   "@syncFailed": {
     "placeholders": {"count": {"type": "int"}}
   },
-  "syncUnauthorised": "Gerät nicht autorisiert"
+  "syncUnauthorised": "Gerät nicht autorisiert",
+  "nameListBooked": "Gebucht: {summary}",
+  "@nameListBooked": {
+    "description": "Short confirmation after an order was booked.",
+    "placeholders": {"summary": {"type": "String"}}
+  },
+  "drinkSelectionOtherPerson": "Andere Person",
+  "drinkSelectionTotalLabel": "seit der letzten Abrechnung",
+  "drinkSelectionTotalLoading": "–",
+  "@drinkSelectionTotalLoading": {
+    "description": "Shown instead of the running total while it loads."
+  },
+  "orderLine": "{count}× {drink}",
+  "@orderLine": {
+    "description": "One order line, e.g. '2× Apfelschorle'; lines are joined with ', '.",
+    "placeholders": {"count": {"type": "int"}, "drink": {"type": "String"}}
+  },
+  "orderBarCountdown": "{seconds, plural, one{wird in 1 Sekunde gebucht} other{wird in {seconds} Sekunden gebucht}}",
+  "@orderBarCountdown": {
+    "placeholders": {"seconds": {"type": "int"}}
+  },
+  "orderBarDiscard": "Verwerfen",
+  "orderBarDone": "Fertig",
+  "quantitySheetUnitPrice": "Anzahl, je {price}",
+  "@quantitySheetUnitPrice": {
+    "placeholders": {"price": {"type": "String"}}
+  },
+  "quantitySheetCrate": "Kasten ({size})",
+  "@quantitySheetCrate": {
+    "placeholders": {"size": {"type": "int"}}
+  },
+  "quantitySheetTotal": "Gesamt",
+  "quantitySheetMore": "Weitere Getränke",
+  "quantitySheetBook": "Buchen"
 }

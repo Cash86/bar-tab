@@ -35,6 +35,7 @@ class OrderDraft {
 
   /// Adds one of [drinkId]. [unitPriceCents] only applies if the drink is not
   /// yet in the draft. The quantity sheet opens when the quantity reaches 3.
+  /// A line at [maxLineQuantity] stays there.
   TapResult tap(String drinkId, int unitPriceCents) {
     final index = lines.indexWhere((l) => l.drinkId == drinkId);
     if (index < 0) {
@@ -49,6 +50,9 @@ class OrderDraft {
       );
     }
     final old = lines[index];
+    if (old.quantity >= maxLineQuantity) {
+      return (draft: this, openQuantitySheet: false);
+    }
     final quantity = old.quantity + 1;
     final updated = [...lines]..[index] = old.copyWith(quantity: quantity);
     return (

@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/catalog.dart';
+import '../../domain/order.dart';
 import '../../l10n/app_localizations.dart';
 import '../common/sync_indicator.dart';
 import '../drinks/drink_selection_screen.dart';
+import '../drinks/order_bar.dart';
 import '../providers.dart';
 import '../theme.dart';
 import 'name_tile.dart';
@@ -63,22 +67,58 @@ NameGridLayout chooseLayout({
   return const NameGridLayout(perRow: 4, tileHeight: 52, scrolls: true);
 }
 
-class NameListScreen extends ConsumerWidget {
+/// How long the confirmation after a booking stays visible.
+const kBookedBannerDuration = Duration(seconds: 3);
+
+class NameListScreen extends ConsumerStatefulWidget {
   const NameListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
-    final catalog = ref.watch(catalogProvider).value;
-    final collective = catalog?.collectiveAccounts() ?? const <Person>[];
-    final tiers = catalog?.personsByTier() ?? const [];
-    final isEmpty = collective.isEmpty && tiers.isEmpty;
+  ConsumerState<NameListScreen> createState() => _NameListScreenState();
+}
 
-    void open(Person p) => Navigator.of(context).push(
-      MaterialPageRoute<void>(
+class _NameListScreenState extends ConsumerState<NameListScreen> {
+  String? _banner;
+  Timer? _bannerTimer;
+
+  @override
+  void dispose() {
+    _bannerTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _open(Person p) async {
+    final booked = await Navigator.of(context).push(
+      MaterialPageRoute<OrderDraft>(
         builder: (_) => DrinkSelectionScreen(personId: p.id),
       ),
     );
+    if (booked == null || !mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final catalog = ref.read(catalogProvider).value;
+    _bannerTimer?.cancel();
+    _bannerTimer = Timer(kBookedBannerDuration, () {
+      if (mounted) setState(() => _banner = null);
+    });
+    setState(
+      () => _banner = l10n.nameListBooked(orderSummary(l10n, booked, catalog)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final catalogValue = ref.watch(catalogProvider);
+    final catalog = catalogValue.value;
+    final collective = catalog?.collectiveAccounts() ?? const <Person>[];
+    final tiers = catalog?.personsByTier() ?? const [];
+    // Colour by position among all tiers, so hidden empty tiers keep theirs.
+    final tierOrder = [...?catalog?.tiers]
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    Color tierColor(PriceTier t) =>
+        BarTabTheme.tierColor(tierOrder.indexWhere((o) => o.id == t.id));
+    final isEmpty = collective.isEmpty && tiers.isEmpty;
+    final banner = _banner;
 
     return Scaffold(
       body: SafeArea(
@@ -87,20 +127,29 @@ class NameListScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                l10n.nameListTitle,
-                style: const TextStyle(
-                  color: BarTabTheme.paper,
-                  fontSize: 30,
-                  height: 1.2,
-                  fontVariations: [
-                    FontVariation('wdth', 118),
-                    FontVariation('wght', 850),
-                  ],
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.nameListTitle,
+                      style: const TextStyle(
+                        color: BarTabTheme.paper,
+                        fontSize: 30,
+                        height: 1.2,
+                        fontVariations: [
+                          FontVariation('wdth', 118),
+                          FontVariation('wght', 850),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (banner != null) _BookedBanner(banner),
+                ],
               ),
               const SizedBox(height: 12),
-              if (isEmpty)
+              if (catalogValue.isLoading && catalog == null)
+                const Spacer()
+              else if (isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -114,7 +163,7 @@ class NameListScreen extends ConsumerWidget {
                 )
               else ...[
                 if (collective.isNotEmpty) ...[
-                  _CollectiveRow(accounts: collective, onTap: open),
+                  _CollectiveRow(accounts: collective, onTap: _open),
                   const SizedBox(height: 16),
                 ],
                 Expanded(
@@ -136,10 +185,10 @@ class NameListScreen extends ConsumerWidget {
                             Expanded(
                               child: _TierColumn(
                                 title: tiers[i].$1.name,
-                                accent: BarTabTheme.tierColor(i),
+                                accent: tierColor(tiers[i].$1),
                                 persons: tiers[i].$2,
                                 layout: layout,
-                                onTap: open,
+                                onTap: _open,
                               ),
                             ),
                           ],
@@ -159,6 +208,35 @@ class NameListScreen extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Short confirmation of the last booking, e.g. "Gebucht: 2× Apfelschorle".
+class _BookedBanner extends StatelessWidget {
+  const _BookedBanner(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 700),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      decoration: BoxDecoration(
+        color: BarTabTheme.collectiveAccent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: BarTabTheme.bottle,
+          fontSize: 18,
+          fontVariations: [FontVariation('wght', 700)],
         ),
       ),
     );

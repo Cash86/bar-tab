@@ -2,6 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:bar_tab/data/repositories/server_config_repository_impl.dart';
+import 'package:bar_tab/data/sync/sync_service.dart';
+import 'package:bar_tab/domain/booking.dart';
+import 'package:bar_tab/domain/repositories.dart';
+import 'package:bar_tab/domain/sync_state.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -69,3 +73,86 @@ http.Response catalogResponse() => http.Response(
   200,
   headers: {'content-type': 'application/json; charset=utf-8'},
 );
+
+/// In-memory booking store; `watchNotIncluded` emits the current list on
+/// listen and after every write.
+class FakeBookingRepository implements BookingRepository {
+  final bookings = <Booking>[];
+
+  /// When set, `addAll` throws it (simulates a database failure).
+  Object? addAllError;
+
+  final _changed = StreamController<void>.broadcast();
+
+  @override
+  Future<void> addAll(List<Booking> bookings) async {
+    final error = addAllError;
+    if (error != null) throw error;
+    this.bookings.addAll(bookings);
+    _changed.add(null);
+  }
+
+  @override
+  Stream<List<Booking>> watchNotIncluded(String personId) {
+    List<Booking> current() => [
+      for (final b in bookings)
+        if (b.personId == personId && !b.includedInTabs) b,
+    ];
+    return Stream.multi((listener) {
+      listener.add(current());
+      final sub = _changed.stream.listen((_) => listener.add(current()));
+      listener.onCancel = sub.cancel;
+    });
+  }
+
+  @override
+  Future<List<Booking>> queued({int limit = 200}) async => [
+    for (final b in bookings)
+      if (b.status == BookingStatus.queued) b,
+  ].take(limit).toList();
+
+  @override
+  Future<void> applyResults(Map<String, BookingStatus> results) async {}
+
+  @override
+  Future<void> markIncludedInTabs(Set<String> ids) async {}
+
+  @override
+  Future<Set<String>> acceptedNotIncludedIds() async => {};
+
+  @override
+  Stream<SyncCounts> watchCounts() => const Stream.empty();
+}
+
+/// Server tabs held in memory.
+class FakeTabsRepository implements TabsRepository {
+  FakeTabsRepository([Map<String, int>? tabs]) : tabs = {...?tabs};
+
+  final Map<String, int> tabs;
+
+  @override
+  Future<void> save(Map<String, int> tabs) async => this.tabs
+    ..clear()
+    ..addAll(tabs);
+
+  @override
+  Stream<int> watchTab(String personId) => Stream.value(tabs[personId] ?? 0);
+}
+
+/// Counts `syncNow` calls; everything else is unsupported.
+class FakeSyncService implements SyncService {
+  int syncNowCalls = 0;
+
+  /// When set, `syncNow` completes with this error.
+  Object? syncError;
+
+  @override
+  Future<void> syncNow() async {
+    syncNowCalls++;
+    final error = syncError;
+    if (error != null) throw error;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}

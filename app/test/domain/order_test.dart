@@ -82,4 +82,12 @@ void main() {
     d = tapN(d, 'b', 220, 2);
     expect(d.totalCents, 3 * 150 + 2 * 220);
   });
+
+  test('tap caps at 999 and does not open the sheet', () {
+    var d = tapN(const OrderDraft.empty('p1'), 'd1', 100, 1);
+    d = d.setQuantity('d1', 999);
+    final r = d.tap('d1', 100);
+    expect(r.draft.lines.single.quantity, 999);
+    expect(r.openQuantitySheet, isFalse);
+  });
 }

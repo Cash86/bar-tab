@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/drinks/drink_selection_screen.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
+import 'package:bar_tab/presentation/names/name_tile.dart';
 import 'package:bar_tab/presentation/providers.dart';
 import 'package:bar_tab/presentation/theme.dart';
 import 'package:flutter/material.dart';
@@ -46,14 +49,20 @@ Catalog catalogOf(List<Person> persons) => Catalog(
 );
 
 void main() {
-  Future<void> pump(WidgetTester tester, Catalog? catalog) async {
+  Future<void> pump(
+    WidgetTester tester,
+    Catalog? catalog, {
+    Future<Catalog?>? loading,
+  }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          catalogProvider.overrideWith((ref) async => catalog),
+          catalogProvider.overrideWith(
+            (ref) => loading ?? Future.value(catalog),
+          ),
           syncStateProvider.overrideWith((ref) => const Stream.empty()),
         ],
         child: MaterialApp(
@@ -70,7 +79,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (loading == null) await tester.pumpAndSettle();
   }
 
   group('chooseLayout', () {
@@ -260,5 +269,50 @@ void main() {
     final pos = tester.getBottomRight(find.text('2 Buchungen warten'));
     expect(pos.dx, greaterThan(1000));
     expect(pos.dy, greaterThan(700));
+  });
+
+  testWidgets('tier colour follows the position among all tiers', (
+    tester,
+  ) async {
+    // Middle tier has no visible persons and is not displayed.
+    await pump(
+      tester,
+      Catalog(
+        tiers: const [
+          PriceTier(id: 't3', name: 'Third', sortOrder: 3),
+          PriceTier(id: 't1', name: 'First', sortOrder: 1),
+          PriceTier(id: 't2', name: 'Second', sortOrder: 2),
+        ],
+        persons: [
+          person('a', 'Anton', tier: 't1'),
+          person('c', 'Cleo', tier: 't3'),
+        ],
+        groups: const [],
+        drinks: const [],
+        etag: 'e',
+      ),
+    );
+    expect(find.text('SECOND'), findsNothing);
+    Color? titleColor(String text) =>
+        tester.widget<Text>(find.text(text)).style!.color;
+    expect(titleColor('FIRST'), BarTabTheme.tierColor(0));
+    expect(titleColor('THIRD'), BarTabTheme.tierColor(2));
+    final cleo = tester.widget<NameTile>(
+      find.ancestor(of: find.text('Cleo'), matching: find.byType(NameTile)),
+    );
+    expect(cleo.accent, BarTabTheme.tierColor(2));
+  });
+
+  testWidgets('no empty hint while the catalog is loading', (tester) async {
+    final completer = Completer<Catalog?>();
+    await pump(tester, null, loading: completer.future);
+    await tester.pump();
+    expect(
+      find.text(
+        'Noch keine Personen angelegt – bitte im Admin-Bereich anlegen.',
+      ),
+      findsNothing,
+    );
+    expect(find.text('Wer trinkt?'), findsOneWidget);
   });
 }
