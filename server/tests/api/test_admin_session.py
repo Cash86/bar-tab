@@ -143,3 +143,13 @@ def test_concurrent_attempts_are_capped_before_verify(clock):
         for future in [pool.submit(attempt) for _ in range(20)]:
             future.result()
     assert len(reached_verify) == 5
+
+
+def test_malformed_pin_is_422(client, device_headers):
+    assert _login(client, device_headers, pin="12ab").status_code == 422
+
+
+def test_malformed_pins_do_not_consume_lockout_attempts(client, device_headers):
+    for _ in range(5):
+        assert _login(client, device_headers, pin="12ab").status_code == 422
+    assert _login(client, device_headers).status_code == 200

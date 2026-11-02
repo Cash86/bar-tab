@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 
@@ -9,6 +10,26 @@ from bartab.domain.clock import Clock, SystemClock
 from bartab.persistence.db import make_engine, make_session_factory
 from bartab.persistence.repos import ensure_open_period
 from bartab.security import PinLockout, seed_admin_pin
+
+
+def _merge_security(app: FastAPI) -> None:
+    """FastAPI lists each security dependency as an alternative; ours are all required."""
+    original = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        cached = app.openapi_schema is not None
+        spec = original()
+        if not cached:
+            for item in spec["paths"].values():
+                for op in item.values():
+                    if len(op.get("security", [])) > 1:
+                        merged: dict[str, list[str]] = {}
+                        for requirement in op["security"]:
+                            merged.update(requirement)
+                        op["security"] = [merged]
+        return spec
+
+    app.openapi = openapi  # type: ignore[method-assign]
 
 
 def create_app(settings: Settings, clock: Clock) -> FastAPI:
@@ -24,7 +45,9 @@ def create_app(settings: Settings, clock: Clock) -> FastAPI:
         yield
         engine.dispose()
 
-    app = FastAPI(title="bar-tab", lifespan=lifespan)
+    app = FastAPI(
+        title="bar-tab", lifespan=lifespan, generate_unique_id_function=lambda route: route.name
+    )
     app.state.settings = settings
     app.state.clock = clock
     app.state.engine = engine
@@ -34,6 +57,7 @@ def create_app(settings: Settings, clock: Clock) -> FastAPI:
     app.include_router(routes_admin_session.router, prefix="/api/v1")
     app.include_router(routes_catalog.router, prefix="/api/v1")
     app.include_router(routes_bookings.router, prefix="/api/v1")
+    _merge_security(app)
     return app
 
 

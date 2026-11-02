@@ -10,6 +10,7 @@ from bartab.api.schemas import (
     BookingBatchResponse,
     BookingIn,
     BookingResult,
+    ErrorResponse,
     TabsResponse,
 )
 from bartab.domain.clock import Clock
@@ -98,7 +99,12 @@ def _process(item: BookingIn, session: Session, device_id: str, clock: Clock) ->
     return BookingResult(id=booking_id, status="accepted")
 
 
-@router.post("/bookings", response_model=BookingBatchResponse)
+@router.post(
+    "/bookings",
+    name="postBookings",
+    response_model=BookingBatchResponse,
+    responses={401: {"model": ErrorResponse}},
+)
 def post_bookings(
     body: BookingBatchRequest,
     device_id: str = Depends(require_device),
@@ -111,7 +117,12 @@ def post_bookings(
     return BookingBatchResponse(results=results)
 
 
-@router.get("/tabs", response_model=TabsResponse)
+@router.get(
+    "/tabs",
+    name="getTabs",
+    response_model=TabsResponse,
+    responses={401: {"model": ErrorResponse}},
+)
 def get_tabs(
     _device_id: str = Depends(require_device),
     session: Session = Depends(get_session),

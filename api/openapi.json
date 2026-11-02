@@ -4,6 +4,7 @@
       "AdminSessionRequest": {
         "properties": {
           "pin": {
+            "pattern": "^\\d{4,8}$",
             "title": "Pin",
             "type": "string"
           }
@@ -245,6 +246,19 @@
         "title": "DrinkOut",
         "type": "object"
       },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
       "GroupOut": {
         "properties": {
           "color": {
@@ -284,6 +298,28 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LockedResponse": {
+        "properties": {
+          "detail": {
+            "const": "locked",
+            "enum": [
+              "locked"
+            ],
+            "title": "Detail",
+            "type": "string"
+          },
+          "retry_after": {
+            "title": "Retry After",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "detail",
+          "retry_after"
+        ],
+        "title": "LockedResponse",
         "type": "object"
       },
       "PersonOut": {
@@ -402,6 +438,17 @@
         "title": "ValidationError",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "adminToken": {
+        "in": "header",
+        "name": "X-Admin-Token",
+        "type": "apiKey"
+      },
+      "deviceKey": {
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -412,80 +459,34 @@
   "paths": {
     "/api/v1/admin/ping": {
       "get": {
-        "operationId": "admin_ping_api_v1_admin_ping_get",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "x-admin-token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Admin-Token"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
+        "operationId": "pingAdmin",
         "responses": {
           "204": {
             "description": "Successful Response"
           },
-          "422": {
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unauthorized"
           }
         },
-        "summary": "Admin Ping"
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Pingadmin"
       }
     },
     "/api/v1/admin/session": {
       "post": {
-        "operationId": "open_admin_session_api_v1_admin_session_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
+        "operationId": "openAdminSession",
         "requestBody": {
           "content": {
             "application/json": {
@@ -507,6 +508,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -516,32 +527,29 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockedResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
-        "summary": "Open Admin Session"
+        "security": [
+          {
+            "deviceKey": []
+          }
+        ],
+        "summary": "Openadminsession"
       }
     },
     "/api/v1/bookings": {
       "post": {
-        "operationId": "post_bookings_api_v1_bookings_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
+        "operationId": "postBookings",
         "requestBody": {
           "content": {
             "application/json": {
@@ -563,6 +571,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -574,12 +592,17 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Post Bookings"
+        "security": [
+          {
+            "deviceKey": []
+          }
+        ],
+        "summary": "Postbookings"
       }
     },
     "/api/v1/catalog": {
       "get": {
-        "operationId": "read_catalog_api_v1_catalog_get",
+        "operationId": "getCatalog",
         "parameters": [
           {
             "in": "header",
@@ -596,22 +619,6 @@
               ],
               "title": "If-None-Match"
             }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           }
         ],
         "responses": {
@@ -625,73 +632,26 @@
             },
             "description": "Successful Response"
           },
-          "422": {
-            "content": {
-              "application/json": {
+          "304": {
+            "description": "Not modified",
+            "headers": {
+              "ETag": {
+                "description": "Catalog version",
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Read Catalog"
-      }
-    },
-    "/api/v1/health": {
-      "get": {
-        "operationId": "health_api_v1_health_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Health Api V1 Health Get",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Health"
-      }
-    },
-    "/api/v1/tabs": {
-      "get": {
-        "operationId": "get_tabs_api_v1_tabs_get",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
                   "type": "string"
-                },
-                {
-                  "type": "null"
                 }
-              ],
-              "title": "Authorization"
+              }
             }
-          }
-        ],
-        "responses": {
-          "200": {
+          },
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TabsResponse"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Unauthorized"
           },
           "422": {
             "content": {
@@ -704,7 +664,67 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Tabs"
+        "security": [
+          {
+            "deviceKey": []
+          }
+        ],
+        "summary": "Getcatalog"
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Gethealth",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Gethealth"
+      }
+    },
+    "/api/v1/tabs": {
+      "get": {
+        "operationId": "getTabs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TabsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "deviceKey": []
+          }
+        ],
+        "summary": "Gettabs"
       }
     }
   }

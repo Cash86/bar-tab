@@ -5,8 +5,17 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+class ErrorResponse(BaseModel):
+    detail: str
+
+
+class LockedResponse(BaseModel):
+    detail: Literal["locked"]
+    retry_after: int
+
+
 class AdminSessionRequest(BaseModel):
-    pin: str
+    pin: str = Field(pattern=r"^\d{4,8}$")
 
 
 class AdminSessionResponse(BaseModel):

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Header, Response
 from sqlalchemy.orm import Session
 
 from bartab.api.deps import get_session, require_device
-from bartab.api.schemas import CatalogResponse
+from bartab.api.schemas import CatalogResponse, ErrorResponse
 from bartab.persistence.repos import get_catalog
 
 router = APIRouter()
@@ -24,7 +24,18 @@ def _matches(if_none_match: str | None, etag: str) -> bool:
     return any(c in ("*", etag, f'"{etag}"') for c in candidates)
 
 
-@router.get("/catalog", response_model=CatalogResponse)
+@router.get(
+    "/catalog",
+    name="getCatalog",
+    response_model=CatalogResponse,
+    responses={
+        304: {
+            "description": "Not modified",
+            "headers": {"ETag": {"description": "Catalog version", "schema": {"type": "string"}}},
+        },
+        401: {"model": ErrorResponse},
+    },
+)
 def read_catalog(
     response: Response,
     _device_id: str = Depends(require_device),

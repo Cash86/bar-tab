@@ -10,7 +10,12 @@ from bartab.api.deps import (
     require_admin,
     require_device,
 )
-from bartab.api.schemas import AdminSessionRequest, AdminSessionResponse
+from bartab.api.schemas import (
+    AdminSessionRequest,
+    AdminSessionResponse,
+    ErrorResponse,
+    LockedResponse,
+)
 from bartab.config import Settings
 from bartab.domain.clock import Clock
 from bartab.persistence.repos import get_setting
@@ -26,7 +31,12 @@ from bartab.security import (
 router = APIRouter()
 
 
-@router.post("/admin/session", response_model=AdminSessionResponse)
+@router.post(
+    "/admin/session",
+    name="openAdminSession",
+    response_model=AdminSessionResponse,
+    responses={401: {"model": ErrorResponse}, 429: {"model": LockedResponse}},
+)
 def open_admin_session(
     body: AdminSessionRequest,
     device_id: str = Depends(require_device),
@@ -49,6 +59,12 @@ def open_admin_session(
     return AdminSessionResponse(token=token, expires_in=ADMIN_TOKEN_MAX_AGE)
 
 
-@router.get("/admin/ping", status_code=204, dependencies=[Depends(require_admin)])
+@router.get(
+    "/admin/ping",
+    name="pingAdmin",
+    status_code=204,
+    dependencies=[Depends(require_admin)],
+    responses={401: {"model": ErrorResponse}},
+)
 def admin_ping() -> Response:
     return Response(status_code=204)
