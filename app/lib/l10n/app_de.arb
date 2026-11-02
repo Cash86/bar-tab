@@ -24,10 +24,22 @@
     "placeholders": {"count": {"type": "int"}}
   },
   "syncUnauthorised": "Gerät nicht autorisiert",
-  "nameListBooked": "Gebucht: {summary}",
-  "@nameListBooked": {
-    "description": "Short confirmation after an order was booked.",
-    "placeholders": {"summary": {"type": "String"}}
+  "nameListUndoBanner": "{name}: {summary} gebucht",
+  "@nameListUndoBanner": {
+    "description": "Shown on the name list for the undo window after an order was booked; summary is a list of orderLine values, e.g. '2× Apfelschorle'.",
+    "placeholders": {"name": {"type": "String"}, "summary": {"type": "String"}}
+  },
+  "nameListUndoButton": "Rückgängig",
+  "@nameListUndoButton": {
+    "description": "Takes back the latest order while its bookings are still held."
+  },
+  "nameListUndoDone": "Buchung zurückgenommen",
+  "@nameListUndoDone": {
+    "description": "Short info after the latest order was taken back."
+  },
+  "nameListUndoTooLate": "Zu spät – bitte beim Admin stornieren",
+  "@nameListUndoTooLate": {
+    "description": "Short info when the order was already sent and can only be cancelled in the admin area."
   },
   "drinkSelectionOtherPerson": "Andere Person",
   "drinkSelectionTotalLabel": "seit der letzten Abrechnung",

@@ -2,17 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 
+import '../../domain/booking.dart';
 import '../../domain/catalog.dart';
-import '../../domain/order.dart';
 import '../../l10n/app_localizations.dart';
 import '../common/sync_indicator.dart';
 import '../drinks/drink_selection_screen.dart';
 import '../drinks/order_bar.dart';
+import '../drinks/order_controller.dart';
 import '../providers.dart';
 import '../theme.dart';
 import 'name_tile.dart';
 import 'screensaver.dart';
+import 'undo_banner.dart';
 
 const double _gap = 8;
 const double _columnTitleHeight = 32;
@@ -68,8 +71,21 @@ NameGridLayout chooseLayout({
   return const NameGridLayout(perRow: 4, tileHeight: 52, scrolls: true);
 }
 
-/// How long the confirmation after a booking stays visible.
-const kBookedBannerDuration = Duration(seconds: 3);
+/// How long the note after a successful undo stays visible.
+const kUndoDoneInfoDuration = Duration(seconds: 3);
+
+/// How long the note after a failed (too late) undo stays visible.
+const kUndoTooLateInfoDuration = Duration(seconds: 4);
+
+final _log = Logger('names');
+
+/// The latest order, undoable while its bookings are held.
+class _UndoOffer {
+  const _UndoOffer(this.text, this.bookingIds);
+
+  final String text;
+  final Set<String> bookingIds;
+}
 
 class NameListScreen extends ConsumerStatefulWidget {
   const NameListScreen({super.key});
@@ -79,31 +95,111 @@ class NameListScreen extends ConsumerStatefulWidget {
 }
 
 class _NameListScreenState extends ConsumerState<NameListScreen> {
-  String? _banner;
+  _UndoOffer? _offer;
+  int _offerSecondsLeft = 0;
+  bool _undoing = false;
+  String? _info;
+
+  /// Counts the offer down, or ends the info note.
   Timer? _bannerTimer;
+
+  /// Uploads the held bookings once the undo window is over.
+  Timer? _syncTimer;
 
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _syncTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _open(Person p) async {
     final booked = await Navigator.of(context).push(
-      MaterialPageRoute<OrderDraft>(
+      MaterialPageRoute<BookedOrder>(
         builder: (_) => DrinkSelectionScreen(personId: p.id),
       ),
     );
     if (booked == null || !mounted) return;
     final l10n = AppLocalizations.of(context);
     final catalog = ref.read(catalogProvider).value;
-    _bannerTimer?.cancel();
-    _bannerTimer = Timer(kBookedBannerDuration, () {
-      if (mounted) setState(() => _banner = null);
-    });
-    setState(
-      () => _banner = l10n.nameListBooked(orderSummary(l10n, booked, catalog)),
+    _scheduleSync();
+    _showOffer(
+      _UndoOffer(
+        l10n.nameListUndoBanner(
+          p.name,
+          orderSummary(l10n, booked.draft, catalog),
+        ),
+        booked.bookingIds,
+      ),
     );
+  }
+
+  /// One second after the hold expires; a newer order's timer also covers
+  /// the older one's bookings. The regular sync loop picks them up anyway.
+  void _scheduleSync() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer(kUndoWindow + const Duration(seconds: 1), () {
+      ref.read(syncServiceProvider)?.syncNow().catchError((
+        Object e,
+        StackTrace st,
+      ) {
+        _log.severe('Sync after the undo window failed', e, st);
+      });
+    });
+  }
+
+  /// Replaces whatever the banner shows: only the latest order is undoable.
+  void _showOffer(_UndoOffer offer) {
+    _bannerTimer?.cancel();
+    setState(() {
+      _offer = offer;
+      _offerSecondsLeft = kUndoWindow.inSeconds;
+      _undoing = false;
+      _info = null;
+    });
+    _bannerTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        _offerSecondsLeft--;
+        if (_offerSecondsLeft <= 0) {
+          timer.cancel();
+          _offer = null;
+        }
+      });
+    });
+  }
+
+  void _showInfo(String text, Duration duration) {
+    _bannerTimer?.cancel();
+    setState(() {
+      _offer = null;
+      _info = text;
+    });
+    _bannerTimer = Timer(duration, () => setState(() => _info = null));
+  }
+
+  Future<void> _undo() async {
+    final offer = _offer;
+    if (offer == null || _undoing) return;
+    // Stop the countdown: the answer must not be lost to the banner ending.
+    _bannerTimer?.cancel();
+    setState(() => _undoing = true);
+    bool undone;
+    try {
+      undone = await ref
+          .read(bookingRepositoryProvider)
+          .undoHeld(offer.bookingIds);
+    } on Object catch (e, st) {
+      _log.severe('Undoing the order failed', e, st);
+      undone = false;
+    }
+    // A newer order took over the banner meanwhile.
+    if (!mounted || !identical(_offer, offer)) return;
+    final l10n = AppLocalizations.of(context);
+    if (undone) {
+      _showInfo(l10n.nameListUndoDone, kUndoDoneInfoDuration);
+    } else {
+      _showInfo(l10n.nameListUndoTooLate, kUndoTooLateInfoDuration);
+    }
   }
 
   @override
@@ -119,131 +215,114 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
     Color tierColor(PriceTier t) =>
         BarTabTheme.tierColor(tierOrder.indexWhere((o) => o.id == t.id));
     final isEmpty = collective.isEmpty && tiers.isEmpty;
-    final banner = _banner;
+    final offer = _offer;
+    final info = _info;
 
     // System back must never exit the kiosk app.
     return PopScope(
       canPop: false,
       child: IdleScreensaver(
+        stayAwake: offer != null,
         child: Scaffold(
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          l10n.nameListTitle,
-                          style: const TextStyle(
-                            color: BarTabTheme.paper,
-                            fontSize: 30,
-                            height: 1.2,
-                            fontVariations: [
-                              FontVariation('wdth', 118),
-                              FontVariation('wght', 850),
-                            ],
-                          ),
+                      Text(
+                        l10n.nameListTitle,
+                        style: const TextStyle(
+                          color: BarTabTheme.paper,
+                          fontSize: 30,
+                          height: 1.2,
+                          fontVariations: [
+                            FontVariation('wdth', 118),
+                            FontVariation('wght', 850),
+                          ],
                         ),
                       ),
-                      if (banner != null) _BookedBanner(banner),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (catalogValue.isLoading && catalog == null)
-                    const Spacer()
-                  else if (isEmpty)
-                    Expanded(
-                      child: Center(
-                        child: Text(
-                          l10n.nameListEmpty,
-                          style: const TextStyle(
-                            color: BarTabTheme.muted,
-                            fontSize: 20,
-                          ),
-                        ),
-                      ),
-                    )
-                  else ...[
-                    if (collective.isNotEmpty) ...[
-                      _CollectiveRow(accounts: collective, onTap: _open),
-                      const SizedBox(height: 16),
-                    ],
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final layout = chooseLayout(
-                            maxNamesInColumn: tiers.fold(
-                              0,
-                              (m, t) => t.$2.length > m ? t.$2.length : m,
+                      const SizedBox(height: 12),
+                      if (catalogValue.isLoading && catalog == null)
+                        const Spacer()
+                      else if (isEmpty)
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              l10n.nameListEmpty,
+                              style: const TextStyle(
+                                color: BarTabTheme.muted,
+                                fontSize: 20,
+                              ),
                             ),
-                            availableHeight:
-                                constraints.maxHeight - _columnTitleHeight,
-                          );
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              for (var i = 0; i < tiers.length; i++) ...[
-                                if (i > 0) const SizedBox(width: 20),
-                                Expanded(
-                                  child: _TierColumn(
-                                    title: tiers[i].$1.name,
-                                    accent: tierColor(tiers[i].$1),
-                                    persons: tiers[i].$2,
-                                    layout: layout,
-                                    onTap: _open,
-                                  ),
+                          ),
+                        )
+                      else ...[
+                        if (collective.isNotEmpty) ...[
+                          _CollectiveRow(accounts: collective, onTap: _open),
+                          const SizedBox(height: 16),
+                        ],
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final layout = chooseLayout(
+                                maxNamesInColumn: tiers.fold(
+                                  0,
+                                  (m, t) => t.$2.length > m ? t.$2.length : m,
                                 ),
-                              ],
-                            ],
-                          );
-                        },
+                                availableHeight:
+                                    constraints.maxHeight - _columnTitleHeight,
+                              );
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  for (var i = 0; i < tiers.length; i++) ...[
+                                    if (i > 0) const SizedBox(width: 20),
+                                    Expanded(
+                                      child: _TierColumn(
+                                        title: tiers[i].$1.name,
+                                        accent: tierColor(tiers[i].$1),
+                                        persons: tiers[i].$2,
+                                        layout: layout,
+                                        onTap: _open,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                      const SizedBox(
+                        height: 28,
+                        width: double.infinity,
+                        child: Align(
+                          alignment: Alignment.bottomRight,
+                          child: SyncIndicator(),
+                        ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(
-                    height: 28,
-                    width: double.infinity,
-                    child: Align(
-                      alignment: Alignment.bottomRight,
-                      child: SyncIndicator(),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                // Over the title row, so the names never move when it shows.
+                if (offer != null || info != null)
+                  Positioned(
+                    top: 8,
+                    right: 28,
+                    child: offer != null
+                        ? UndoBanner(
+                            text: offer.text,
+                            secondsLeft: _offerSecondsLeft,
+                            onUndo: _undoing ? null : _undo,
+                          )
+                        : UndoInfo(info!),
+                  ),
+              ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Short confirmation of the last booking, e.g. "Gebucht: 2× Apfelschorle".
-class _BookedBanner extends StatelessWidget {
-  const _BookedBanner(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 700),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-      decoration: BoxDecoration(
-        color: BarTabTheme.collectiveAccent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: BarTabTheme.bottle,
-          fontSize: 18,
-          fontVariations: [FontVariation('wght', 700)],
         ),
       ),
     );

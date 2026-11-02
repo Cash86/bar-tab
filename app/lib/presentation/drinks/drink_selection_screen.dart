@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/catalog.dart';
-import '../../domain/order.dart';
 import '../../l10n/app_localizations.dart';
 import '../format.dart';
 import '../providers.dart';
@@ -17,7 +16,7 @@ import 'quantity_sheet.dart';
 const int _tilesPerRow = 7;
 const double _gap = 10;
 
-/// Drink selection for one person. Pops with the booked [OrderDraft] after a
+/// Drink selection for one person. Pops with the [BookedOrder] after a
 /// commit, or with `null` when left without booking.
 class DrinkSelectionScreen extends ConsumerStatefulWidget {
   const DrinkSelectionScreen({required this.personId, super.key});
@@ -75,7 +74,7 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
     }
   }
 
-  void _leave(OrderDraft? booked) {
+  void _leave(BookedOrder? booked) {
     if (_left) return;
     _left = true;
     Navigator.of(context).pop(booked);
@@ -101,7 +100,7 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
     final sheetId = order.sheetDrinkId;
 
     // System back leaves like "Andere Person": a pending order is booked.
-    return PopScope<OrderDraft>(
+    return PopScope<BookedOrder>(
       canPop: draft.isEmpty && !order.committing,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _otherPerson();

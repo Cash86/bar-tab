@@ -59,25 +59,28 @@ void main() {
   OrderState stateOf(ProviderContainer c) =>
       c.read(orderControllerProvider('p1'));
 
-  test('commits 8 s after the last tap, not before', () {
-    expect(kAutoBookDelay, const Duration(seconds: 8));
+  test('commits 5 s after the last tap, not at 4.9 s', () {
+    expect(kAutoBookDelay, const Duration(seconds: 5));
     run((async, controller, c) {
       controller.tap('d1', 115);
-      async.elapse(const Duration(milliseconds: 7999));
+      async.elapse(const Duration(milliseconds: 4900));
+      expect(bookings.bookings, isEmpty);
+      async.elapse(const Duration(milliseconds: 99));
       expect(bookings.bookings, isEmpty);
       async.elapse(const Duration(milliseconds: 1));
       expect(bookings.bookings, hasLength(1));
       expect(stateOf(c).draft.isEmpty, isTrue);
-      expect(stateOf(c).booked!.lines.single.drinkId, 'd1');
+      expect(stateOf(c).booked!.draft.lines.single.drinkId, 'd1');
+      expect(stateOf(c).booked!.bookingIds, {bookings.bookings.single.id});
     });
   });
 
-  test('a second tap at 5 s moves the commit to 13 s', () {
+  test('a second tap before the commit restarts the delay', () {
     run((async, controller, c) {
       controller.tap('d1', 115);
-      async.elapse(const Duration(seconds: 5));
+      async.elapse(kAutoBookDelay - const Duration(seconds: 1));
       controller.tap('d2', 60);
-      async.elapse(const Duration(milliseconds: 7999));
+      async.elapse(kAutoBookDelay - const Duration(milliseconds: 1));
       expect(bookings.bookings, isEmpty);
       async.elapse(const Duration(milliseconds: 1));
       expect(bookings.bookings, hasLength(2));
@@ -86,11 +89,12 @@ void main() {
 
   test('countdown counts down once per second', () {
     run((async, controller, c) {
+      final delay = kAutoBookDelay.inSeconds;
       controller.tap('d1', 115);
-      expect(stateOf(c).secondsLeft, 8);
+      expect(stateOf(c).secondsLeft, delay);
       async.elapse(const Duration(seconds: 1));
-      expect(stateOf(c).secondsLeft, 7);
-      async.elapse(const Duration(seconds: 5));
+      expect(stateOf(c).secondsLeft, delay - 1);
+      async.elapse(Duration(seconds: delay - 3));
       expect(stateOf(c).secondsLeft, 2);
     });
   });
@@ -110,7 +114,7 @@ void main() {
       controller.closeSheet();
       expect(stateOf(c).sheetDrinkId, isNull);
       expect(stateOf(c).draft.lines.single.quantity, 24);
-      async.elapse(const Duration(milliseconds: 7999));
+      async.elapse(kAutoBookDelay - const Duration(milliseconds: 1));
       expect(bookings.bookings, isEmpty);
       async.elapse(const Duration(milliseconds: 1));
       expect(bookings.bookings.single.quantity, 24);
@@ -162,7 +166,10 @@ void main() {
         expect(b.bookedAt, DateTime.utc(2026, 11, 2, 20, 1));
         expect(b.status, BookingStatus.queued);
         expect(b.includedInTabs, isFalse);
+        expect(b.holdUntil, DateTime.utc(2026, 11, 2, 20, 1, 15));
       }
+      expect(kUndoWindow, const Duration(seconds: 15));
+      expect(stateOf(c).booked!.bookingIds, {for (final b in written) b.id});
       expect(written[0].id, isNot(written[1].id));
       expect(sync.syncNowCalls, 1);
       // No second commit from the cancelled timer.
@@ -226,17 +233,17 @@ void main() {
     });
   });
 
-  test('a failed write is retried 8 s later', () {
+  test('a failed write is retried kAutoBookDelay later', () {
     bookings.addAllError = StateError('disk full');
     run((async, controller, c) {
       controller.tap('d1', 115);
       controller.commit();
       async.flushMicrotasks();
       expect(stateOf(c).saveFailed, isTrue);
-      expect(stateOf(c).secondsLeft, 8);
+      expect(stateOf(c).secondsLeft, kAutoBookDelay.inSeconds);
 
       bookings.addAllError = null;
-      async.elapse(const Duration(milliseconds: 7999));
+      async.elapse(kAutoBookDelay - const Duration(milliseconds: 1));
       expect(bookings.bookings, isEmpty);
       async.elapse(const Duration(milliseconds: 1));
       expect(bookings.bookings.single.drinkId, 'd1');
@@ -260,7 +267,7 @@ void main() {
       gate.complete();
       async.flushMicrotasks();
       expect(bookings.bookings.map((b) => b.drinkId), ['d1']);
-      expect(stateOf(c).booked!.lines.single.drinkId, 'd1');
+      expect(stateOf(c).booked!.draft.lines.single.drinkId, 'd1');
       expect(sync.syncNowCalls, 1);
     });
   });

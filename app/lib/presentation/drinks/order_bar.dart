@@ -49,7 +49,7 @@ class OrderBar extends StatelessWidget {
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(26, 14, 18, 18),
+            padding: const EdgeInsets.fromLTRB(26, 14, 18, 24),
             child: Row(
               children: [
                 Expanded(
@@ -102,17 +102,22 @@ class OrderBar extends StatelessWidget {
               ],
             ),
           ),
-          // Drains towards the auto-booking, one step per second.
+          // Drains towards the auto-booking, one step per second; thick and
+          // full width so it is clear the order books by itself.
           Positioned(
+            key: const Key('order-bar-progress'),
             left: 0,
             right: 0,
             bottom: 0,
-            height: 6,
-            child: AnimatedFractionallySizedBox(
-              duration: const Duration(seconds: 1),
-              alignment: Alignment.centerLeft,
-              widthFactor: ((secondsLeft - 1) / delay).clamp(0.0, 1.0),
-              child: const ColoredBox(color: text),
+            height: 12,
+            child: ColoredBox(
+              color: text.withValues(alpha: 0.15),
+              child: AnimatedFractionallySizedBox(
+                duration: const Duration(seconds: 1),
+                alignment: Alignment.centerLeft,
+                widthFactor: ((secondsLeft - 1) / delay).clamp(0.0, 1.0),
+                child: const ColoredBox(color: text),
+              ),
             ),
           ),
         ],

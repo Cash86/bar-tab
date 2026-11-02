@@ -10,7 +10,7 @@ import '../../domain/order.dart';
 import '../providers.dart';
 
 /// Time after the last change before a pending order is booked.
-const kAutoBookDelay = Duration(seconds: 8);
+const kAutoBookDelay = Duration(seconds: 5);
 
 /// Idle time on the drink screen with an empty draft before it is left.
 const kDrinkScreenIdleTimeout = Duration(seconds: 30);
@@ -30,6 +30,16 @@ final quantitySheetIdleTimeoutProvider = Provider<Duration>(
 
 final _log = Logger('order');
 const _uuid = Uuid();
+
+/// A committed order: what was booked and the ids of its bookings (held for
+/// [kUndoWindow], so it can be undone from the name list).
+@immutable
+class BookedOrder {
+  const BookedOrder(this.draft, this.bookingIds);
+
+  final OrderDraft draft;
+  final Set<String> bookingIds;
+}
 
 /// The order being built on the drink selection screen.
 @immutable
@@ -56,8 +66,8 @@ class OrderState {
   /// Whole seconds until the auto-booking; only meaningful while counting.
   final int secondsLeft;
 
-  /// The draft written by the last successful commit: the screen leaves.
-  final OrderDraft? booked;
+  /// The order written by the last successful commit: the screen leaves.
+  final BookedOrder? booked;
 
   /// The last attempt to write this order failed; it is retried after
   /// [kAutoBookDelay].
@@ -82,7 +92,7 @@ class OrderState {
     String? Function()? sheetDrinkId,
     int? sheetQuantity,
     int? secondsLeft,
-    OrderDraft? Function()? booked,
+    BookedOrder? Function()? booked,
     bool? saveFailed,
     bool? committing,
     bool? idleLeft,
@@ -182,9 +192,10 @@ class OrderController extends Notifier<OrderState> {
     _restartTimer();
   }
 
-  /// Books every line (open sheet included) and triggers a sync. Does
-  /// nothing for an empty order or while a commit is running. If the write
-  /// fails the order is kept and retried after [kAutoBookDelay].
+  /// Books every line (open sheet included), held back from upload for
+  /// [kUndoWindow], and triggers a sync. Does nothing for an empty order or
+  /// while a commit is running. If the write fails the order is kept and
+  /// retried after [kAutoBookDelay].
   Future<void> commit() async {
     if (state.committing) return;
     _cancelTimer();
@@ -207,6 +218,7 @@ class OrderController extends Notifier<OrderState> {
           bookedAt: now,
           status: BookingStatus.queued,
           includedInTabs: false,
+          holdUntil: now.add(kUndoWindow),
         ),
     ];
     final repository = ref.read(bookingRepositoryProvider);
@@ -230,7 +242,8 @@ class OrderController extends Notifier<OrderState> {
       );
     }
     if (ref.mounted) {
-      state = state._copy(committing: false, booked: () => draft);
+      final booked = BookedOrder(draft, {for (final b in bookings) b.id});
+      state = state._copy(committing: false, booked: () => booked);
     }
   }
 

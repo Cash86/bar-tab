@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/drinks/drink_selection_screen.dart';
 import 'package:bar_tab/presentation/drinks/order_bar.dart';
+import 'package:bar_tab/presentation/drinks/order_controller.dart';
 import 'package:bar_tab/presentation/drinks/quantity_sheet.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/providers.dart';
@@ -84,6 +86,7 @@ void main() {
   late FakeBookingRepository bookings;
   late FakeSyncService sync;
   late Catalog catalog;
+  final delay = kAutoBookDelay.inSeconds;
 
   setUp(() {
     bookings = FakeBookingRepository();
@@ -154,6 +157,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
   }
+
+  /// Lets the undo banner and the sync after the undo window run out.
+  Future<void> outlastUndoWindow(WidgetTester tester) =>
+      tester.pump(kUndoWindow + const Duration(seconds: 1));
 
   void expectOnNameList() {
     expect(find.byType(DrinkSelectionScreen), findsNothing);
@@ -252,29 +259,47 @@ void main() {
     );
     expect(find.text('2× Lager, 1× Lemonade'), findsOneWidget);
     expect(find.text('2,90$_nbsp€'), findsOneWidget);
-    expect(find.text('wird in 8 Sekunden gebucht'), findsOneWidget);
+    expect(find.text('wird in $delay Sekunden gebucht'), findsOneWidget);
     expect(find.text('Verwerfen'), findsOneWidget);
     expect(find.text('Fertig'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('wird in 7 Sekunden gebucht'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 6));
+    expect(find.text('wird in ${delay - 1} Sekunden gebucht'), findsOneWidget);
+    await tester.pump(Duration(seconds: delay - 2));
     expect(find.text('wird in 1 Sekunde gebucht'), findsOneWidget);
     expect(bookings.bookings, isEmpty);
   });
 
-  testWidgets('8 s after the last tap the order is booked', (tester) async {
+  testWidgets('5 s after the last tap the order is booked', (tester) async {
     await pumpApp(tester);
     await open(tester, 'Kim Example');
     await tapDrink(tester, 'd1');
-    await tester.pump(const Duration(seconds: 8));
+    await tester.pump(kAutoBookDelay - const Duration(milliseconds: 100));
+    expect(bookings.bookings, isEmpty);
+    await tester.pump(const Duration(milliseconds: 100));
     await settleRoute(tester);
     expect(bookings.bookings.single.drinkId, 'd1');
     expect(sync.syncNowCalls, 1);
     expectOnNameList();
-    expect(find.text('Gebucht: 1× Lager'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
-    expect(find.text('Gebucht: 1× Lager'), findsNothing);
+    expect(find.text('Kim Example: 1× Lager gebucht'), findsOneWidget);
+    await outlastUndoWindow(tester);
+    expect(find.text('Kim Example: 1× Lager gebucht'), findsNothing);
+  });
+
+  testWidgets('the countdown bar is thick and spans the whole order bar', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await open(tester, 'Kim Example');
+    await tapDrink(tester, 'd1');
+    final track = find.byKey(const Key('order-bar-progress'));
+    expect(tester.getSize(track).height, greaterThanOrEqualTo(10));
+    expect(
+      tester.getSize(track).width,
+      tester.getSize(find.byType(OrderBar)).width,
+    );
+    await tester.tap(find.text('Verwerfen'));
+    await tester.pump();
   });
 
   testWidgets('Verwerfen clears the bar and books nothing', (tester) async {
@@ -308,13 +333,15 @@ void main() {
       [('d1', 2, 115), ('d3', 1, 60)],
     );
     expectOnNameList();
-    expect(find.text('Gebucht: 2× Lager, 1× Lemonade'), findsOneWidget);
+    expect(
+      find.text('Kim Example: 2× Lager, 1× Lemonade gebucht'),
+      findsOneWidget,
+    );
 
     await open(tester, 'Kim Example');
     // 44,35 € + 2,90 €
     expect(find.text('47,25$_nbsp€'), findsOneWidget);
-    // Let the banner timer run out.
-    await tester.pump(const Duration(seconds: 3));
+    await outlastUndoWindow(tester);
   });
 
   testWidgets('3rd tap opens the sheet; keypad 24 and Weitere Getränke', (
@@ -352,7 +379,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('24× Lager'), findsOneWidget);
-    expect(find.text('wird in 8 Sekunden gebucht'), findsOneWidget);
+    expect(find.text('wird in $delay Sekunden gebucht'), findsOneWidget);
     expect(bookings.bookings, isEmpty);
   });
 
@@ -375,8 +402,11 @@ void main() {
       ('d1', 20),
     ]);
     expectOnNameList();
-    expect(find.text('Gebucht: 1× Lemonade, 20× Lager'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
+    expect(
+      find.text('Kim Example: 1× Lemonade, 20× Lager gebucht'),
+      findsOneWidget,
+    );
+    await outlastUndoWindow(tester);
   });
 
   testWidgets('quantity 0 and Weitere Getränke removes the line', (
@@ -404,7 +434,7 @@ void main() {
     await settleRoute(tester);
     expect(bookings.bookings.single.drinkId, 'd2');
     expectOnNameList();
-    await tester.pump(const Duration(seconds: 3));
+    await outlastUndoWindow(tester);
   });
 
   testWidgets('Andere Person with nothing tapped just returns', (tester) async {
@@ -415,7 +445,7 @@ void main() {
     expect(bookings.bookings, isEmpty);
     expect(sync.syncNowCalls, 0);
     expectOnNameList();
-    expect(find.textContaining('Gebucht'), findsNothing);
+    expect(find.textContaining('gebucht'), findsNothing);
   });
 
   testWidgets('app going to the background books a pending order', (
@@ -448,7 +478,7 @@ void main() {
     go(toForeground);
     await settleRoute(tester);
     expectOnNameList();
-    await tester.pump(const Duration(seconds: 3));
+    await outlastUndoWindow(tester);
   });
 
   testWidgets('a price change after the tap keeps the tap-time price', (
@@ -474,7 +504,7 @@ void main() {
     await settleRoute(tester);
     final b = bookings.bookings.single;
     expect((b.quantity, b.unitPriceCents), (2, 115));
-    await tester.pump(const Duration(seconds: 3));
+    await outlastUndoWindow(tester);
   });
 
   testWidgets('leaving the name list cancels the banner timer', (tester) async {
@@ -483,8 +513,8 @@ void main() {
     await tapDrink(tester, 'd1');
     await tester.tap(find.text('Fertig'));
     await settleRoute(tester);
-    expect(find.text('Gebucht: 1× Lager'), findsOneWidget);
-    // Disposing the tree must not leave the 3 s timer pending.
+    expect(find.text('Kim Example: 1× Lager gebucht'), findsOneWidget);
+    // Disposing the tree must not leave the banner or sync timer pending.
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -498,8 +528,8 @@ void main() {
     await settleRoute(tester);
     expect(bookings.bookings.single.drinkId, 'd2');
     expectOnNameList();
-    expect(find.text('Gebucht: 1× Wheat'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Kim Example: 1× Wheat gebucht'), findsOneWidget);
+    await outlastUndoWindow(tester);
   });
 
   testWidgets('system back with nothing tapped just returns', (tester) async {
@@ -529,11 +559,11 @@ void main() {
     expect(find.byType(DrinkSelectionScreen), findsOneWidget);
 
     bookings.addAllError = null;
-    await tester.pump(const Duration(seconds: 8));
+    await tester.pump(kAutoBookDelay);
     await settleRoute(tester);
     expect(bookings.bookings.single.drinkId, 'd1');
     expectOnNameList();
-    await tester.pump(const Duration(seconds: 3));
+    await outlastUndoWindow(tester);
   });
 
   testWidgets('sheet hides the crate key when the drink left the catalog', (
@@ -584,13 +614,13 @@ void main() {
     expect(tile('d1'), findsNothing);
     expect(find.text('1× Lager'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 8));
+    await tester.pump(kAutoBookDelay);
     await settleRoute(tester);
     expectOnNameList();
     final booking = bookings.bookings.single;
     expect(booking.drinkId, 'd1');
     expect(booking.unitPriceCents, 115);
-    await tester.pump(const Duration(seconds: 3));
+    await outlastUndoWindow(tester);
   });
 
   testWidgets('re-opening the person while the old screen pops starts clean', (
@@ -657,11 +687,11 @@ void main() {
     bookings
       ..addAllGate = null
       ..addAllError = null;
-    await tester.pump(const Duration(seconds: 8));
+    await tester.pump(kAutoBookDelay);
     await settleRoute(tester);
     expect(bookings.bookings.single.drinkId, 'd1');
     expectOnNameList();
-    await tester.pump(const Duration(seconds: 3));
+    await outlastUndoWindow(tester);
   });
 
   group('idle timeouts', () {
@@ -682,7 +712,7 @@ void main() {
       await settleRoute(tester);
       expectOnNameList();
       expect(bookings.bookings, isEmpty);
-      expect(find.textContaining('Gebucht'), findsNothing);
+      expect(find.textContaining('gebucht'), findsNothing);
     });
 
     testWidgets('a tap on empty space restarts the 30 s', (tester) async {
@@ -701,7 +731,7 @@ void main() {
       await pumpApp(tester);
       await open(tester, 'Kim Example');
       await tapDrink(tester, 'd1');
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(kAutoBookDelay - const Duration(seconds: 1));
       await tester.tap(find.text('Verwerfen'));
       await tester.pump(const Duration(seconds: 29));
       expect(find.byType(DrinkSelectionScreen), findsOneWidget);
@@ -711,7 +741,7 @@ void main() {
       expect(bookings.bookings, isEmpty);
     });
 
-    testWidgets('untouched sheet closes at 30 s, books 8 s later', (
+    testWidgets('untouched sheet closes at 30 s, books 5 s later', (
       tester,
     ) async {
       await pumpApp(tester);
@@ -721,11 +751,11 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       expect(find.byType(QuantitySheet), findsNothing);
       expect(bookings.bookings, isEmpty);
-      await tester.pump(const Duration(seconds: 8));
+      await tester.pump(kAutoBookDelay);
       await settleRoute(tester);
       expect(bookings.bookings.single.quantity, 3);
       expectOnNameList();
-      await tester.pump(const Duration(seconds: 3));
+      await outlastUndoWindow(tester);
     });
 
     testWidgets('a key press restarts the sheet idle timer', (tester) async {
@@ -737,10 +767,10 @@ void main() {
       expect(find.byType(QuantitySheet), findsOneWidget);
       await tester.pump(const Duration(seconds: 1));
       expect(find.byType(QuantitySheet), findsNothing);
-      await tester.pump(const Duration(seconds: 8));
+      await tester.pump(kAutoBookDelay);
       await settleRoute(tester);
       expect(bookings.bookings.single.quantity, 5);
-      await tester.pump(const Duration(seconds: 3));
+      await outlastUndoWindow(tester);
     });
   });
 }

@@ -24,7 +24,15 @@ const screensaverHintPositions = <Alignment>[
 /// Dims the app to a near-black screen with a moving hint after the idle
 /// timeout. The first touch only wakes: it never reaches [child].
 class IdleScreensaver extends ConsumerStatefulWidget {
-  const IdleScreensaver({super.key, required this.child});
+  const IdleScreensaver({
+    super.key,
+    this.stayAwake = false,
+    required this.child,
+  });
+
+  /// While true the screensaver does not start (e.g. an undo is offered);
+  /// the idle timeout is re-armed instead.
+  final bool stayAwake;
 
   final Widget child;
 
@@ -81,7 +89,7 @@ class _IdleScreensaverState extends ConsumerState<IdleScreensaver>
 
   void _sleep() {
     // Another route (drink screen) is on top: not idle on the name list.
-    if (!(ModalRoute.of(context)?.isCurrent ?? true)) {
+    if (widget.stayAwake || !(ModalRoute.of(context)?.isCurrent ?? true)) {
       _armIdle();
       return;
     }
