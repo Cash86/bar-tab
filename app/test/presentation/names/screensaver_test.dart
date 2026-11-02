@@ -106,6 +106,14 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the hint uses the app font', (tester) async {
+    await pumpScreen(tester);
+    await tester.pump(kIdleTimeout);
+    final text = tester.widget<Text>(hint);
+    expect(text.style?.fontFamily, BarTabTheme.fontFamily);
+    await unmount(tester);
+  });
+
   testWidgets('a pointer event at 1:59 restarts the timer', (tester) async {
     await pumpScreen(tester);
     await tester.pump(const Duration(minutes: 1, seconds: 59));

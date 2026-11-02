@@ -4,6 +4,7 @@ import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/providers.dart';
 import 'package:bar_tab/presentation/setup/setup_screen.dart';
 import 'package:bar_tab/presentation/theme.dart';
+import 'package:bar_tab/presentation/ui_scale.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +27,7 @@ class BarTabApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      builder: (context, child) => UiScale(child: child!),
       home: const _Root(),
     );
   }

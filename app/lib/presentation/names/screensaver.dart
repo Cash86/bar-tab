@@ -139,6 +139,7 @@ class _IdleScreensaverState extends ConsumerState<IdleScreensaver>
                 child: Text(
                   AppLocalizations.of(context).screensaverHint,
                   style: const TextStyle(
+                    fontFamily: BarTabTheme.fontFamily,
                     color: BarTabTheme.muted,
                     fontSize: 20,
                     decoration: TextDecoration.none,
