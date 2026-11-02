@@ -1,0 +1,4 @@
+.superpowers/
+.env
+*.env.local
+legacy/
