@@ -2,3 +2,9 @@
 .env
 *.env.local
 legacy/
+data/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+docker-compose.override.yml
