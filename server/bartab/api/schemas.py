@@ -1,4 +1,8 @@
-from pydantic import BaseModel
+from datetime import datetime
+from typing import Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class AdminSessionRequest(BaseModel):
@@ -49,3 +53,37 @@ class CatalogResponse(BaseModel):
     groups: list[GroupOut]
     drinks: list[DrinkOut]
     etag: str
+
+
+class BookingIn(BaseModel):
+    """Range checks (quantity, price) happen per item in the route, not here."""
+
+    id: UUID
+    person_id: str
+    drink_id: str
+    quantity: int
+    unit_price_cents: int
+    booked_at: datetime
+
+
+class BookingBatchRequest(BaseModel):
+    bookings: list[BookingIn] = Field(min_length=1, max_length=200)
+
+
+class BookingResult(BaseModel):
+    id: str
+    status: Literal["accepted", "duplicate", "conflict", "rejected"]
+    reason: (
+        Literal[
+            "unknown_person",
+            "unknown_drink",
+            "invalid_quantity",
+            "invalid_price",
+            "invalid_booked_at",
+        ]
+        | None
+    ) = None
+
+
+class BookingBatchResponse(BaseModel):
+    results: list[BookingResult]
