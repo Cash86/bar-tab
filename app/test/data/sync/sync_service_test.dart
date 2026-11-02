@@ -128,6 +128,8 @@ class FlakyBookings implements BookingRepository {
   Future<List<Booking>> queued({int limit = 100}) =>
       _inner.queued(limit: limit);
   @override
+  Future<bool> undoHeld(Set<String> ids) => _inner.undoHeld(ids);
+  @override
   Future<void> applyResults(Map<String, BookingStatus> results) =>
       _inner.applyResults(results);
   @override
@@ -622,5 +624,30 @@ void main() {
 
     expect(server.requests, isEmpty);
     await service.dispose();
+  });
+
+  test('held bookings are not posted before the hold expires', () async {
+    final heldUntil = clock.now().add(kUndoWindow);
+    await bookings.addAll([
+      booking('free', minute: 1),
+      booking('held', minute: 2).copyWith(holdUntil: heldUntil),
+    ]);
+
+    clock.advance(const Duration(seconds: 10));
+    await service.syncNow();
+    expect(server.postBatches, [
+      ['free'],
+    ]);
+    expect(await statuses(), {'free': 'accepted', 'held': 'queued'});
+    // Still counted locally while held.
+    expect(await notIncluded(), {'held'});
+
+    clock.advance(const Duration(seconds: 6)); // 16 s after the booking
+    await service.syncNow();
+    expect(server.postBatches, [
+      ['free'],
+      ['held'],
+    ]);
+    expect(await statuses(), {'free': 'accepted', 'held': 'accepted'});
   });
 }

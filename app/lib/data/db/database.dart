@@ -42,6 +42,9 @@ class Bookings extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
+  /// Not uploaded before this time (the undo window); `null` = not held.
+  DateTimeColumn get holdUntil => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -69,13 +72,21 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
-      if (from < 2) await m.createTable(appConfig);
+      // One step per version, so every step can be tested on its own.
+      for (var version = from + 1; version <= to; version++) {
+        switch (version) {
+          case 2:
+            await m.createTable(appConfig);
+          case 3:
+            await m.addColumn(bookings, bookings.holdUntil);
+        }
+      }
     },
   );
 }

@@ -10,7 +10,14 @@ abstract interface class CatalogRepository {
 
 abstract interface class BookingRepository {
   Future<void> addAll(List<Booking> bookings);
+
+  /// Queued bookings whose hold has expired (or that are not held).
   Future<List<Booking>> queued({int limit});
+
+  /// Deletes [ids] in one transaction if every one is still queued and held
+  /// (its `holdUntil` lies in the future); otherwise deletes nothing and
+  /// returns `false`.
+  Future<bool> undoHeld(Set<String> ids);
   Future<void> applyResults(Map<String, BookingStatus> results);
   Future<void> markIncludedInTabs(Set<String> ids);
 

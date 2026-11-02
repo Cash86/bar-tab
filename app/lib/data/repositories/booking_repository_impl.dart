@@ -21,6 +21,7 @@ class BookingRepositoryImpl implements BookingRepository {
     bookedAt: r.bookedAt,
     status: BookingStatus.values.byName(r.status),
     includedInTabs: r.includedInTabs,
+    holdUntil: r.holdUntil,
   );
 
   @override
@@ -39,6 +40,7 @@ class BookingRepositoryImpl implements BookingRepository {
               bookedAt: x.bookedAt.toUtc(),
               status: x.status.name,
               includedInTabs: Value(x.includedInTabs),
+              holdUntil: Value(x.holdUntil?.toUtc()),
               createdAt: now,
               updatedAt: now,
             ),
@@ -49,11 +51,35 @@ class BookingRepositoryImpl implements BookingRepository {
 
   @override
   Future<List<Booking>> queued({int limit = 100}) async {
+    final now = _clock.now();
     final q = _db.select(_db.bookings)
-      ..where((t) => t.status.equals(BookingStatus.queued.name))
+      ..where(
+        (t) =>
+            t.status.equals(BookingStatus.queued.name) &
+            (t.holdUntil.isNull() | t.holdUntil.isSmallerOrEqualValue(now)),
+      )
       ..orderBy([(t) => OrderingTerm.asc(t.bookedAt)])
       ..limit(limit);
     return (await q.get()).map(_toDomain).toList();
+  }
+
+  @override
+  Future<bool> undoHeld(Set<String> ids) async {
+    if (ids.isEmpty) return false;
+    final now = _clock.now();
+    // One transaction: a sync marking them accepted cannot slip in between
+    // the check and the delete.
+    return _db.transaction(() async {
+      Expression<bool> undoable($BookingsTable t) =>
+          t.id.isIn(ids) &
+          t.status.equals(BookingStatus.queued.name) &
+          t.holdUntil.isBiggerThanValue(now);
+      final count = _db.bookings.id.count(filter: undoable(_db.bookings));
+      final q = _db.selectOnly(_db.bookings)..addColumns([count]);
+      if ((await q.getSingle()).read(count) != ids.length) return false;
+      await (_db.delete(_db.bookings)..where(undoable)).go();
+      return true;
+    });
   }
 
   @override

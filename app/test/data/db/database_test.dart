@@ -1,11 +1,12 @@
 import 'package:bar_tab/data/db/database.dart';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'generated/schema.dart';
 import 'generated/schema_v1.dart' as v1;
+import 'generated/schema_v2.dart' as v2;
 
 void main() {
   late SchemaVerifier verifier;
@@ -51,6 +52,45 @@ void main() {
     expect((await db.select(db.bookings).getSingle()).id, 'b1');
     expect((await db.select(db.catalogCache).getSingle()).etag, 'e1');
     expect(await db.select(db.appConfig).get(), isEmpty);
+  });
+
+  test('a fresh schema v3 database matches the committed dump', () async {
+    final connection = await verifier.startAt(3);
+    final db = AppDatabase(connection);
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 3);
+  });
+
+  test('migrating v2 to v3 adds holdUntil and keeps rows and config', () async {
+    final schema = await verifier.schemaAt(2);
+    final old = v2.DatabaseAtV2(schema.newConnection());
+    await old.customStatement(
+      "INSERT INTO bookings (id, person_id, drink_id, quantity, "
+      "unit_price_cents, booked_at, status, included_in_tabs, created_at, "
+      "updated_at) VALUES ('b1', 'p1', 'd1', 2, 250, "
+      "'2026-11-02T18:30:15.000Z', 'queued', 0, '2026-11-02T18:30:15.000Z', "
+      "'2026-11-02T18:30:15.000Z')",
+    );
+    await old.customStatement(
+      "INSERT INTO app_config (key, value) VALUES ('server_url', 'https://bar.example')",
+    );
+    await old.customStatement(
+      "INSERT INTO tabs (person_id, cents, fetched_at) VALUES ('p1', 5, '2026-11-02T18:30:15.000Z')",
+    );
+    await old.close();
+
+    final db = AppDatabase(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 3);
+    final booking = await db.select(db.bookings).getSingle();
+    expect(booking.id, 'b1');
+    expect(booking.quantity, 2);
+    expect(booking.status, 'queued');
+    // Existing bookings are not held: the next sync uploads them.
+    expect(booking.holdUntil, isNull);
+    final config = await db.select(db.appConfig).getSingle();
+    expect((config.key, config.value), ('server_url', 'https://bar.example'));
+    expect((await db.select(db.tabs).getSingle()).personId, 'p1');
   });
 
   test('UTC DateTime values round-trip as UTC', () async {

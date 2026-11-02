@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:bar_tab/data/repositories/server_config_repository_impl.dart';
 import 'package:bar_tab/data/sync/sync_service.dart';
 import 'package:bar_tab/domain/booking.dart';
+import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/domain/repositories.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:http/http.dart' as http;
@@ -82,9 +83,16 @@ http.Response catalogResponse() => http.Response(
 );
 
 /// In-memory booking store; `watchNotIncluded` emits the current list on
-/// listen and after every write.
+/// listen and after every write. Holds are judged against [clock].
 class FakeBookingRepository implements BookingRepository {
+  FakeBookingRepository({Clock? clock})
+    : clock = clock ?? FixedClock(DateTime.utc(2026, 11, 2, 21));
+
+  final Clock clock;
   final bookings = <Booking>[];
+
+  /// Every `undoHeld` call's ids, in order.
+  final undoCalls = <Set<String>>[];
 
   /// When set, `addAll` throws it (simulates a database failure).
   Object? addAllError;
@@ -116,11 +124,30 @@ class FakeBookingRepository implements BookingRepository {
     });
   }
 
+  bool _held(Booking b) {
+    final until = b.holdUntil;
+    return until != null && until.isAfter(clock.now());
+  }
+
   @override
   Future<List<Booking>> queued({int limit = 200}) async => [
     for (final b in bookings)
-      if (b.status == BookingStatus.queued) b,
+      if (b.status == BookingStatus.queued && !_held(b)) b,
   ].take(limit).toList();
+
+  @override
+  Future<bool> undoHeld(Set<String> ids) async {
+    undoCalls.add(ids);
+    final matching = [
+      for (final b in bookings)
+        if (ids.contains(b.id) && b.status == BookingStatus.queued && _held(b))
+          b,
+    ];
+    if (ids.isEmpty || matching.length != ids.length) return false;
+    bookings.removeWhere((b) => ids.contains(b.id));
+    _changed.add(null);
+    return true;
+  }
 
   @override
   Future<void> applyResults(Map<String, BookingStatus> results) async {}

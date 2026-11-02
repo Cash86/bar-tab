@@ -11,6 +11,7 @@ Booking booking(
   String personId = 'p1',
   int minute = 0,
   BookingStatus status = BookingStatus.queued,
+  DateTime? holdUntil,
 }) => Booking(
   id: id,
   personId: personId,
@@ -20,6 +21,7 @@ Booking booking(
   bookedAt: DateTime.utc(2026, 11, 2, 18, minute),
   status: status,
   includedInTabs: false,
+  holdUntil: holdUntil,
 );
 
 void main() {
@@ -180,4 +182,88 @@ void main() {
       expect(await repo.acceptedNotIncludedIds(), {'a', 'f'});
     },
   );
+
+  group('undo window', () {
+    // The clock starts at 19:00; held bookings are held until 19:00:15.
+    final until = DateTime.utc(2026, 11, 2, 19, 0, 15);
+
+    test('holdUntil round-trips', () async {
+      await repo.addAll([booking('a', holdUntil: until)]);
+      final got = (await repo.watchNotIncluded('p1').first).single;
+      expect(got, booking('a', holdUntil: until));
+      expect(got.holdUntil!.isUtc, isTrue);
+    });
+
+    test('queued excludes held bookings until the hold expires', () async {
+      await repo.addAll([
+        booking('free', minute: 1),
+        booking('held', minute: 2, holdUntil: until),
+      ]);
+      expect((await repo.queued()).map((b) => b.id), ['free']);
+      clock.advance(const Duration(seconds: 14, milliseconds: 999));
+      expect((await repo.queued()).map((b) => b.id), ['free']);
+      clock.advance(const Duration(milliseconds: 1));
+      expect((await repo.queued()).map((b) => b.id), ['free', 'held']);
+    });
+
+    test('held bookings count in the not-included list at once', () async {
+      await repo.addAll([booking('held', holdUntil: until)]);
+      final got = await repo.watchNotIncluded('p1').first;
+      expect(got.map((b) => b.id), ['held']);
+    });
+
+    test('undo inside the window deletes the bookings', () async {
+      await repo.addAll([
+        booking('a', holdUntil: until),
+        booking('b', holdUntil: until),
+        booking('other', holdUntil: until),
+      ]);
+      clock.advance(const Duration(seconds: 14));
+      expect(await repo.undoHeld({'a', 'b'}), isTrue);
+      final rows = await db.select(db.bookings).get();
+      expect(rows.map((r) => r.id), ['other']);
+    });
+
+    test('undo after the hold expired deletes nothing', () async {
+      await repo.addAll([booking('a', holdUntil: until)]);
+      clock.advance(const Duration(seconds: 15));
+      expect(await repo.undoHeld({'a'}), isFalse);
+      expect((await db.select(db.bookings).get()).map((r) => r.id), ['a']);
+    });
+
+    test('undo after a sync pushed the bookings is impossible', () async {
+      await repo.addAll([booking('a', holdUntil: until)]);
+      // Only reachable after the hold, but even a pushed held booking must
+      // never be deleted.
+      await repo.applyResults({'a': BookingStatus.accepted});
+      expect(await repo.undoHeld({'a'}), isFalse);
+      final row = await db.select(db.bookings).getSingle();
+      expect(row.status, 'accepted');
+    });
+
+    test('a partly matching set deletes nothing', () async {
+      await repo.addAll([
+        booking('held', holdUntil: until),
+        booking('free'),
+        booking('expired', holdUntil: DateTime.utc(2026, 11, 2, 18, 59)),
+      ]);
+      for (final ids in [
+        {'held', 'free'},
+        {'held', 'expired'},
+        {'held', 'ghost'},
+      ]) {
+        expect(await repo.undoHeld(ids), isFalse, reason: '$ids');
+      }
+      expect(
+        (await db.select(db.bookings).get()).map((r) => r.id),
+        unorderedEquals(['held', 'free', 'expired']),
+      );
+    });
+
+    test('undo of an empty set does nothing', () async {
+      await repo.addAll([booking('a', holdUntil: until)]);
+      expect(await repo.undoHeld({}), isFalse);
+      expect(await db.select(db.bookings).get(), hasLength(1));
+    });
+  });
 }
