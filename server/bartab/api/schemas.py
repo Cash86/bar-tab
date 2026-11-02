@@ -87,3 +87,8 @@ class BookingResult(BaseModel):
 
 class BookingBatchResponse(BaseModel):
     results: list[BookingResult]
+
+
+class TabsResponse(BaseModel):
+    period_started_at: datetime
+    tabs: dict[str, int]  # person_id -> cents

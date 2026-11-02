@@ -5,10 +5,21 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from bartab.api.deps import get_clock, get_session, require_device
-from bartab.api.schemas import BookingBatchRequest, BookingBatchResponse, BookingIn, BookingResult
+from bartab.api.schemas import (
+    BookingBatchRequest,
+    BookingBatchResponse,
+    BookingIn,
+    BookingResult,
+    TabsResponse,
+)
 from bartab.domain.clock import Clock
 from bartab.persistence.models import Booking, Drink, Person
-from bartab.persistence.repos import add_booking, get_booking
+from bartab.persistence.repos import (
+    add_booking,
+    ensure_open_period,
+    get_booking,
+    tabs_for_open_period,
+)
 
 router = APIRouter()
 
@@ -95,3 +106,16 @@ def post_bookings(
     for item in body.bookings:
         results.append(_process(item, session, device_id, clock))
     return BookingBatchResponse(results=results)
+
+
+@router.get("/tabs", response_model=TabsResponse)
+def get_tabs(
+    _device_id: str = Depends(require_device),
+    session: Session = Depends(get_session),
+    clock: Clock = Depends(get_clock),
+) -> TabsResponse:
+    period = ensure_open_period(session, clock)
+    started_at = period.started_at
+    if started_at.tzinfo is None:  # SQLite returns naive datetimes; stored values are UTC
+        started_at = started_at.replace(tzinfo=UTC)
+    return TabsResponse(period_started_at=started_at, tabs=tabs_for_open_period(session))
