@@ -11,7 +11,11 @@ void main() {
   late int more;
   late int book;
 
-  Future<void> pump(WidgetTester tester, {int initial = 3}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    int initial = 3,
+    int? crateSize = 20,
+  }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -36,7 +40,7 @@ void main() {
               builder: (context, setState) => QuantitySheet(
                 drinkName: 'Lemon Fizz',
                 unitPriceCents: 115,
-                crateSize: 20,
+                crateSize: crateSize,
                 quantity: quantity,
                 // Another line of 2,00 € plus this one.
                 orderTotalCents: 200 + quantity * 115,
@@ -153,5 +157,24 @@ void main() {
     for (final k in [...List.generate(10, (i) => '$i'), 'crate', 'backspace']) {
       expect(find.byKey(Key('keypad-$k')), findsOneWidget, reason: k);
     }
+  });
+
+  testWidgets('after the crate key the next digit starts fresh', (
+    tester,
+  ) async {
+    await pump(tester);
+    await press(tester, 'crate');
+    expect(quantity, 20);
+    await press(tester, '2');
+    expect(quantity, 2);
+    await press(tester, '4');
+    expect(quantity, 24);
+  });
+
+  testWidgets('without a crate size there is no crate key', (tester) async {
+    await pump(tester, crateSize: null);
+    expect(find.byKey(const Key('keypad-crate')), findsNothing);
+    expect(find.textContaining('Kasten'), findsNothing);
+    expect(find.byKey(const Key('keypad-0')), findsOneWidget);
   });
 }

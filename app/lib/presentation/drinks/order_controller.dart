@@ -24,6 +24,7 @@ class OrderState {
     this.sheetQuantity = 0,
     this.secondsLeft = 0,
     this.booked,
+    this.saveFailed = false,
   });
 
   final OrderDraft draft;
@@ -40,6 +41,10 @@ class OrderState {
   /// The draft written by the last successful commit: the screen leaves.
   final OrderDraft? booked;
 
+  /// The last attempt to write this order failed; it is retried after
+  /// [kAutoBookDelay].
+  final bool saveFailed;
+
   /// [draft] with the open sheet's quantity applied (a 0 removes the line).
   OrderDraft get effectiveDraft {
     final id = sheetDrinkId;
@@ -52,12 +57,14 @@ class OrderState {
     int? sheetQuantity,
     int? secondsLeft,
     OrderDraft? Function()? booked,
+    bool? saveFailed,
   }) => OrderState(
     draft: draft ?? this.draft,
     sheetDrinkId: sheetDrinkId != null ? sheetDrinkId() : this.sheetDrinkId,
     sheetQuantity: sheetQuantity ?? this.sheetQuantity,
     secondsLeft: secondsLeft ?? this.secondsLeft,
     booked: booked != null ? booked() : this.booked,
+    saveFailed: saveFailed ?? this.saveFailed,
   );
 }
 
@@ -69,6 +76,9 @@ class OrderController extends Notifier<OrderState> {
   final String personId;
   Timer? _timer;
 
+  /// A commit is being written; edits are ignored until it is done.
+  bool _committing = false;
+
   @override
   OrderState build() {
     ref.onDispose(_cancelTimer);
@@ -78,7 +88,7 @@ class OrderController extends Notifier<OrderState> {
   /// Adds one of [drinkId]; [unitPriceCents] is kept from the first tap.
   /// The 3rd tap opens the quantity sheet.
   void tap(String drinkId, int unitPriceCents) {
-    if (state.sheetDrinkId != null) return;
+    if (_committing || state.sheetDrinkId != null) return;
     final result = state.draft.tap(drinkId, unitPriceCents);
     state = state._copy(draft: result.draft);
     if (result.openQuantitySheet) {
@@ -89,6 +99,7 @@ class OrderController extends Notifier<OrderState> {
   }
 
   void openSheet(String drinkId) {
+    if (_committing) return;
     final line = state.draft.lines.firstWhere((l) => l.drinkId == drinkId);
     _cancelTimer();
     state = state._copy(
@@ -99,7 +110,7 @@ class OrderController extends Notifier<OrderState> {
 
   /// Sets the quantity in the open sheet (0..999).
   void setQuantity(int quantity) {
-    if (state.sheetDrinkId == null) return;
+    if (_committing || state.sheetDrinkId == null) return;
     if (quantity < 0 || quantity > maxLineQuantity) {
       throw ArgumentError.value(quantity, 'quantity', 'must be 0..999');
     }
@@ -108,19 +119,25 @@ class OrderController extends Notifier<OrderState> {
 
   /// Applies the sheet quantity, closes the sheet and restarts the timer.
   void closeSheet() {
-    if (state.sheetDrinkId == null) return;
-    state = OrderState(draft: state.effectiveDraft);
+    if (_committing || state.sheetDrinkId == null) return;
+    state = OrderState(
+      draft: state.effectiveDraft,
+      saveFailed: state.saveFailed,
+    );
     _restartTimer();
   }
 
   void discard() {
+    if (_committing) return;
     _cancelTimer();
     state = OrderState(draft: OrderDraft.empty(personId));
   }
 
   /// Books every line (open sheet included) and triggers a sync. Does
-  /// nothing for an empty order. If the write fails the order is kept.
+  /// nothing for an empty order or while a commit is running. If the write
+  /// fails the order is kept and retried after [kAutoBookDelay].
   Future<void> commit() async {
+    if (_committing) return;
     _cancelTimer();
     final draft = state.effectiveDraft;
     state = OrderState(draft: OrderDraft.empty(personId));
@@ -142,14 +159,18 @@ class OrderController extends Notifier<OrderState> {
     ];
     final repository = ref.read(bookingRepositoryProvider);
     final sync = ref.read(syncServiceProvider);
+    _committing = true;
     try {
       await repository.addAll(bookings);
     } on Object catch (e, st) {
       _log.severe('Writing the order failed', e, st);
-      if (ref.mounted && state.draft.isEmpty) {
-        state = state._copy(draft: draft);
+      if (ref.mounted) {
+        state = OrderState(draft: draft, saveFailed: true);
+        _restartTimer();
       }
       return;
+    } finally {
+      _committing = false;
     }
     if (sync != null) {
       unawaited(

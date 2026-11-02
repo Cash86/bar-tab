@@ -5,7 +5,8 @@ import '../theme.dart';
 const Color _keyColor = Color(0xFFE2D8C4);
 
 /// In-app number pad: 1–9, a crate key, 0 and backspace. Avoids the system
-/// keyboard covering the drink tiles.
+/// keyboard covering the drink tiles. Without [crateLabel] the crate key is
+/// left out.
 class Keypad extends StatelessWidget {
   const Keypad({
     required this.crateLabel,
@@ -15,7 +16,7 @@ class Keypad extends StatelessWidget {
     super.key,
   });
 
-  final String crateLabel;
+  final String? crateLabel;
   final ValueChanged<int> onDigit;
   final VoidCallback onCrate;
   final VoidCallback onBackspace;
@@ -32,11 +33,14 @@ class Keypad extends StatelessWidget {
       [digit(4), digit(5), digit(6)],
       [digit(7), digit(8), digit(9)],
       [
-        _Key(
-          key: const Key('keypad-crate'),
-          onTap: onCrate,
-          child: Text(crateLabel, style: _style(18)),
-        ),
+        if (crateLabel case final label?)
+          _Key(
+            key: const Key('keypad-crate'),
+            onTap: onCrate,
+            child: Text(label, style: _style(18)),
+          )
+        else
+          const SizedBox.shrink(),
         digit(0),
         _Key(
           key: const Key('keypad-backspace'),

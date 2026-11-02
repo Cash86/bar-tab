@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/presentation/drinks/order_controller.dart';
@@ -221,6 +223,45 @@ void main() {
       expect(stateOf(c).draft.lines.single.drinkId, 'd1');
       expect(stateOf(c).booked, isNull);
       expect(sync.syncNowCalls, 0);
+    });
+  });
+
+  test('a failed write is retried 8 s later', () {
+    bookings.addAllError = StateError('disk full');
+    run((async, controller, c) {
+      controller.tap('d1', 115);
+      controller.commit();
+      async.flushMicrotasks();
+      expect(stateOf(c).saveFailed, isTrue);
+      expect(stateOf(c).secondsLeft, 8);
+
+      bookings.addAllError = null;
+      async.elapse(const Duration(milliseconds: 7999));
+      expect(bookings.bookings, isEmpty);
+      async.elapse(const Duration(milliseconds: 1));
+      expect(bookings.bookings.single.drinkId, 'd1');
+      expect(stateOf(c).saveFailed, isFalse);
+      expect(stateOf(c).booked, isNotNull);
+    });
+  });
+
+  test('taps while a commit is being written are ignored', () {
+    run((async, controller, c) {
+      // Created in the fake zone so its completion runs in fake time.
+      final gate = Completer<void>();
+      bookings.addAllGate = gate;
+      controller.tap('d1', 115);
+      controller.commit();
+      async.flushMicrotasks();
+      controller.tap('d2', 60);
+      controller.commit();
+      expect(stateOf(c).draft.isEmpty, isTrue);
+
+      gate.complete();
+      async.flushMicrotasks();
+      expect(bookings.bookings.map((b) => b.drinkId), ['d1']);
+      expect(stateOf(c).booked!.lines.single.drinkId, 'd1');
+      expect(sync.syncNowCalls, 1);
     });
   });
 }

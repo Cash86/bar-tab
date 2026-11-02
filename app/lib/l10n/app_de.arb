@@ -43,6 +43,10 @@
   "@orderBarCountdown": {
     "placeholders": {"seconds": {"type": "int"}}
   },
+  "orderBarRetrying": "Speichern fehlgeschlagen – neuer Versuch …",
+  "@orderBarRetrying": {
+    "description": "Replaces the countdown after writing the order failed; it is retried automatically."
+  },
   "orderBarDiscard": "Verwerfen",
   "orderBarDone": "Fertig",
   "quantitySheetUnitPrice": "Anzahl, je {price}",

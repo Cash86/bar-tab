@@ -10,7 +10,8 @@ import 'order_bar.dart';
 /// Side sheet to set one drink's quantity with −/+ and an in-app keypad.
 ///
 /// The first keypad press after opening replaces the number, later presses
-/// append; the number stays within 0..999.
+/// append; the crate key also lets the next digit start fresh. The number
+/// stays within 0..999.
 class QuantitySheet extends StatefulWidget {
   const QuantitySheet({
     required this.drinkName,
@@ -31,7 +32,9 @@ class QuantitySheet extends StatefulWidget {
 
   final String drinkName;
   final int unitPriceCents;
-  final int crateSize;
+
+  /// `null` hides the crate key (e.g. the drink left the catalog).
+  final int? crateSize;
   final int quantity;
 
   /// Total of the whole order with [quantity] applied.
@@ -58,6 +61,13 @@ class _QuantitySheetState extends State<QuantitySheet> {
     final next = widget.quantity * 10 + d;
     if (next > maxLineQuantity) return;
     _set(next);
+  }
+
+  void _crate() {
+    final size = widget.crateSize;
+    if (size == null) return;
+    _set(size);
+    _fresh = true;
   }
 
   @override
@@ -133,9 +143,12 @@ class _QuantitySheetState extends State<QuantitySheet> {
           const SizedBox(height: 14),
           Expanded(
             child: Keypad(
-              crateLabel: l10n.quantitySheetCrate(widget.crateSize),
+              crateLabel: switch (widget.crateSize) {
+                final size? => l10n.quantitySheetCrate(size),
+                null => null,
+              },
               onDigit: _digit,
-              onCrate: () => _set(widget.crateSize),
+              onCrate: _crate,
               onBackspace: () => _set(widget.quantity ~/ 10),
             ),
           ),

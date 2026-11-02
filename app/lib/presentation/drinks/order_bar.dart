@@ -22,6 +22,7 @@ class OrderBar extends StatelessWidget {
     required this.totalCents,
     required this.secondsLeft,
     required this.onDiscard,
+    this.saveFailed = false,
     required this.onDone,
     super.key,
   });
@@ -29,6 +30,9 @@ class OrderBar extends StatelessWidget {
   final String summary;
   final int totalCents;
   final int secondsLeft;
+
+  /// Shows the retry hint instead of the countdown.
+  final bool saveFailed;
   final VoidCallback onDiscard;
   final VoidCallback onDone;
 
@@ -65,7 +69,9 @@ class OrderBar extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        l10n.orderBarCountdown(secondsLeft),
+                        saveFailed
+                            ? l10n.orderBarRetrying
+                            : l10n.orderBarCountdown(secondsLeft),
                         style: const TextStyle(color: text, fontSize: 15),
                       ),
                     ],

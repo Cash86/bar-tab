@@ -82,10 +82,14 @@ class FakeBookingRepository implements BookingRepository {
   /// When set, `addAll` throws it (simulates a database failure).
   Object? addAllError;
 
+  /// When set, `addAll` waits for it before writing (a slow database).
+  Completer<void>? addAllGate;
+
   final _changed = StreamController<void>.broadcast();
 
   @override
   Future<void> addAll(List<Booking> bookings) async {
+    await addAllGate?.future;
     final error = addAllError;
     if (error != null) throw error;
     this.bookings.addAll(bookings);

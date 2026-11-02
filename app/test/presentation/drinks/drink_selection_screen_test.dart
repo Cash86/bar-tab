@@ -485,4 +485,77 @@ void main() {
     // Disposing the tree must not leave the 3 s timer pending.
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('system back books a pending order, then returns', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await open(tester, 'Kim Example');
+    await tapDrink(tester, 'd2');
+    await tester.binding.handlePopRoute();
+    await settleRoute(tester);
+    expect(bookings.bookings.single.drinkId, 'd2');
+    expectOnNameList();
+    expect(find.text('Gebucht: 1× Wheat'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('system back with nothing tapped just returns', (tester) async {
+    await pumpApp(tester);
+    await open(tester, 'Kim Example');
+    await tester.binding.handlePopRoute();
+    await settleRoute(tester);
+    expect(bookings.bookings, isEmpty);
+    expectOnNameList();
+  });
+
+  testWidgets('a failed write shows a retry hint and is retried', (
+    tester,
+  ) async {
+    bookings.addAllError = StateError('disk full');
+    await pumpApp(tester);
+    await open(tester, 'Kim Example');
+    await tapDrink(tester, 'd1');
+    await tester.tap(find.text('Fertig'));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.text('Speichern fehlgeschlagen – neuer Versuch …'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Sekunde'), findsNothing);
+    expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+
+    bookings.addAllError = null;
+    await tester.pump(const Duration(seconds: 8));
+    await settleRoute(tester);
+    expect(bookings.bookings.single.drinkId, 'd1');
+    expectOnNameList();
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('sheet hides the crate key when the drink left the catalog', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await open(tester, 'Kim Example');
+    await tapDrink(tester, 'd1', 3);
+    expect(find.text('Kasten (20)'), findsOneWidget);
+
+    final full = testCatalog();
+    catalog = full.copyWith(
+      drinks: [
+        for (final d in full.drinks)
+          if (d.id != 'd1') d,
+      ],
+    );
+    ProviderScope.containerOf(
+      tester.element(find.byType(DrinkSelectionScreen)),
+    ).invalidate(catalogProvider);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(QuantitySheet), findsOneWidget);
+    expect(find.byKey(const Key('keypad-crate')), findsNothing);
+    expect(find.textContaining('Kasten'), findsNothing);
+  });
 }

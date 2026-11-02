@@ -92,69 +92,77 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
     final draft = order.effectiveDraft;
     final sheetId = order.sheetDrinkId;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(33, 22, 33, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _Header(
-                    person: person,
-                    tierName: catalog?.tiers
-                        .where((t) => t.id == person?.priceTierId)
-                        .firstOrNull
-                        ?.name,
-                    onOtherPerson: _otherPerson,
-                  ),
-                  if (catalog != null && person != null)
-                    Expanded(
-                      child: _Groups(
-                        catalog: catalog,
-                        person: person,
-                        quantities: {
-                          for (final l in draft.lines) l.drinkId: l.quantity,
-                        },
-                        onTap: (drink, price) =>
-                            _controller.tap(drink.id, price),
-                      ),
+    // System back leaves like "Andere Person": a pending order is booked.
+    return PopScope<OrderDraft>(
+      canPop: draft.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _otherPerson();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(33, 22, 33, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _Header(
+                      person: person,
+                      tierName: catalog?.tiers
+                          .where((t) => t.id == person?.priceTierId)
+                          .firstOrNull
+                          ?.name,
+                      onOtherPerson: _otherPerson,
                     ),
-                ],
+                    if (catalog != null && person != null)
+                      Expanded(
+                        child: _Groups(
+                          catalog: catalog,
+                          person: person,
+                          quantities: {
+                            for (final l in draft.lines) l.drinkId: l.quantity,
+                          },
+                          onTap: (drink, price) =>
+                              _controller.tap(drink.id, price),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            if (!order.draft.isEmpty && sheetId == null)
-              Positioned(
-                left: 33,
-                right: 33,
-                bottom: 24,
-                child: OrderBar(
-                  summary: orderSummary(
-                    AppLocalizations.of(context),
-                    order.draft,
-                    catalog,
+              if (!order.draft.isEmpty && sheetId == null)
+                Positioned(
+                  left: 33,
+                  right: 33,
+                  bottom: 24,
+                  child: OrderBar(
+                    summary: orderSummary(
+                      AppLocalizations.of(context),
+                      order.draft,
+                      catalog,
+                    ),
+                    totalCents: order.draft.totalCents,
+                    secondsLeft: order.secondsLeft,
+                    saveFailed: order.saveFailed,
+                    onDiscard: _controller.discard,
+                    onDone: () => unawaited(_controller.commit()),
                   ),
-                  totalCents: order.draft.totalCents,
-                  secondsLeft: order.secondsLeft,
-                  onDiscard: _controller.discard,
-                  onDone: () => unawaited(_controller.commit()),
                 ),
-              ),
-            if (sheetId != null) ...[
-              const Positioned.fill(
-                child: AbsorbPointer(
-                  child: ColoredBox(color: Color(0x9916302A)),
+              if (sheetId != null) ...[
+                const Positioned.fill(
+                  child: AbsorbPointer(
+                    child: ColoredBox(color: Color(0x9916302A)),
+                  ),
                 ),
-              ),
-              Positioned(
-                top: 0,
-                right: 0,
-                bottom: 0,
-                child: _sheet(catalog, order, sheetId),
-              ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _sheet(catalog, order, sheetId),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -170,7 +178,7 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
       key: ValueKey(drinkId),
       drinkName: drink?.name ?? '',
       unitPriceCents: line.unitPriceCents,
-      crateSize: drink?.crateSize ?? 0,
+      crateSize: drink?.crateSize,
       quantity: order.sheetQuantity,
       orderTotalCents: order.effectiveDraft.totalCents,
       accent: group != null ? Color(group.color) : BarTabTheme.bottle3,
