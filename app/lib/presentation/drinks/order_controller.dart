@@ -50,6 +50,7 @@ class OrderState {
     this.sheetDrinkId,
     this.sheetQuantity = 0,
     this.secondsLeft = 0,
+    this.countdownRun = 0,
     this.booked,
     this.saveFailed = false,
     this.committing = false,
@@ -66,6 +67,10 @@ class OrderState {
 
   /// Whole seconds until the auto-booking; only meaningful while counting.
   final int secondsLeft;
+
+  /// Changes on every (re)start of the countdown, not on its ticks: the
+  /// countdown bar refills and drains over [kAutoBookDelay] for each run.
+  final int countdownRun;
 
   /// The order written by the last successful commit: the screen leaves.
   final BookedOrder? booked;
@@ -93,6 +98,7 @@ class OrderState {
     String? Function()? sheetDrinkId,
     int? sheetQuantity,
     int? secondsLeft,
+    int? countdownRun,
     BookedOrder? Function()? booked,
     bool? saveFailed,
     bool? committing,
@@ -102,6 +108,7 @@ class OrderState {
     sheetDrinkId: sheetDrinkId != null ? sheetDrinkId() : this.sheetDrinkId,
     sheetQuantity: sheetQuantity ?? this.sheetQuantity,
     secondsLeft: secondsLeft ?? this.secondsLeft,
+    countdownRun: countdownRun ?? this.countdownRun,
     booked: booked != null ? booked() : this.booked,
     saveFailed: saveFailed ?? this.saveFailed,
     committing: committing ?? this.committing,
@@ -117,6 +124,7 @@ class OrderController extends Notifier<OrderState> {
   final String personId;
   Timer? _timer;
   Timer? _idleTimer;
+  int _runs = 0;
 
   @override
   OrderState build() {
@@ -265,7 +273,10 @@ class OrderController extends Notifier<OrderState> {
       _startEmptyIdle();
       return;
     }
-    state = state._copy(secondsLeft: kAutoBookDelay.inSeconds);
+    state = state._copy(
+      secondsLeft: kAutoBookDelay.inSeconds,
+      countdownRun: ++_runs,
+    );
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       final left = state.secondsLeft - 1;
       if (left <= 0) {

@@ -99,6 +99,22 @@ void main() {
     });
   });
 
+  test('every countdown restart gets a new run, ticks keep it', () {
+    run((async, controller, c) {
+      controller.tap('d1', 115);
+      final first = stateOf(c).countdownRun;
+      async.elapse(const Duration(seconds: 1));
+      expect(stateOf(c).countdownRun, first);
+      controller.tap('d2', 60);
+      final second = stateOf(c).countdownRun;
+      expect(second, isNot(first));
+      controller.tap('d1', 115);
+      controller.tap('d1', 115); // opens the sheet
+      controller.closeSheet();
+      expect(stateOf(c).countdownRun, isNot(second));
+    });
+  });
+
   test('the 3rd tap opens the sheet, which pauses the timer', () {
     run((async, controller, c) {
       controller.tap('d1', 115);

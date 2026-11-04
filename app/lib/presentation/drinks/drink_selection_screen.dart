@@ -155,6 +155,7 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
                       ),
                       totalCents: order.draft.totalCents,
                       secondsLeft: order.secondsLeft,
+                      countdownRun: order.countdownRun,
                       saveFailed: order.saveFailed,
                       onDiscard: _controller.discard,
                       onDone: () => unawaited(_controller.commit()),

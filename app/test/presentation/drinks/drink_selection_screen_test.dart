@@ -302,6 +302,41 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets(
+    'the countdown bar drains evenly from full and a tap refills it',
+    (tester) async {
+      await pumpApp(tester);
+      await open(tester, 'Kim Example');
+      await tapDrink(tester, 'd1');
+      final track = find.byKey(const Key('order-bar-progress'));
+      final fill = find
+          .descendant(of: track, matching: find.byType(ColoredBox))
+          .last;
+      double fraction() =>
+          tester.getSize(fill).width / tester.getSize(track).width;
+
+      expect(fraction(), closeTo(1, 0.01));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(fraction(), closeTo(0.9, 0.02));
+      await tester.pump(const Duration(milliseconds: 2000));
+      expect(fraction(), closeTo(0.5, 0.02));
+
+      await tapDrink(tester, 'd3');
+      expect(fraction(), closeTo(1, 0.01));
+      await tester.pump(const Duration(milliseconds: 2500));
+      expect(fraction(), closeTo(0.5, 0.02));
+      await tester.pump(const Duration(milliseconds: 2400));
+      expect(fraction(), closeTo(0.02, 0.02));
+      expect(bookings.bookings, isEmpty);
+
+      await tester.pump(const Duration(milliseconds: 100));
+      await settleRoute(tester);
+      expect(find.byType(OrderBar), findsNothing);
+      expect(bookings.bookings, hasLength(2));
+      await outlastUndoWindow(tester);
+    },
+  );
+
   testWidgets('Verwerfen clears the bar and books nothing', (tester) async {
     await pumpApp(tester);
     await open(tester, 'Kim Example');

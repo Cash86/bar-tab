@@ -127,7 +127,8 @@ rail and as an accent on its tiles, condensed type for names, prices only on dri
   whole order cannot be thrown away by accident. Quantity 0 removes that drink from the order.
 - **5 seconds after the last tap** the pending order is booked automatically and the app returns
   to the name list (decided 2026-11-02, was 8 seconds); "Fertig" books immediately. A thick bar
-  across the order bar drains towards the booking. Every tap restarts the 5 seconds. While the
+  across the order bar starts full and drains continuously towards the booking. Every tap
+  restarts the 5 seconds and refills the bar. While the
   quantity sheet is open, the timer is paused (decided, see §12), with a 30-second idle close: an
   open sheet left untouched for 30 seconds closes and keeps its quantity, and the 5-second
   auto-booking then runs.

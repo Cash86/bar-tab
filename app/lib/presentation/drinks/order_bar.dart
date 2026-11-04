@@ -21,6 +21,7 @@ class OrderBar extends StatelessWidget {
     required this.summary,
     required this.totalCents,
     required this.secondsLeft,
+    required this.countdownRun,
     required this.onDiscard,
     this.saveFailed = false,
     required this.onDone,
@@ -31,6 +32,9 @@ class OrderBar extends StatelessWidget {
   final int totalCents;
   final int secondsLeft;
 
+  /// A new value refills the countdown bar (see [OrderState.countdownRun]).
+  final int countdownRun;
+
   /// Shows the retry hint instead of the countdown.
   final bool saveFailed;
   final VoidCallback onDiscard;
@@ -40,7 +44,6 @@ class OrderBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     const text = BarTabTheme.bottle;
-    final delay = kAutoBookDelay.inSeconds;
     return Material(
       color: BarTabTheme.paper,
       borderRadius: BorderRadius.circular(15),
@@ -102,25 +105,71 @@ class OrderBar extends StatelessWidget {
               ],
             ),
           ),
-          // Drains towards the auto-booking, one step per second; thick and
-          // full width so it is clear the order books by itself.
+          // Thick and full width so it is clear the order books by itself.
           Positioned(
             key: const Key('order-bar-progress'),
             left: 0,
             right: 0,
             bottom: 0,
             height: 12,
-            child: ColoredBox(
-              color: text.withValues(alpha: 0.15),
-              child: AnimatedFractionallySizedBox(
-                duration: const Duration(seconds: 1),
-                alignment: Alignment.centerLeft,
-                widthFactor: ((secondsLeft - 1) / delay).clamp(0.0, 1.0),
-                child: const ColoredBox(color: text),
-              ),
-            ),
+            child: _CountdownStrip(run: countdownRun),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Starts full for every countdown run and drains continuously to empty
+/// over [kAutoBookDelay], when the order books.
+class _CountdownStrip extends StatefulWidget {
+  const _CountdownStrip({required this.run});
+
+  final int run;
+
+  @override
+  State<_CountdownStrip> createState() => _CountdownStripState();
+}
+
+class _CountdownStripState extends State<_CountdownStrip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _drain = AnimationController(
+    vsync: this,
+    duration: kAutoBookDelay,
+    value: 1,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _drain.reverse(from: 1);
+  }
+
+  @override
+  void didUpdateWidget(_CountdownStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.run != oldWidget.run) _drain.reverse(from: 1);
+  }
+
+  @override
+  void dispose() {
+    _drain.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const color = BarTabTheme.bottle;
+    return ColoredBox(
+      color: color.withValues(alpha: 0.15),
+      child: AnimatedBuilder(
+        animation: _drain,
+        builder: (context, child) => FractionallySizedBox(
+          alignment: Alignment.centerLeft,
+          widthFactor: _drain.value,
+          child: child,
+        ),
+        child: const ColoredBox(color: color),
       ),
     );
   }
