@@ -222,6 +222,31 @@ void main() {
       await outlastUndoWindow(tester);
     });
 
+    testWidgets(
+      'a tap right after a quick booking does not open another person',
+      (tester) async {
+        await pumpApp(tester, rankings: rankings);
+        await open(tester, 'Kim Example');
+
+        await tester.tap(quick('d1'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100)); // popping
+        await tester.tap(find.text('Lou Sample'), warnIfMissed: false);
+        await tester.pump();
+        await settleRoute(tester);
+        expectOnNameList();
+        expect(find.byType(DrinkSelectionScreen), findsNothing);
+
+        await tester.pump(kReturnTapGuard);
+        await tester.tap(find.text('Lou Sample'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+        expect(find.text('Guests'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 31));
+        await outlastUndoWindow(tester);
+      },
+    );
+
     testWidgets('a double tap on a quick tile books once', (tester) async {
       await pumpApp(tester, rankings: rankings);
       await open(tester, 'Kim Example');

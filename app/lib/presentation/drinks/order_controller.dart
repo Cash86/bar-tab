@@ -35,11 +35,19 @@ const _uuid = Uuid();
 /// until [holdUntil] so it can be undone from the name list.
 @immutable
 class BookedOrder {
-  const BookedOrder(this.draft, this.bookingIds, this.holdUntil);
+  const BookedOrder(
+    this.draft,
+    this.bookingIds,
+    this.holdUntil, {
+    this.quick = false,
+  });
 
   final OrderDraft draft;
   final Set<String> bookingIds;
   final DateTime holdUntil;
+
+  /// Booked by one tap on the quick bar.
+  final bool quick;
 }
 
 /// The order being built on the drink selection screen.
@@ -172,7 +180,7 @@ class OrderController extends Notifier<OrderState> {
       return Future<void>.value();
     }
     state = state._copy(draft: state.draft.tap(drinkId, unitPriceCents).draft);
-    return commit();
+    return commit(quick: true);
   }
 
   void openSheet(String drinkId) {
@@ -217,7 +225,7 @@ class OrderController extends Notifier<OrderState> {
   /// [kUndoWindow], and triggers a sync. Does nothing for an empty order or
   /// while a commit is running. If the write fails the order is kept and
   /// retried after [kAutoBookDelay].
-  Future<void> commit() async {
+  Future<void> commit({bool quick = false}) async {
     if (state.committing) return;
     _cancelTimer();
     final draft = state.effectiveDraft;
@@ -264,9 +272,12 @@ class OrderController extends Notifier<OrderState> {
       );
     }
     if (ref.mounted) {
-      final booked = BookedOrder(draft, {
-        for (final b in bookings) b.id,
-      }, holdUntil);
+      final booked = BookedOrder(
+        draft,
+        {for (final b in bookings) b.id},
+        holdUntil,
+        quick: quick,
+      );
       state = state._copy(committing: false, booked: () => booked);
     }
   }

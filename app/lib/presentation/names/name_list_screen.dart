@@ -77,6 +77,10 @@ const kUndoDoneInfoDuration = Duration(seconds: 3);
 /// How long the note after a failed (too late) undo stays visible.
 const kUndoTooLateInfoDuration = Duration(seconds: 4);
 
+/// After a quick booking the name list ignores taps for this long, so a
+/// second tap on the quick tile cannot land on a name tile during the pop.
+const kReturnTapGuard = Duration(milliseconds: 500);
+
 final _log = Logger('names');
 
 /// The latest order, undoable while its bookings are held.
@@ -112,8 +116,13 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
   /// Uploads the held bookings once the undo window is over.
   Timer? _syncTimer;
 
+  /// Ends the tap guard after a quick booking.
+  Timer? _guardTimer;
+  bool _guarded = false;
+
   @override
   void dispose() {
+    _guardTimer?.cancel();
     _bannerTimer?.cancel();
     _tickTimer?.cancel();
     _syncTimer?.cancel();
@@ -127,6 +136,15 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
       ),
     );
     if (booked == null || !mounted) return;
+    if (booked.quick) {
+      // The screen is popping now: a second tap on the quick tile must not
+      // land on a name tile below it.
+      _guardTimer?.cancel();
+      setState(() => _guarded = true);
+      _guardTimer = Timer(kReturnTapGuard, () {
+        setState(() => _guarded = false);
+      });
+    }
     final l10n = AppLocalizations.of(context);
     final catalog = ref.read(catalogProvider).value;
     _scheduleSync(_holdLeft(booked.holdUntil));
@@ -253,103 +271,107 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
       child: IdleScreensaver(
         stayAwake: offer != null,
         child: Scaffold(
-          body: SafeArea(
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.nameListTitle,
-                        style: const TextStyle(
-                          color: BarTabTheme.paper,
-                          fontSize: 30,
-                          height: 1.2,
-                          fontVariations: [
-                            FontVariation('wdth', 118),
-                            FontVariation('wght', 850),
-                          ],
+          body: AbsorbPointer(
+            absorbing: _guarded,
+            child: SafeArea(
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.nameListTitle,
+                          style: const TextStyle(
+                            color: BarTabTheme.paper,
+                            fontSize: 30,
+                            height: 1.2,
+                            fontVariations: [
+                              FontVariation('wdth', 118),
+                              FontVariation('wght', 850),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (catalogValue.isLoading && catalog == null)
-                        const Spacer()
-                      else if (isEmpty)
-                        Expanded(
-                          child: Center(
-                            child: Text(
-                              l10n.nameListEmpty,
-                              style: const TextStyle(
-                                color: BarTabTheme.muted,
-                                fontSize: 20,
+                        const SizedBox(height: 12),
+                        if (catalogValue.isLoading && catalog == null)
+                          const Spacer()
+                        else if (isEmpty)
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                l10n.nameListEmpty,
+                                style: const TextStyle(
+                                  color: BarTabTheme.muted,
+                                  fontSize: 20,
+                                ),
                               ),
                             ),
-                          ),
-                        )
-                      else ...[
-                        if (collective.isNotEmpty) ...[
-                          _CollectiveRow(accounts: collective, onTap: _open),
-                          const SizedBox(height: 16),
-                        ],
-                        Expanded(
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final layout = chooseLayout(
-                                maxNamesInColumn: tiers.fold(
-                                  0,
-                                  (m, t) => t.$2.length > m ? t.$2.length : m,
-                                ),
-                                availableHeight:
-                                    constraints.maxHeight - _columnTitleHeight,
-                              );
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  for (var i = 0; i < tiers.length; i++) ...[
-                                    if (i > 0) const SizedBox(width: 20),
-                                    Expanded(
-                                      child: _TierColumn(
-                                        title: tiers[i].$1.name,
-                                        accent: tierColor(tiers[i].$1),
-                                        persons: tiers[i].$2,
-                                        layout: layout,
-                                        onTap: _open,
+                          )
+                        else ...[
+                          if (collective.isNotEmpty) ...[
+                            _CollectiveRow(accounts: collective, onTap: _open),
+                            const SizedBox(height: 16),
+                          ],
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final layout = chooseLayout(
+                                  maxNamesInColumn: tiers.fold(
+                                    0,
+                                    (m, t) => t.$2.length > m ? t.$2.length : m,
+                                  ),
+                                  availableHeight:
+                                      constraints.maxHeight -
+                                      _columnTitleHeight,
+                                );
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    for (var i = 0; i < tiers.length; i++) ...[
+                                      if (i > 0) const SizedBox(width: 20),
+                                      Expanded(
+                                        child: _TierColumn(
+                                          title: tiers[i].$1.name,
+                                          accent: tierColor(tiers[i].$1),
+                                          persons: tiers[i].$2,
+                                          layout: layout,
+                                          onTap: _open,
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ],
-                                ],
-                              );
-                            },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                        const SizedBox(
+                          height: 28,
+                          width: double.infinity,
+                          child: Align(
+                            alignment: Alignment.bottomRight,
+                            child: SyncIndicator(),
                           ),
                         ),
                       ],
-                      const SizedBox(
-                        height: 28,
-                        width: double.infinity,
-                        child: Align(
-                          alignment: Alignment.bottomRight,
-                          child: SyncIndicator(),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                // Over the title row, so the names never move when it shows.
-                if (offer != null || info != null)
-                  Positioned(
-                    top: 8,
-                    right: 28,
-                    child: offer != null
-                        ? UndoBanner(
-                            text: offer.text,
-                            secondsLeft: _offerSecondsLeft,
-                            onUndo: _undoing ? null : _undo,
-                          )
-                        : UndoInfo(info!),
-                  ),
-              ],
+                  // Over the title row, so the names never move when it shows.
+                  if (offer != null || info != null)
+                    Positioned(
+                      top: 8,
+                      right: 28,
+                      child: offer != null
+                          ? UndoBanner(
+                              text: offer.text,
+                              secondsLeft: _offerSecondsLeft,
+                              onUndo: _undoing ? null : _undo,
+                            )
+                          : UndoInfo(info!),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
