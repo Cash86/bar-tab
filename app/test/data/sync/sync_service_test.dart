@@ -8,10 +8,12 @@ import 'package:bar_tab/data/api/mappers.dart';
 import 'package:bar_tab/data/db/database.dart';
 import 'package:bar_tab/data/repositories/booking_repository_impl.dart';
 import 'package:bar_tab/data/repositories/catalog_repository_impl.dart';
+import 'package:bar_tab/data/repositories/rankings_repository_impl.dart';
 import 'package:bar_tab/data/repositories/tabs_repository_impl.dart';
 import 'package:bar_tab/data/sync/sync_service.dart';
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
+import 'package:bar_tab/domain/rankings.dart';
 import 'package:bar_tab/domain/repositories.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:drift/native.dart';
@@ -49,6 +51,15 @@ class FakeServer {
 
   Map<String, int> tabs = {'p1': 1234};
   Map<String, dynamic> catalog = catalogFixtureJson;
+  Map<String, dynamic> rankings = {
+    'overall': {'d1': 2},
+    'persons': {
+      'p1': {'d1': 2},
+    },
+  };
+
+  /// Answer GET /rankings with this status and an error body.
+  int? rankingsStatus;
 
   /// When set, GET /tabs waits for it before answering.
   Completer<void>? tabsGate;
@@ -104,6 +115,10 @@ class FakeServer {
         catalogEtagsSent.add(sent);
         if (sent == '"${catalog['etag']}"') return http.Response('', 304);
         return _json(catalog);
+      case 'GET rankings':
+        final status = rankingsStatus;
+        if (status != null) return _json({'detail': 'nope'}, status);
+        return _json(rankings);
     }
     return _json({'detail': 'not found'}, 404);
   }
@@ -170,6 +185,7 @@ void main() {
   late FlakyBookings bookings;
   late TabsRepositoryImpl tabs;
   late CatalogRepositoryImpl catalog;
+  late RankingsRepositoryImpl rankings;
   late SyncService service;
 
   SyncService makeService() => SyncService(
@@ -183,6 +199,7 @@ void main() {
     bookings: bookings,
     tabs: tabs,
     catalog: catalog,
+    rankings: rankings,
     clock: clock,
     transaction: db.transaction,
   );
@@ -194,6 +211,7 @@ void main() {
     bookings = FlakyBookings(BookingRepositoryImpl(db, clock));
     tabs = TabsRepositoryImpl(db, clock);
     catalog = CatalogRepositoryImpl(db, clock);
+    rankings = RankingsRepositoryImpl(db, clock);
     service = makeService();
   });
   tearDown(() async {
@@ -207,6 +225,36 @@ void main() {
 
   Future<Set<String>> notIncluded() async =>
       (await bookings.watchNotIncluded('p1').first).map((b) => b.id).toSet();
+
+  test('a sync saves the server rankings', () async {
+    await service.syncNow();
+
+    expect(
+      await rankings.watch().first,
+      const DrinkRankings(
+        overall: {'d1': 2},
+        persons: {
+          'p1': {'d1': 2},
+        },
+      ),
+    );
+  });
+
+  test(
+    'a failing rankings fetch keeps pushed bookings, tabs and catalog',
+    () async {
+      await bookings.addAll([booking('a')]);
+      server.rankingsStatus = 404;
+
+      await service.syncNow();
+
+      expect(await statuses(), {'a': 'accepted'});
+      expect(await tabs.watchTab('p1').first, 1234);
+      expect(await catalog.cached(), isNotNull);
+      expect(await rankings.watch().first, isNull);
+      expect((await service.state.first).isUnauthorised, isFalse);
+    },
+  );
 
   test('450 queued bookings are pushed as 200/200/50, all accepted', () async {
     await bookings.addAll([for (var i = 0; i < 450; i++) booking('b$i')]);
@@ -452,7 +500,12 @@ void main() {
 
     await Future.wait([service.syncNow(), service.syncNow()]);
 
-    expect(server.requests, ['POST bookings', 'GET tabs', 'GET catalog']);
+    expect(server.requests, [
+      'POST bookings',
+      'GET tabs',
+      'GET catalog',
+      'GET rankings',
+    ]);
 
     await service.syncNow();
     expect(server.count('GET tabs'), 2, reason: 'a later call runs again');

@@ -10,12 +10,14 @@ import '../data/db/database.dart';
 import '../data/repositories/booking_repository_impl.dart';
 import '../data/repositories/catalog_repository_impl.dart';
 import '../data/repositories/drift_config_store.dart';
+import '../data/repositories/rankings_repository_impl.dart';
 import '../data/repositories/server_config_repository_impl.dart';
 import '../data/repositories/tabs_repository_impl.dart';
 import '../data/sync/sync_service.dart';
 import '../domain/booking.dart';
 import '../domain/catalog.dart';
 import '../domain/clock.dart';
+import '../domain/rankings.dart';
 import '../domain/repositories.dart';
 import '../domain/running_total.dart';
 import '../domain/sync_state.dart';
@@ -48,6 +50,13 @@ final serverConfigRepositoryProvider = Provider<ServerConfigRepository>(
 
 final catalogRepositoryProvider = Provider<CatalogRepository>(
   (ref) => CatalogRepositoryImpl(
+    ref.watch(databaseProvider),
+    ref.watch(clockProvider),
+  ),
+);
+
+final rankingsRepositoryProvider = Provider<RankingsRepository>(
+  (ref) => RankingsRepositoryImpl(
     ref.watch(databaseProvider),
     ref.watch(clockProvider),
   ),
@@ -102,6 +111,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
     bookings: ref.watch(bookingRepositoryProvider),
     tabs: ref.watch(tabsRepositoryProvider),
     catalog: ref.watch(catalogRepositoryProvider),
+    rankings: ref.watch(rankingsRepositoryProvider),
     clock: ref.watch(clockProvider),
     transaction: db.transaction,
   );
@@ -121,6 +131,11 @@ final catalogProvider = FutureProvider<Catalog?>((ref) {
   ref.watch(syncStateProvider.select((s) => s.value?.lastSuccessAt));
   return ref.watch(catalogRepositoryProvider).cached();
 });
+
+/// The cached drink rankings; `null` until the first sync delivered them.
+final rankingsProvider = StreamProvider<DrinkRankings?>(
+  (ref) => ref.watch(rankingsRepositoryProvider).watch(),
+);
 
 final _tabProvider = StreamProvider.family<int, String>(
   (ref, personId) => ref.watch(tabsRepositoryProvider).watchTab(personId),

@@ -2,9 +2,11 @@ import 'package:bar_tab/data/db/database.dart';
 import 'dart:async';
 
 import 'package:bar_tab/data/repositories/booking_repository_impl.dart';
+import 'package:bar_tab/data/repositories/rankings_repository_impl.dart';
 import 'package:bar_tab/data/repositories/tabs_repository_impl.dart';
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
+import 'package:bar_tab/domain/rankings.dart';
 import 'package:bar_tab/domain/repositories.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:bar_tab/presentation/providers.dart';
@@ -43,6 +45,29 @@ void main() {
 
   Future<void> settle() =>
       Future<void>.delayed(const Duration(milliseconds: 50));
+
+  test('rankingsProvider emits what the repository holds', () async {
+    final seen = <DrinkRankings?>[];
+    container.listen(rankingsProvider, (_, next) {
+      seen.add(next.value);
+    }, fireImmediately: true);
+    await settle();
+    expect(seen.last, isNull);
+
+    const rankings = DrinkRankings(
+      overall: {'d1': 2},
+      persons: {
+        'p1': {'d1': 2},
+      },
+    );
+    await RankingsRepositoryImpl(
+      db,
+      FixedClock(DateTime.utc(2026, 11, 2)),
+    ).save(rankings);
+    await settle();
+
+    expect(seen.last, rankings);
+  });
 
   test('no sync service or api while unconfigured', () async {
     await container.read(serverConfigProvider.future);

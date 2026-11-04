@@ -5,6 +5,7 @@ import 'package:bar_tab/data/repositories/server_config_repository_impl.dart';
 import 'package:bar_tab/data/sync/sync_service.dart';
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
+import 'package:bar_tab/domain/rankings.dart';
 import 'package:bar_tab/domain/repositories.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:http/http.dart' as http;
@@ -180,6 +181,28 @@ class FakeTabsRepository implements TabsRepository {
 
   @override
   Stream<int> watchTab(String personId) => Stream.value(tabs[personId] ?? 0);
+}
+
+/// Drink rankings held in memory; `watch` emits the current value on listen
+/// and after every save.
+class FakeRankingsRepository implements RankingsRepository {
+  FakeRankingsRepository([this.rankings]);
+
+  DrinkRankings? rankings;
+  final _changed = StreamController<void>.broadcast();
+
+  @override
+  Future<void> save(DrinkRankings rankings) async {
+    this.rankings = rankings;
+    _changed.add(null);
+  }
+
+  @override
+  Stream<DrinkRankings?> watch() => Stream.multi((listener) {
+    listener.add(rankings);
+    final sub = _changed.stream.listen((_) => listener.add(rankings));
+    listener.onCancel = sub.cancel;
+  });
 }
 
 /// Counts `syncNow` calls; everything else is unsupported.

@@ -14,7 +14,8 @@ final _log = Logger('sync');
 typedef TransactionRunner =
     Future<void> Function(Future<void> Function() action);
 
-/// Pushes queued bookings, refreshes tabs and the catalog. Local data is
+/// Pushes queued bookings, refreshes tabs, the catalog and
+/// the drink rankings. Local data is
 /// never deleted here: failures leave everything in place for the next run.
 class SyncService {
   SyncService({
@@ -22,6 +23,7 @@ class SyncService {
     required this._bookings,
     required this._tabs,
     required this._catalog,
+    required this._rankings,
     required this._clock,
     required this._transaction,
   });
@@ -33,6 +35,7 @@ class SyncService {
   final BookingRepository _bookings;
   final TabsRepository _tabs;
   final CatalogRepository _catalog;
+  final RankingsRepository _rankings;
   final Clock _clock;
   final TransactionRunner _transaction;
 
@@ -119,6 +122,7 @@ class SyncService {
       await _push();
       await _refreshTabs();
       await _refreshCatalog();
+      await _refreshRankings();
       _setFlags(
         isUnauthorised: false,
         isOffline: false,
@@ -180,6 +184,11 @@ class SyncService {
         throw ContractException('Invalid catalog: ${e.message}');
       }
     }
+  }
+
+  Future<void> _refreshRankings() async {
+    final rankings = await _api.getRankings();
+    await _rankings.save(rankingsFromDto(rankings));
   }
 
   void _setFlags({

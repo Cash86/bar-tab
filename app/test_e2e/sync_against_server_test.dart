@@ -5,6 +5,7 @@ import 'package:bar_tab/data/api/mappers.dart';
 import 'package:bar_tab/data/db/database.dart';
 import 'package:bar_tab/data/repositories/booking_repository_impl.dart';
 import 'package:bar_tab/data/repositories/catalog_repository_impl.dart';
+import 'package:bar_tab/data/repositories/rankings_repository_impl.dart';
 import 'package:bar_tab/data/repositories/tabs_repository_impl.dart';
 import 'package:bar_tab/data/sync/sync_service.dart';
 import 'package:bar_tab/domain/booking.dart';
@@ -52,6 +53,7 @@ void main() {
       bookings: bookings,
       tabs: tabs,
       catalog: catalogRepo,
+      rankings: RankingsRepositoryImpl(db, clock),
       clock: clock,
       transaction: db.transaction,
     );
