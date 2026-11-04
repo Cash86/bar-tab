@@ -252,7 +252,25 @@ void main() {
       expect(await tabs.watchTab('p1').first, 1234);
       expect(await catalog.cached(), isNotNull);
       expect(await rankings.watch().first, isNull);
-      expect((await service.state.first).isUnauthorised, isFalse);
+      final state = await service.state.first;
+      expect(state.isUnauthorised, isFalse);
+      expect(state.lastSuccessAt, clock.now());
+    },
+  );
+
+  test(
+    'an invalid rankings body keeps the last rankings and still succeeds',
+    () async {
+      const before = DrinkRankings(overall: {'d9': 1}, persons: {});
+      await rankings.save(before);
+      server.rankings = {'overall': 'x'};
+
+      await service.syncNow();
+
+      expect(await rankings.watch().first, before);
+      final state = await service.state.first;
+      expect(state.isOffline, isFalse);
+      expect(state.lastSuccessAt, clock.now());
     },
   );
 

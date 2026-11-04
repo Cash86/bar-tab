@@ -14,9 +14,9 @@ final _log = Logger('sync');
 typedef TransactionRunner =
     Future<void> Function(Future<void> Function() action);
 
-/// Pushes queued bookings, refreshes tabs, the catalog and
-/// the drink rankings. Local data is
-/// never deleted here: failures leave everything in place for the next run.
+/// Pushes queued bookings, refreshes tabs, the catalog and the drink
+/// rankings. Local data is never deleted here: failures leave everything in
+/// place for the next run.
 class SyncService {
   SyncService({
     required this._api,
@@ -187,8 +187,19 @@ class SyncService {
   }
 
   Future<void> _refreshRankings() async {
-    final rankings = await _api.getRankings();
-    await _rankings.save(rankingsFromDto(rankings));
+    // Best effort: an older server or a bad answer must not fail the sync.
+    try {
+      final rankings = await _api.getRankings();
+      try {
+        await _rankings.save(rankingsFromDto(rankings));
+      } on FormatException catch (e) {
+        throw ContractException('Invalid rankings: ${e.message}');
+      }
+    } on ServerException catch (e) {
+      _log.warning('Rankings not refreshed: $e');
+    } on ContractException catch (e) {
+      _log.warning('Rankings not refreshed: $e');
+    }
   }
 
   void _setFlags({
