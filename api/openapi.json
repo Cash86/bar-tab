@@ -383,6 +383,33 @@
         "title": "PriceTierOut",
         "type": "object"
       },
+      "RankingsResponse": {
+        "properties": {
+          "overall": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Overall",
+            "type": "object"
+          },
+          "persons": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Persons",
+            "type": "object"
+          }
+        },
+        "required": [
+          "overall",
+          "persons"
+        ],
+        "title": "RankingsResponse",
+        "type": "object"
+      },
       "TabsResponse": {
         "properties": {
           "period_started_at": {
@@ -692,6 +719,39 @@
           }
         },
         "summary": "Gethealth"
+      }
+    },
+    "/api/v1/rankings": {
+      "get": {
+        "operationId": "getRankings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "deviceKey": []
+          }
+        ],
+        "summary": "Getrankings"
       }
     },
     "/api/v1/tabs": {

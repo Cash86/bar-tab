@@ -101,3 +101,8 @@ class BookingBatchResponse(BaseModel):
 class TabsResponse(BaseModel):
     period_started_at: datetime
     tabs: dict[str, int]  # person_id -> cents
+
+
+class RankingsResponse(BaseModel):
+    overall: dict[str, int]  # drink_id -> number of bookings
+    persons: dict[str, dict[str, int]]  # person_id -> drink_id -> number of bookings

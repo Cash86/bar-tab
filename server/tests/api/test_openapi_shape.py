@@ -7,6 +7,7 @@ OPERATION_IDS = {
     "getCatalog",
     "postBookings",
     "getTabs",
+    "getRankings",
 }
 
 

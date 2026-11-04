@@ -159,6 +159,27 @@ def tabs_for_open_period(session: Session) -> dict[str, int]:
     return {person_id: int(total) for person_id, total in rows}
 
 
+@dataclass(frozen=True)
+class DrinkRankings:
+    overall: dict[str, int]  # drink_id -> bookings of all persons
+    persons: dict[str, dict[str, int]]  # person_id -> drink_id -> bookings
+
+
+def drink_rankings(session: Session) -> DrinkRankings:
+    """Counts bookings (not units) per person and drink over all periods."""
+    rows = session.execute(
+        select(Booking.person_id, Booking.drink_id, func.count(Booking.id)).group_by(
+            Booking.person_id, Booking.drink_id
+        )
+    )
+    overall: dict[str, int] = {}
+    persons: dict[str, dict[str, int]] = {}
+    for person_id, drink_id, count in rows:
+        persons.setdefault(person_id, {})[drink_id] = count
+        overall[drink_id] = overall.get(drink_id, 0) + count
+    return DrinkRankings(overall=overall, persons=persons)
+
+
 def get_setting(session: Session, key: str) -> str | None:
     setting = session.get(AppSetting, key)
     return setting.value if setting else None
