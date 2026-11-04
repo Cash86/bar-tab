@@ -107,6 +107,23 @@ void main() {
     expect(pick(r), ['Helles', 'Cola-Mix']);
   });
 
+  test('an own drink is not repeated from the overall list', () {
+    expect(pick(rankings(overall, {'Helles': 1})), [
+      'Helles',
+      'Cola-Mix',
+      'Wasser',
+      'Weizen',
+    ]);
+  });
+
+  test('the overall list is ranked by count, not grid order', () {
+    expect(pick(rankings({'Pils': 9, 'Helles': 2})), ['Pils', 'Helles']);
+  });
+
+  test('the size limits the list', () {
+    expect(pick(rankings(overall), size: 2), ['Helles', 'Cola-Mix']);
+  });
+
   test('fewer ranked drinks give a shorter list', () {
     expect(pick(rankings({'Helles': 1})), ['Helles']);
   });
