@@ -1,11 +1,19 @@
 import 'booking.dart';
 import 'catalog.dart';
+import 'rankings.dart';
 import 'sync_state.dart';
 
 abstract interface class CatalogRepository {
   Future<Catalog?> cached();
   Future<void> save(Catalog catalog);
   Future<void> clear();
+}
+
+abstract interface class RankingsRepository {
+  Future<void> save(DrinkRankings rankings);
+
+  /// Emits `null` while no rankings have been cached.
+  Stream<DrinkRankings?> watch();
 }
 
 abstract interface class BookingRepository {

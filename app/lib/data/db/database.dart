@@ -21,6 +21,19 @@ class CatalogCache extends Table {
   List<String> get customConstraints => ['CHECK (id = 1)'];
 }
 
+/// The drink rankings (a `RankingsDto`) as JSON in a single row.
+class RankingsCache extends Table {
+  IntColumn get id => integer().withDefault(const Constant(1))();
+  TextColumn get json => text()();
+  DateTimeColumn get savedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => ['CHECK (id = 1)'];
+}
+
 @TableIndex(name: 'bookings_status', columns: {#status})
 @TableIndex(
   name: 'bookings_person_included',
@@ -67,12 +80,12 @@ class AppConfig extends Table {
   Set<Column> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [CatalogCache, Bookings, Tabs, AppConfig])
+@DriftDatabase(tables: [CatalogCache, RankingsCache, Bookings, Tabs, AppConfig])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -85,6 +98,8 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(appConfig);
           case 3:
             await m.addColumn(bookings, bookings.holdUntil);
+          case 4:
+            await m.createTable(rankingsCache);
         }
       }
     },
