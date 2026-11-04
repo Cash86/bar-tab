@@ -148,6 +148,7 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
                                 order.draft.isEmpty &&
                                 !order.committing &&
                                 sheetId == null,
+                            dimmed: !order.draft.isEmpty || sheetId != null,
                             onTap: (drink, price) => unawaited(
                               _controller.quickBook(drink.id, price),
                             ),

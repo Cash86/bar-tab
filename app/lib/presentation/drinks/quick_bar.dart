@@ -4,13 +4,16 @@ import '../../domain/catalog.dart';
 import 'drink_tile.dart';
 
 /// One row of equal-width tiles with the person's favourite drinks; a tap
-/// books one unit. Greyed out and inert while [enabled] is false.
+/// books one unit. Inert while [enabled] is false; greyed out while
+/// [dimmed] (a pending grid order or an open sheet, not a running commit,
+/// which would only flicker).
 class QuickBar extends StatelessWidget {
   const QuickBar({
     required this.drinks,
     required this.priceOf,
     required this.colorOf,
     required this.enabled,
+    required this.dimmed,
     required this.onTap,
     super.key,
   });
@@ -19,6 +22,7 @@ class QuickBar extends StatelessWidget {
   final int Function(Drink) priceOf;
   final Color Function(Drink) colorOf;
   final bool enabled;
+  final bool dimmed;
   final void Function(Drink drink, int priceCents) onTap;
 
   @override
@@ -26,7 +30,7 @@ class QuickBar extends StatelessWidget {
     return IgnorePointer(
       ignoring: !enabled,
       child: Opacity(
-        opacity: enabled ? 1 : 0.35,
+        opacity: dimmed ? 0.35 : 1,
         child: Row(
           children: [
             for (var i = 0; i < drinks.length; i++) ...[

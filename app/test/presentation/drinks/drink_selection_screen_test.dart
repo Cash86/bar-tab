@@ -284,6 +284,35 @@ void main() {
       },
     );
 
+    testWidgets('the quick bar stays bright but inert while a commit runs', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      bookings.addAllGate = gate;
+      await pumpApp(tester, rankings: rankings);
+      await open(tester, 'Kim Example');
+      double opacity() => tester
+          .widget<Opacity>(
+            find
+                .ancestor(of: quick('d3'), matching: find.byType(Opacity))
+                .first,
+          )
+          .opacity;
+      expect(opacity(), 1);
+
+      await tester.tap(quick('d1'));
+      await tester.pump();
+      expect(opacity(), 1);
+      await tester.tap(quick('d3'), warnIfMissed: false);
+      await tester.pump();
+      expect(bookings.bookings, isEmpty);
+
+      gate.complete();
+      await settleRoute(tester);
+      await outlastUndoWindow(tester);
+      expect(bookings.bookings.single.drinkId, 'd1');
+    });
+
     testWidgets('without rankings there is no quick bar', (tester) async {
       await pumpApp(tester);
       await open(tester, 'Kim Example');
