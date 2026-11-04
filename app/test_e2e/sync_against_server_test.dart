@@ -34,6 +34,7 @@ void main() {
   late BookingRepositoryImpl bookings;
   late TabsRepositoryImpl tabs;
   late CatalogRepositoryImpl catalogRepo;
+  late RankingsRepositoryImpl rankings;
   late SyncService sync;
   final clock = SystemClock();
   const uuid = Uuid();
@@ -48,12 +49,13 @@ void main() {
     bookings = BookingRepositoryImpl(db, clock);
     tabs = TabsRepositoryImpl(db, clock);
     catalogRepo = CatalogRepositoryImpl(db, clock);
+    rankings = RankingsRepositoryImpl(db, clock);
     sync = SyncService(
       api: api,
       bookings: bookings,
       tabs: tabs,
       catalog: catalogRepo,
-      rankings: RankingsRepositoryImpl(db, clock),
+      rankings: rankings,
       clock: clock,
       transaction: db.transaction,
     );
@@ -118,6 +120,12 @@ void main() {
         stored.map((r) => r.status),
         everyElement(BookingStatus.accepted.name),
       );
+
+      // Rankings count bookings (rows), not units: two Pils rows, one Cola.
+      final ranked = (await rankings.watch().first)!;
+      expect(ranked.persons[person.id]![pils.id], 2);
+      expect(ranked.persons[person.id]![cola.id], 1);
+      expect(ranked.overall[pils.id], greaterThanOrEqualTo(2));
 
       final afterFirst = await serverTab(person.id);
       expect(afterFirst - before, expected);
