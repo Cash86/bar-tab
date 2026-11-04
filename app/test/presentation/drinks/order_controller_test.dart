@@ -59,6 +59,39 @@ void main() {
   OrderState stateOf(ProviderContainer c) =>
       c.read(orderControllerProvider('p1'));
 
+  test('quickBook books one unit at once with the given price and hold', () {
+    run((async, controller, c) {
+      unawaited(controller.quickBook('d1', 115));
+      async.flushMicrotasks();
+      final booking = bookings.bookings.single;
+      expect(booking.quantity, 1);
+      expect(booking.unitPriceCents, 115);
+      expect(booking.holdUntil, clock.now().add(kUndoWindow));
+      expect(stateOf(c).booked!.draft.lines.single.drinkId, 'd1');
+      expect(stateOf(c).secondsLeft, 0);
+    });
+  });
+
+  test('quickBook is ignored while a grid order is pending', () {
+    run((async, controller, c) {
+      controller.tap('d2', 60);
+      unawaited(controller.quickBook('d1', 115));
+      async.flushMicrotasks();
+      expect(stateOf(c).draft.lines.single.drinkId, 'd2');
+      async.elapse(kAutoBookDelay);
+      expect(bookings.bookings.single.drinkId, 'd2');
+    });
+  });
+
+  test('a second quickBook while the first commits books once', () {
+    run((async, controller, c) {
+      unawaited(controller.quickBook('d1', 115));
+      unawaited(controller.quickBook('d1', 115));
+      async.flushMicrotasks();
+      expect(bookings.bookings, hasLength(1));
+    });
+  });
+
   test('commits 5 s after the last tap, not at 4.9 s', () {
     expect(kAutoBookDelay, const Duration(seconds: 5));
     run((async, controller, c) {

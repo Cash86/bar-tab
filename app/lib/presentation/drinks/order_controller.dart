@@ -163,6 +163,18 @@ class OrderController extends Notifier<OrderState> {
     }
   }
 
+  /// Books one [drinkId] at once (quick bar). Ignored while a commit runs,
+  /// the sheet is open or a grid order is pending.
+  Future<void> quickBook(String drinkId, int unitPriceCents) {
+    if (state.committing ||
+        state.sheetDrinkId != null ||
+        !state.draft.isEmpty) {
+      return Future<void>.value();
+    }
+    state = state._copy(draft: state.draft.tap(drinkId, unitPriceCents).draft);
+    return commit();
+  }
+
   void openSheet(String drinkId) {
     if (state.committing) return;
     final line = state.draft.lines.firstWhere((l) => l.drinkId == drinkId);
