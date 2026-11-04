@@ -94,6 +94,12 @@ class BarTabApi {
     return _parse(response, TabsDto.fromJson);
   }
 
+  Future<RankingsDto> getRankings() async {
+    final response = await _send('GET', 'rankings');
+    _checkStatus(response);
+    return _parse(response, RankingsDto.fromJson);
+  }
+
   Uri _uri(String path) {
     final base = _config.baseUrl.replaceFirst(RegExp(r'/+$'), '');
     return Uri.parse('$base/api/v1/$path');

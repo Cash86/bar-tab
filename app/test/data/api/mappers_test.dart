@@ -1,6 +1,7 @@
 import 'package:bar_tab/data/api/dto.dart';
 import 'package:bar_tab/data/api/mappers.dart';
 import 'package:bar_tab/domain/booking.dart';
+import 'package:bar_tab/domain/rankings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../fixtures/catalog_fixture.dart';
@@ -80,5 +81,16 @@ void catalogToDtoTests() {
       bookingStatusFromResult(BookingResultStatus.rejected),
       BookingStatus.rejected,
     );
+  });
+
+  test('rankings survive a DTO round trip', () {
+    const rankings = DrinkRankings(
+      overall: {'d1': 5, 'd2': 1},
+      persons: {
+        'p1': {'d1': 2},
+        'p2': {'d1': 3, 'd2': 1},
+      },
+    );
+    expect(rankingsFromDto(rankingsToDto(rankings)), rankings);
   });
 }

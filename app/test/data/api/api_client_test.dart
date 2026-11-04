@@ -155,6 +155,32 @@ void main() {
     });
   });
 
+  group('getRankings', () {
+    test('getRankings parses overall and persons', () async {
+      late http.Request seen;
+      final api = _api((r) async {
+        seen = r;
+        return _json({
+          'overall': {'d1': 3},
+          'persons': {
+            'p1': {'d1': 2},
+          },
+        });
+      });
+      final dto = await api.getRankings();
+      expect(seen.url.path, '/api/v1/rankings');
+      expect(dto.overall, {'d1': 3});
+      expect(dto.persons, {
+        'p1': {'d1': 2},
+      });
+    });
+
+    test('getRankings maps 401 to UnauthorisedException', () async {
+      final api = _api((r) async => _json({'detail': 'nope'}, 401));
+      expect(api.getRankings(), throwsA(isA<UnauthorisedException>()));
+    });
+  });
+
   group('errors', () {
     test('401 -> UnauthorisedException', () async {
       final api = _api((r) async => _json({'detail': 'nope'}, 401));

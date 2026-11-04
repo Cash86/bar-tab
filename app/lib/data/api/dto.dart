@@ -163,6 +163,20 @@ abstract class TabsDto with _$TabsDto {
 }
 
 @freezed
+abstract class RankingsDto with _$RankingsDto {
+  const factory RankingsDto({
+    /// Drink id to number of bookings of all persons.
+    required Map<String, int> overall,
+
+    /// Person id to (drink id to number of bookings).
+    required Map<String, Map<String, int>> persons,
+  }) = _RankingsDto;
+
+  factory RankingsDto.fromJson(Map<String, dynamic> json) =>
+      _$RankingsDtoFromJson(json);
+}
+
+@freezed
 abstract class ErrorDto with _$ErrorDto {
   const factory ErrorDto({required String detail}) = _ErrorDto;
 

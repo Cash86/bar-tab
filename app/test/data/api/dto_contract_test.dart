@@ -52,6 +52,14 @@ final _cases = <_Case>[
       etag: 'e',
     ).toJson(),
   ]),
+  _Case('RankingsDto', 'RankingsResponse', [
+    const RankingsDto(
+      overall: {'d': 3},
+      persons: {
+        'p': {'d': 1},
+      },
+    ).toJson(),
+  ]),
   _Case('BookingInDto', 'BookingIn', [_booking().toJson()]),
   _Case('BookingBatchRequestDto', 'BookingBatchRequest', [
     BookingBatchRequestDto(bookings: [_booking()]).toJson(),

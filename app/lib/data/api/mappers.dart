@@ -1,5 +1,6 @@
 import '../../domain/booking.dart';
 import '../../domain/catalog.dart';
+import '../../domain/rankings.dart';
 import 'dto.dart';
 
 /// Converts "#RRGGBB" to an opaque ARGB int.
@@ -103,6 +104,16 @@ CatalogDto catalogToDto(Catalog c) => CatalogDto(
       ),
   ],
   etag: c.etag,
+);
+
+DrinkRankings rankingsFromDto(RankingsDto dto) => DrinkRankings(
+  overall: Map.of(dto.overall),
+  persons: {for (final e in dto.persons.entries) e.key: Map.of(e.value)},
+);
+
+RankingsDto rankingsToDto(DrinkRankings r) => RankingsDto(
+  overall: Map.of(r.overall),
+  persons: {for (final e in r.persons.entries) e.key: Map.of(e.value)},
 );
 
 /// Server result to local booking status; a duplicate counts as accepted.
