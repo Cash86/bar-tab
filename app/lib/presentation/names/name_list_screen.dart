@@ -253,6 +253,9 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final catalogValue = ref.watch(catalogProvider);
+    // Keeps the rankings stream subscribed, so the quick bar is complete the
+    // moment the drink screen opens (no layout shift).
+    ref.listen(rankingsProvider, (_, _) {});
     final catalog = catalogValue.value;
     final collective = catalog?.collectiveAccounts() ?? const <Person>[];
     final tiers = catalog?.personsByTier() ?? const [];

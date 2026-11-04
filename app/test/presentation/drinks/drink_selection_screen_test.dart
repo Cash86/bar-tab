@@ -313,6 +313,16 @@ void main() {
       expect(bookings.bookings.single.drinkId, 'd1');
     });
 
+    testWidgets('the name list keeps the rankings warm for the drink screen', (
+      tester,
+    ) async {
+      await pumpApp(tester, rankings: rankings);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(NameListScreen)),
+      );
+      expect(container.read(rankingsProvider).hasValue, isTrue);
+    });
+
     testWidgets('without rankings there is no quick bar', (tester) async {
       await pumpApp(tester);
       await open(tester, 'Kim Example');
