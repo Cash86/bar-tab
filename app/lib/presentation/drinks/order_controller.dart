@@ -172,9 +172,12 @@ class OrderController extends Notifier<OrderState> {
   }
 
   /// Books one [drinkId] at once (quick bar). Ignored while a commit runs,
-  /// the sheet is open or a grid order is pending.
+  /// the sheet is open, a grid order is pending or the screen is leaving
+  /// (booked or idle).
   Future<void> quickBook(String drinkId, int unitPriceCents) {
     if (state.committing ||
+        state.booked != null ||
+        state.idleLeft ||
         state.sheetDrinkId != null ||
         !state.draft.isEmpty) {
       return Future<void>.value();

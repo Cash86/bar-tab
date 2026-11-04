@@ -108,6 +108,28 @@ void main() {
     });
   });
 
+  test('quickBook is ignored once an order was booked', () {
+    run((async, controller, c) {
+      unawaited(controller.quickBook('d1', 115));
+      async.flushMicrotasks();
+      expect(stateOf(c).booked!.quick, isTrue);
+      unawaited(controller.quickBook('d2', 60));
+      async.flushMicrotasks();
+      expect(bookings.bookings, hasLength(1));
+      expect(stateOf(c).draft.isEmpty, isTrue);
+    });
+  });
+
+  test('quickBook is ignored after the idle timeout left the screen', () {
+    run((async, controller, c) {
+      async.elapse(kDrinkScreenIdleTimeout);
+      expect(stateOf(c).idleLeft, isTrue);
+      unawaited(controller.quickBook('d1', 115));
+      async.flushMicrotasks();
+      expect(bookings.bookings, isEmpty);
+    });
+  });
+
   test('commits 5 s after the last tap, not at 4.9 s', () {
     expect(kAutoBookDelay, const Duration(seconds: 5));
     run((async, controller, c) {
