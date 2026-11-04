@@ -69,6 +69,20 @@ void main() {
       expect(booking.holdUntil, clock.now().add(kUndoWindow));
       expect(stateOf(c).booked!.draft.lines.single.drinkId, 'd1');
       expect(stateOf(c).secondsLeft, 0);
+      expect(async.pendingTimers, isEmpty);
+    });
+  });
+
+  test('quickBook is ignored while the quantity sheet is open', () {
+    run((async, controller, c) {
+      controller.tap('d1', 115);
+      controller.tap('d1', 115);
+      controller.tap('d1', 115); // opens the sheet
+      unawaited(controller.quickBook('d2', 60));
+      async.flushMicrotasks();
+      expect(stateOf(c).sheetDrinkId, 'd1');
+      expect(stateOf(c).draft.lines.map((l) => l.drinkId), ['d1']);
+      expect(bookings.bookings, isEmpty);
     });
   });
 
@@ -89,6 +103,8 @@ void main() {
       unawaited(controller.quickBook('d1', 115));
       async.flushMicrotasks();
       expect(bookings.bookings, hasLength(1));
+      expect(bookings.bookings.single.quantity, 1);
+      expect(stateOf(c).draft.isEmpty, isTrue);
     });
   });
 
