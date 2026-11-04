@@ -138,6 +138,8 @@ rail and as an accent on its tiles, condensed type for names, prices only on dri
   - The rankings are computed by the server (only it has the whole history) and reach the tablet
     with the regular sync; a new booking moves the quick bar after the next sync, not instantly.
     Offline, the last received rankings are used.
+  - After a quick booking the name list ignores taps for 500 ms, so a fast second tap on the quick
+    tile cannot open another person's drink screen while the drink screen pops.
   - Looks: plain, in the existing visual language, with large touch targets; polished in the design
     overhaul (issue #4).
 - **Tapping a tile adds one** to a pending order; a counter badge shows the quantity on the tile.
@@ -244,6 +246,8 @@ shrinkage, settlement figures, PDF content. The app only displays.
   sync (exact endpoint left to the builder), not inside the catalog, so the catalog ETag keeps
   changing only with master data. Once admin storno exists (§4.3), cancelled bookings do not
   count.
+  Best effort: if the rankings cannot be fetched or are invalid, the sync still succeeds and the
+  last received rankings stay (logged only).
 - **Backups:** daily SQLite snapshot (online backup API) into a backup directory in the data
   volume, rotating; off-site copy is the operator's job and documented.
 - **Legacy import:** a CLI command that reads the old `user.csv` and `drink.csv`, repairs the
@@ -357,7 +361,9 @@ server; one monorepo; public repo `bar-tab` under `Cash86`; all configuration in
   by bookings over the whole history, collective accounts included, greyed out while a grid order
   is pending, no hand-made lists. Claude's calls: overall ranking uses the same measure; ties by
   grid order; rankings computed by the server and delivered with the sync; fewer than 4 → show
-  fewer, none → hide; plain look until issue #4.
+  fewer, none → hide; plain look until issue #4; 500 ms tap guard on the name list after a quick
+  booking; rankings are fetched best effort (a failure never fails the sync, the last rankings
+  stay).
 
 ## 13. Left to the builder
 Exact API shape, DB schema, package choices within the stack above, PDF layout, sync interval,
