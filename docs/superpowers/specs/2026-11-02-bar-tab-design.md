@@ -47,6 +47,8 @@ configuration (`.env`).
 - CSV export of the settlement (PDF only; CSV can be added later).
 - iOS (Flutter keeps the door open; not built or tested in v1).
 - Multi-club hosting in one deployment — one deployment = one club.
+- A quick bar each person composes by hand (§4.2): without logins anyone at the bar could rearrange
+  anyone's list. Deferred to the personal app (§10, milestone 6).
 
 **Anti-goals (would make it a failure even if it works)**
 - Booking takes more taps or more waiting than the old script.
@@ -112,6 +114,32 @@ rail and as an accent on its tiles, condensed type for names, prices only on dri
   settlement.
 - One row per drink group (group name on a coloured rail, no price on the rail), drink tiles in a
   grid; each tile shows the price for this person's tier. Hidden drinks never appear here.
+- **Quick bar** (issue #2, decided 2026-11-04): between the header and the drink grid, a row of
+  **4 drinks** this person is most likely to want. **One tap books one unit immediately** at the
+  tile's price — no pending order, no countdown — and returns to the name list, where the undo
+  banner (§4.1) shows "{name}: 1× {drink} gebucht" as for any order. Undo works the same.
+  - **Order:** first the person's own drinks, ranked by how many of *their* bookings contain the
+    drink (number of bookings, **not** units — a one-off 24× for a party must not outweigh five
+    single orders), over their **whole history** (all periods). Then the remaining places are
+    filled from the **overall** ranking (same measure, all persons, whole history), skipping drinks
+    already shown. A new person therefore sees the overall top 4; each own booking pushes its drink
+    to the front ("Pils" booked once → Pils, Helles, Cola-Mix, Wasser).
+  - Ties (in either ranking) are broken by the drink's position in the grid (group sort order,
+    then drink sort order).
+  - Only drinks this person can book from the grid appear: active, not hidden, with a price for
+    their tier. Others are skipped and the next drink moves up.
+  - Collective accounts get a quick bar too, by the same rules.
+  - **No mixing:** as soon as the pending order in the grid is not empty, the quick bar is greyed
+    out and does not react; it is active again once the order is empty (e.g. after "Verwerfen").
+    The grid stays unchanged; drinks in the quick bar also stay in the grid, so larger or mixed
+    orders of a frequent drink still go through the grid.
+  - Fewer than 4 bookable drinks in both rankings together (fresh install, no history yet): show
+    as many as there are; with none, the quick bar is not shown.
+  - The rankings are computed by the server (only it has the whole history) and reach the tablet
+    with the regular sync; a new booking moves the quick bar after the next sync, not instantly.
+    Offline, the last received rankings are used.
+  - Looks: plain, in the existing visual language, with large touch targets; polished in the design
+    overhaul (issue #4).
 - **Tapping a tile adds one** to a pending order; a counter badge shows the quantity on the tile.
   Several drinks can be combined in one order.
 - A bar at the bottom shows the pending order and its total, with **"Verwerfen"** (discard all) and
@@ -209,6 +237,13 @@ shrinkage, settlement figures, PDF content. The app only displays.
   owed; hidden accounts listed separately; shrinkage and stock (opening, deliveries, booked,
   expected, counted) per drink with group subtotals; deliveries of the period. Detailed per-drink
   per-person breakdown as an appendix (*builder's call on layout*).
+- **Drink rankings for the quick bar (§4.2):** the server provides, per person, their drinks ranked
+  by number of bookings over all periods, and the overall ranking across all persons, with the
+  counts. Ranked by bookings, not quantity; ties are left to the app's grid-order tie-break. The
+  app filters by what the person can book and merges the two lists. Delivered with the regular
+  sync (exact endpoint left to the builder), not inside the catalog, so the catalog ETag keeps
+  changing only with master data. Once admin storno exists (§4.3), cancelled bookings do not
+  count.
 - **Backups:** daily SQLite snapshot (online backup API) into a backup directory in the data
   volume, rotating; off-site copy is the operator's job and documented.
 - **Legacy import:** a CLI command that reads the old `user.csv` and `drink.csv`, repairs the
@@ -318,6 +353,11 @@ server; one monorepo; public repo `bar-tab` under `Cash86`; all configuration in
 - Legacy transactions not imported; cut-over via final old settlement + initial inventory.
 - Monthly report on the 1st; interim mail as plain mail body, settlement as PDF attachment.
 - SQLite + daily snapshot backups; MIT licence.
+- Quick bar (maintainer, 2026-11-04): 4 drinks, own ranking first then overall ranking, counted
+  by bookings over the whole history, collective accounts included, greyed out while a grid order
+  is pending, no hand-made lists. Claude's calls: overall ranking uses the same measure; ties by
+  grid order; rankings computed by the server and delivered with the sync; fewer than 4 → show
+  fewer, none → hide; plain look until issue #4.
 
 ## 13. Left to the builder
 Exact API shape, DB schema, package choices within the stack above, PDF layout, sync interval,
