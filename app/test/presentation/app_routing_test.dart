@@ -30,6 +30,9 @@ void main() {
           configStoreProvider.overrideWithValue(store),
           httpClientProvider.overrideWithValue(server.client),
           syncIntervalProvider.overrideWithValue(null),
+          rankingsRepositoryProvider.overrideWithValue(
+            FakeRankingsRepository(),
+          ),
           // The name list watches these; drift streams leave timers behind
           // when the tree is disposed inside a widget test.
           syncStateProvider.overrideWith((ref) => const Stream.empty()),

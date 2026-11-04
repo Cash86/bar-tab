@@ -59,6 +59,9 @@ void main() {
           ),
           httpClientProvider.overrideWithValue(server.client),
           syncIntervalProvider.overrideWithValue(null),
+          rankingsRepositoryProvider.overrideWithValue(
+            FakeRankingsRepository(),
+          ),
           syncStateProvider.overrideWith((ref) => const Stream.empty()),
           catalogProvider.overrideWith((ref) async => catalog),
           // Drift streams leave timers behind inside widget tests.

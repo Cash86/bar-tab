@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
+import 'package:bar_tab/domain/rankings.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/drinks/drink_selection_screen.dart';
 import 'package:bar_tab/presentation/drinks/order_bar.dart';
@@ -97,6 +98,7 @@ void main() {
   Future<void> pumpApp(
     WidgetTester tester, {
     List<Override> extra = const [],
+    DrinkRankings? rankings,
   }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -107,6 +109,9 @@ void main() {
           catalogProvider.overrideWith((ref) async => catalog),
           syncStateProvider.overrideWith((ref) => const Stream.empty()),
           bookingRepositoryProvider.overrideWithValue(bookings),
+          rankingsRepositoryProvider.overrideWithValue(
+            FakeRankingsRepository(rankings),
+          ),
           tabsRepositoryProvider.overrideWithValue(
             FakeTabsRepository({'p1': 4435, 'p2': 0}),
           ),
@@ -166,6 +171,110 @@ void main() {
     expect(find.byType(DrinkSelectionScreen), findsNothing);
     expect(find.text('Wer trinkt?'), findsOneWidget);
   }
+
+  group('quick bar', () {
+    const rankings = DrinkRankings(
+      overall: {'d3': 9, 'd2': 5, 'j0': 4, 'j1': 3},
+      persons: {
+        'p1': {'d1': 1},
+      },
+    );
+    Finder quick(String id) => find.byKey(ValueKey('quick-$id'));
+
+    testWidgets('the quick bar shows own drinks first, then the overall ones', (
+      tester,
+    ) async {
+      await pumpApp(tester, rankings: rankings);
+      await open(tester, 'Kim Example');
+
+      final ids = ['d1', 'd3', 'd2', 'j0'];
+      for (final id in ids) {
+        expect(quick(id), findsOneWidget);
+      }
+      expect(quick('j1'), findsNothing);
+      final xs = [for (final id in ids) tester.getTopLeft(quick(id)).dx];
+      expect(xs, orderedEquals([...xs]..sort()));
+      expect(xs.toSet().length, 4);
+    });
+
+    testWidgets('a quick tap books one unit and returns with the undo banner', (
+      tester,
+    ) async {
+      await pumpApp(tester, rankings: rankings);
+      await open(tester, 'Kim Example');
+
+      await tester.tap(quick('d1'));
+      await tester.pump();
+      expect(find.byType(OrderBar), findsNothing);
+      await settleRoute(tester);
+
+      expectOnNameList();
+      final booking = bookings.bookings.single;
+      expect(booking.drinkId, 'd1');
+      expect(booking.quantity, 1);
+      expect(booking.unitPriceCents, 115);
+      expect(find.text('Kim Example: 1× Lager gebucht'), findsOneWidget);
+
+      await tester.tap(find.text('Rückgängig'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(bookings.bookings, isEmpty);
+      await outlastUndoWindow(tester);
+    });
+
+    testWidgets('a double tap on a quick tile books once', (tester) async {
+      await pumpApp(tester, rankings: rankings);
+      await open(tester, 'Kim Example');
+
+      await tester.tap(quick('d1'));
+      await tester.tap(quick('d1'), warnIfMissed: false);
+      await settleRoute(tester);
+
+      expect(bookings.bookings, hasLength(1));
+      await outlastUndoWindow(tester);
+    });
+
+    testWidgets(
+      'the quick bar is greyed out and inert while a grid order is pending',
+      (tester) async {
+        await pumpApp(tester, rankings: rankings);
+        await open(tester, 'Kim Example');
+
+        await tapDrink(tester, 'd2');
+        await tester.tap(quick('d3'), warnIfMissed: false);
+        await tester.pump();
+        expect(find.byType(DrinkSelectionScreen), findsOneWidget);
+        expect(bookings.bookings, isEmpty);
+        expect(find.byType(OrderBar), findsOneWidget);
+        expect(find.text('1× Wheat'), findsOneWidget);
+
+        await tester.tap(find.text('Verwerfen'));
+        await tester.pump();
+        await tester.tap(quick('d3'));
+        await settleRoute(tester);
+
+        expectOnNameList();
+        expect(bookings.bookings.single.drinkId, 'd3');
+        await outlastUndoWindow(tester);
+      },
+    );
+
+    testWidgets('without rankings there is no quick bar', (tester) async {
+      await pumpApp(tester);
+      await open(tester, 'Kim Example');
+
+      expect(find.byKey(const ValueKey('quick-d1')), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey &&
+              '${(w.key as ValueKey).value}'.startsWith('quick-'),
+        ),
+        findsNothing,
+      );
+      expect(tester.getTopLeft(tile('d1')).dy, lessThan(300));
+    });
+  });
 
   testWidgets('shows header, groups and tiles priced for the person', (
     tester,

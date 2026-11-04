@@ -106,6 +106,9 @@ void main() {
           catalogProvider.overrideWith((ref) async => _catalog),
           syncStateProvider.overrideWith((ref) => const Stream.empty()),
           bookingRepositoryProvider.overrideWithValue(bookings),
+          rankingsRepositoryProvider.overrideWithValue(
+            FakeRankingsRepository(),
+          ),
           tabsRepositoryProvider.overrideWithValue(
             FakeTabsRepository({'p1': 4435, 'p2': 0}),
           ),

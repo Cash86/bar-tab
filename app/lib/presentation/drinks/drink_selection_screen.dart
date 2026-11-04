@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/catalog.dart';
+import '../../domain/quick_bar.dart';
 import '../../l10n/app_localizations.dart';
 import '../format.dart';
 import '../providers.dart';
@@ -11,6 +12,7 @@ import '../theme.dart';
 import 'drink_tile.dart';
 import 'order_bar.dart';
 import 'order_controller.dart';
+import 'quick_bar.dart';
 import 'quantity_sheet.dart';
 
 const int _tilesPerRow = 7;
@@ -96,6 +98,9 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
     final person = catalog?.persons
         .where((p) => p.id == widget.personId)
         .firstOrNull;
+    final quickDrinks = catalog != null && person != null
+        ? quickBarDrinks(catalog, person, ref.watch(rankingsProvider).value)
+        : const <Drink>[];
     final draft = order.effectiveDraft;
     final sheetId = order.sheetDrinkId;
 
@@ -126,6 +131,28 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
                             ?.name,
                         onOtherPerson: _otherPerson,
                       ),
+                      if (catalog != null &&
+                          person != null &&
+                          quickDrinks.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 20),
+                          child: QuickBar(
+                            drinks: quickDrinks,
+                            priceOf: (d) => catalog.priceFor(d, person)!,
+                            colorOf: (d) => Color(
+                              catalog.groups
+                                  .firstWhere((g) => g.id == d.groupId)
+                                  .color,
+                            ),
+                            enabled:
+                                order.draft.isEmpty &&
+                                !order.committing &&
+                                sheetId == null,
+                            onTap: (drink, price) => unawaited(
+                              _controller.quickBook(drink.id, price),
+                            ),
+                          ),
+                        ),
                       if (catalog != null && person != null)
                         Expanded(
                           child: _Groups(
