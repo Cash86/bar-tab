@@ -167,6 +167,7 @@ class DrinkRankings:
 
 def drink_rankings(session: Session) -> DrinkRankings:
     """Counts bookings (not units) per person and drink over all periods."""
+    # TODO(milestone 3): exclude cancelled (storno) bookings once admin storno exists (§4.3, §5).
     rows = session.execute(
         select(Booking.person_id, Booking.drink_id, func.count(Booking.id)).group_by(
             Booking.person_id, Booking.drink_id
