@@ -78,6 +78,7 @@ def close_admin_session(
     sessions: AdminSessions = Depends(get_admin_sessions),
     x_admin_token: str | None = Depends(admin_token_scheme),
 ) -> Response:
+    # The token is deliberately optional: logout is idempotent and always 204 (not require_admin).
     if x_admin_token:
         sessions.revoke(x_admin_token, device_id)
     return Response(status_code=204)

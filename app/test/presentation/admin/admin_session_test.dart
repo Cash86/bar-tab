@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:bar_tab/data/api/api_client.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/presentation/admin/admin_session.dart';
+import 'package:bar_tab/presentation/kiosk.dart';
 import 'package:bar_tab/presentation/providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -204,4 +205,14 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(token(), 't1');
   });
+  test(
+    'keep-alive interval plus idle stays below the server session limit',
+    () {
+      // Server limit: ADMIN_SESSION_IDLE_SECONDS in server/bartab/security.py.
+      expect(
+        kAdminKeepAliveInterval + kIdleTimeout < const Duration(seconds: 300),
+        isTrue,
+      );
+    },
+  );
 }
