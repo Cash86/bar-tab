@@ -25,6 +25,13 @@ class AdminGate extends ConsumerWidget {
       // the session always ends with it.
       child: PopScope(
         canPop: !loggedIn,
+        // Leaving the prompt cancels a login still in flight, so a late
+        // token is revoked instead of living on without this guard.
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop && !loggedIn) {
+            unawaited(ref.read(adminSessionProvider.notifier).logout());
+          }
+        },
         child: Scaffold(
           appBar: AppBar(
             title: Text(AppLocalizations.of(context).adminTitle),

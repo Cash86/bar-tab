@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bar_tab/domain/catalog.dart';
@@ -201,6 +202,36 @@ void main() {
     expect(find.text('Admin'), findsNothing);
     expect(calls(), ['DELETE /api/v1/admin/session']);
     expect(server.requests.single.headers['X-Admin-Token'], 't1');
+  });
+
+  testWidgets('leaving the PIN prompt during a login drops the late token', (
+    tester,
+  ) async {
+    final answer = Completer<http.Response>();
+    server.respond = (r) async {
+      if (r.method == 'POST') return answer.future;
+      return _json({});
+    };
+    await pump(tester);
+    await openGate(tester);
+    await enter(tester, '1234');
+    await tester.tap(find.byKey(const Key('admin-pin-login')));
+    await tester.pump();
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Wer trinkt?'), findsOneWidget);
+
+    answer.complete(_json({'token': 't1', 'expires_in': 300}));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NameListScreen)),
+    );
+    expect(container.read(adminSessionProvider), isNull);
+    expect(calls(), [
+      'POST /api/v1/admin/session',
+      'DELETE /api/v1/admin/session',
+    ]);
+    expect(server.requests.last.headers['X-Admin-Token'], 't1');
   });
 
   testWidgets('back is blocked while logged in', (tester) async {
