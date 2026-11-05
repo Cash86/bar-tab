@@ -1,3 +1,4 @@
+import '../../domain/admin_booking.dart';
 import '../../domain/booking.dart';
 import '../../domain/catalog.dart';
 import '../../domain/rankings.dart';
@@ -123,3 +124,14 @@ BookingStatus bookingStatusFromResult(BookingResultStatus s) => switch (s) {
   BookingResultStatus.conflict => BookingStatus.conflict,
   BookingResultStatus.rejected => BookingStatus.rejected,
 };
+
+AdminBooking adminBookingFromDto(AdminBookingDto dto) => AdminBooking(
+  id: dto.id,
+  personId: dto.personId,
+  drinkId: dto.drinkId,
+  quantity: dto.quantity,
+  unitPriceCents: dto.unitPriceCents,
+  bookedAt: dto.bookedAt,
+  isLate: dto.isLate,
+  cancelledAt: dto.cancelledAt,
+);

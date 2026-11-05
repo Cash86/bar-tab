@@ -95,6 +95,13 @@ final _cases = <_Case>[
   _Case('AdminSessionResponseDto', 'AdminSessionResponse', [
     const AdminSessionResponseDto(token: 't', expiresIn: 60).toJson(),
   ]),
+  _Case('AdminBookingDto', 'AdminBookingOut', [
+    _adminBooking().toJson(),
+    _adminBooking(cancelledAt: _date).toJson(),
+  ]),
+  _Case('AdminBookingsDto', 'AdminBookingsResponse', [
+    AdminBookingsDto(bookings: [_adminBooking()]).toJson(),
+  ]),
 ];
 
 BookingInDto _booking() => BookingInDto(
@@ -104,6 +111,17 @@ BookingInDto _booking() => BookingInDto(
   quantity: 1,
   unitPriceCents: 100,
   bookedAt: _date,
+);
+
+AdminBookingDto _adminBooking({DateTime? cancelledAt}) => AdminBookingDto(
+  id: 'b',
+  personId: 'p',
+  drinkId: 'd',
+  quantity: 2,
+  unitPriceCents: 150,
+  bookedAt: _date,
+  isLate: false,
+  cancelledAt: cancelledAt,
 );
 
 const _ignoredSchemas = {'HTTPValidationError', 'ValidationError'};

@@ -267,4 +267,179 @@ void main() {
       });
     }
   });
+
+  group('admin', () {
+    final bookingJson = {
+      'id': 'b1',
+      'person_id': 'p-1',
+      'drink_id': 'd1',
+      'quantity': 2,
+      'unit_price_cents': 150,
+      'booked_at': '2026-11-02T18:00:00Z',
+      'is_late': false,
+      'cancelled_at': null,
+    };
+
+    test('login 200 returns the token and posts the pin', () async {
+      late http.Request seen;
+      final api = _api((r) async {
+        seen = r;
+        return _json({'token': 't', 'expires_in': 300});
+      });
+      final result = await api.openAdminSession('1234');
+      expect(result, isA<AdminLoggedIn>());
+      expect((result as AdminLoggedIn).token, 't');
+      expect(seen.method, 'POST');
+      expect(seen.url.path, '/api/v1/admin/session');
+      expect(seen.headers['Authorization'], 'Bearer $_key');
+      expect(jsonDecode(seen.body), {'pin': '1234'});
+    });
+
+    test('login 401 wrong_pin returns AdminWrongPin', () async {
+      final api = _api((r) async => _json({'detail': 'wrong_pin'}, 401));
+      expect(await api.openAdminSession('0000'), isA<AdminWrongPin>());
+    });
+
+    test('login 429 returns AdminLockedOut with retry_after', () async {
+      final api = _api(
+        (r) async => _json({'detail': 'locked', 'retry_after': 60}, 429),
+      );
+      final result = await api.openAdminSession('0000');
+      expect(result, isA<AdminLockedOut>());
+      expect((result as AdminLockedOut).retryAfter, 60);
+    });
+
+    test('login 401 invalid_device_key throws UnauthorisedException', () async {
+      final api = _api(
+        (r) async => _json({'detail': 'invalid_device_key'}, 401),
+      );
+      expect(
+        api.openAdminSession('1234'),
+        throwsA(isA<UnauthorisedException>()),
+      );
+    });
+
+    test('listAdminBookings sends token and person filter', () async {
+      late http.Request seen;
+      final api = _api((r) async {
+        seen = r;
+        return _json({
+          'bookings': [bookingJson],
+        });
+      });
+      final list = await api.listAdminBookings('t', personId: 'p-1');
+      expect(seen.method, 'GET');
+      expect(seen.url.path, '/api/v1/admin/bookings');
+      expect(seen.url.query, 'person_id=p-1');
+      expect(seen.headers['X-Admin-Token'], 't');
+      expect(seen.headers['Authorization'], 'Bearer $_key');
+      expect(list.single.id, 'b1');
+      expect(list.single.cancelledAt, isNull);
+    });
+
+    test('listAdminBookings without person has no query', () async {
+      late http.Request seen;
+      final api = _api((r) async {
+        seen = r;
+        return _json({'bookings': <Object>[]});
+      });
+      await api.listAdminBookings('t');
+      expect(seen.url.hasQuery, isFalse);
+    });
+
+    test(
+      '401 admin_session_required throws AdminSessionEndedException',
+      () async {
+        final api = _api(
+          (r) async => _json({'detail': 'admin_session_required'}, 401),
+        );
+        expect(
+          api.listAdminBookings('t'),
+          throwsA(isA<AdminSessionEndedException>()),
+        );
+        expect(api.pingAdmin('t'), throwsA(isA<AdminSessionEndedException>()));
+      },
+    );
+
+    test('401 invalid_device_key throws UnauthorisedException', () async {
+      final api = _api(
+        (r) async => _json({'detail': 'invalid_device_key'}, 401),
+      );
+      expect(api.listAdminBookings('t'), throwsA(isA<UnauthorisedException>()));
+    });
+
+    test('401 with unreadable body stays UnauthorisedException', () async {
+      final api = _api((r) async => http.Response('nope', 401));
+      expect(api.pingAdmin('t'), throwsA(isA<UnauthorisedException>()));
+    });
+
+    test('pingAdmin GETs admin/ping with the token', () async {
+      late http.Request seen;
+      final api = _api((r) async {
+        seen = r;
+        return http.Response('', 204);
+      });
+      await api.pingAdmin('t');
+      expect(seen.method, 'GET');
+      expect(seen.url.path, '/api/v1/admin/ping');
+      expect(seen.headers['X-Admin-Token'], 't');
+    });
+
+    test('cancelBooking POSTs and returns the booking', () async {
+      late http.Request seen;
+      final api = _api((r) async {
+        seen = r;
+        return _json({...bookingJson, 'cancelled_at': '2026-11-03T10:00:00Z'});
+      });
+      final b = await api.cancelBooking('t', 'b1');
+      expect(seen.method, 'POST');
+      expect(seen.url.path, '/api/v1/admin/bookings/b1/cancel');
+      expect(seen.headers['X-Admin-Token'], 't');
+      expect(b.cancelledAt, DateTime.utc(2026, 11, 3, 10));
+    });
+
+    test('cancelBooking 409 carries the reason', () async {
+      final api = _api(
+        (r) async => _json({'detail': 'already_cancelled'}, 409),
+      );
+      await expectLater(
+        api.cancelBooking('t', 'b1'),
+        throwsA(
+          isA<BookingNotCancellableException>().having(
+            (e) => e.reason,
+            'reason',
+            'already_cancelled',
+          ),
+        ),
+      );
+    });
+
+    test('cancelBooking 404 carries booking_not_found', () async {
+      final api = _api(
+        (r) async => _json({'detail': 'booking_not_found'}, 404),
+      );
+      await expectLater(
+        api.cancelBooking('t', 'b1'),
+        throwsA(
+          isA<BookingNotCancellableException>().having(
+            (e) => e.reason,
+            'reason',
+            'booking_not_found',
+          ),
+        ),
+      );
+    });
+
+    test('closeAdminSession sends DELETE with the token', () async {
+      late http.Request seen;
+      final api = _api((r) async {
+        seen = r;
+        return http.Response('', 204);
+      });
+      await api.closeAdminSession('t');
+      expect(seen.method, 'DELETE');
+      expect(seen.url.path, '/api/v1/admin/session');
+      expect(seen.headers['X-Admin-Token'], 't');
+    });
+  });
 }

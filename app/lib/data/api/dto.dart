@@ -219,3 +219,29 @@ abstract class AdminSessionResponseDto with _$AdminSessionResponseDto {
   factory AdminSessionResponseDto.fromJson(Map<String, dynamic> json) =>
       _$AdminSessionResponseDtoFromJson(json);
 }
+
+@freezed
+abstract class AdminBookingDto with _$AdminBookingDto {
+  const factory AdminBookingDto({
+    required String id,
+    required String personId,
+    required String drinkId,
+    required int quantity,
+    required int unitPriceCents,
+    required DateTime bookedAt,
+    required bool isLate,
+    DateTime? cancelledAt,
+  }) = _AdminBookingDto;
+
+  factory AdminBookingDto.fromJson(Map<String, dynamic> json) =>
+      _$AdminBookingDtoFromJson(json);
+}
+
+@freezed
+abstract class AdminBookingsDto with _$AdminBookingsDto {
+  const factory AdminBookingsDto({required List<AdminBookingDto> bookings}) =
+      _AdminBookingsDto;
+
+  factory AdminBookingsDto.fromJson(Map<String, dynamic> json) =>
+      _$AdminBookingsDtoFromJson(json);
+}

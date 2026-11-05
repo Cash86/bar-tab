@@ -7,6 +7,27 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../fixtures/catalog_fixture.dart';
 
 void main() {
+  test('adminBookingFromDto computes amountCents and isCancelled', () {
+    final dto = AdminBookingDto(
+      id: 'b',
+      personId: 'p',
+      drinkId: 'd',
+      quantity: 3,
+      unitPriceCents: 150,
+      bookedAt: DateTime.utc(2026, 11, 2, 18),
+      isLate: true,
+    );
+    final open = adminBookingFromDto(dto);
+    expect(open.amountCents, 450);
+    expect(open.isCancelled, isFalse);
+    expect(open.isLate, isTrue);
+    final cancelled = adminBookingFromDto(
+      dto.copyWith(cancelledAt: DateTime.utc(2026, 11, 3)),
+    );
+    expect(cancelled.isCancelled, isTrue);
+    expect(cancelled.cancelledAt, DateTime.utc(2026, 11, 3));
+  });
+
   catalogToDtoTests();
   test('colorFromHex converts #RRGGBB to opaque ARGB', () {
     expect(colorFromHex('#C8A02B'), 0xFFC8A02B);
