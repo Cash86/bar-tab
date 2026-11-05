@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import FastAPI
 
 from bartab.api import (
+    routes_admin_bookings,
     routes_admin_session,
     routes_bookings,
     routes_catalog,
@@ -62,6 +63,7 @@ def create_app(settings: Settings, clock: Clock) -> FastAPI:
     app.state.admin_sessions = AdminSessions(clock)
     app.include_router(routes_health.router, prefix="/api/v1")
     app.include_router(routes_admin_session.router, prefix="/api/v1")
+    app.include_router(routes_admin_bookings.router, prefix="/api/v1")
     app.include_router(routes_catalog.router, prefix="/api/v1")
     app.include_router(routes_bookings.router, prefix="/api/v1")
     app.include_router(routes_rankings.router, prefix="/api/v1")

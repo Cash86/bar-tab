@@ -106,3 +106,18 @@ class TabsResponse(BaseModel):
 class RankingsResponse(BaseModel):
     overall: dict[str, int]  # drink_id -> number of bookings
     persons: dict[str, dict[str, int]]  # person_id -> drink_id -> number of bookings
+
+
+class AdminBookingOut(BaseModel):
+    id: str
+    person_id: str
+    drink_id: str
+    quantity: int
+    unit_price_cents: int
+    booked_at: datetime
+    is_late: bool
+    cancelled_at: datetime | None
+
+
+class AdminBookingsResponse(BaseModel):
+    bookings: list[AdminBookingOut]

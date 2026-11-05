@@ -9,6 +9,8 @@ OPERATION_IDS = {
     "postBookings",
     "getTabs",
     "getRankings",
+    "listAdminBookings",
+    "cancelBooking",
 }
 
 
@@ -69,3 +71,10 @@ def test_catalog_documents_304_with_etag(spec):
 def test_operation_ids(spec):
     ids = {op["operationId"] for item in spec["paths"].values() for op in item.values()}
     assert ids == OPERATION_IDS
+
+
+def test_cancel_documents_404_and_409(spec):
+    responses = spec["paths"]["/api/v1/admin/bookings/{booking_id}/cancel"]["post"]["responses"]
+    ref = "#/components/schemas/ErrorResponse"
+    for code in ("401", "404", "409"):
+        assert responses[code]["content"]["application/json"]["schema"]["$ref"] == ref
