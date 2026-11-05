@@ -7,6 +7,7 @@ import 'package:logging/logging.dart';
 import '../../domain/booking.dart';
 import '../../domain/catalog.dart';
 import '../../l10n/app_localizations.dart';
+import '../admin/admin_gate.dart';
 import '../common/sync_indicator.dart';
 import '../drinks/drink_selection_screen.dart';
 import '../drinks/order_bar.dart';
@@ -160,6 +161,12 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
     );
   }
 
+  void _openAdmin() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const AdminGate()));
+  }
+
   /// Time until [holdUntil], within 0..[kUndoWindow] (the clock may step).
   Duration _holdLeft(DateTime holdUntil) {
     final left = holdUntil.difference(ref.read(clockProvider).now());
@@ -284,17 +291,29 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          l10n.nameListTitle,
-                          style: const TextStyle(
-                            color: BarTabTheme.paper,
-                            fontSize: 30,
-                            height: 1.2,
-                            fontVariations: [
-                              FontVariation('wdth', 118),
-                              FontVariation('wght', 850),
-                            ],
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l10n.nameListTitle,
+                                style: const TextStyle(
+                                  color: BarTabTheme.paper,
+                                  fontSize: 30,
+                                  height: 1.2,
+                                  fontVariations: [
+                                    FontVariation('wdth', 118),
+                                    FontVariation('wght', 850),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              key: const Key('admin-gear'),
+                              icon: const Icon(Icons.settings),
+                              color: BarTabTheme.muted,
+                              onPressed: _openAdmin,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         if (catalogValue.isLoading && catalog == null)

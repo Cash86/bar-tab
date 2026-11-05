@@ -84,6 +84,44 @@ void main() {
     expect(token(), isNull);
   });
 
+  test('any other API failure on login is unreachable', () async {
+    final answers = <http.Response>[
+      _json({'detail': 'boom'}, 500),
+      _json({'detail': 'not_authorised'}, 401),
+      http.Response('not json', 200),
+    ];
+    for (final answer in answers) {
+      server.respond = (r) async => answer;
+      expect(await notifier().login('1234'), (
+        AdminLoginResult.unreachable,
+        null,
+      ));
+      expect(token(), isNull);
+    }
+  });
+
+  test('a logout during login wins and revokes the late token', () async {
+    final gate = Completer<http.Response>();
+    server.respond = (r) async {
+      if (r.method == 'POST') return gate.future;
+      return _json({});
+    };
+
+    final login = notifier().login('1234');
+    await Future<void>.delayed(Duration.zero);
+    await notifier().logout();
+    gate.complete(_json({'token': 't1', 'expires_in': 300}));
+    await login;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(token(), isNull);
+    expect(adminCalls(), [
+      'POST /api/v1/admin/session',
+      'DELETE /api/v1/admin/session',
+    ]);
+    expect(server.requests.last.headers['X-Admin-Token'], 't1');
+  });
+
   test(
     'logout clears the token before the server answers and sends DELETE',
     () async {

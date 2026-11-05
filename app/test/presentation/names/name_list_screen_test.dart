@@ -221,6 +221,19 @@ void main() {
     expect(screen.personId, 'p-berta');
   });
 
+  testWidgets('the gear at the right of the title opens the PIN prompt', (
+    tester,
+  ) async {
+    await pump(tester, catalogOf([person('a', 'Anton')]));
+    final gear = find.byKey(const Key('admin-gear'));
+    final title = tester.getRect(find.text('Wer trinkt?'));
+    expect(tester.getCenter(gear).dx, greaterThan(1200));
+    expect(tester.getCenter(gear).dy, closeTo(title.center.dy, 12));
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+    expect(find.text('Admin-PIN'), findsOneWidget);
+  });
+
   testWidgets('empty catalog shows the hint', (tester) async {
     await pump(tester, catalogOf([person('h', 'Versteckt', hidden: true)]));
     expect(

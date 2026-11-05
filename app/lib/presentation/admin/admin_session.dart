@@ -22,6 +22,9 @@ final adminSessionProvider = NotifierProvider<AdminSessionNotifier, String?>(
 class AdminSessionNotifier extends Notifier<String?> {
   DateTime? _lastRequest;
 
+  /// Bumped by [logout]: a login still in flight then must not log in.
+  int _generation = 0;
+
   @override
   String? build() => null;
 
@@ -29,10 +32,16 @@ class AdminSessionNotifier extends Notifier<String?> {
   Future<(AdminLoginResult, int?)> login(String pin) async {
     final api = ref.read(apiProvider);
     if (api == null) return (AdminLoginResult.unreachable, null);
+    final generation = _generation;
     try {
       final result = await api.openAdminSession(pin);
       switch (result) {
         case AdminLoggedIn(:final token):
+          if (generation != _generation) {
+            // Logged out meanwhile: the late session is not used.
+            unawaited(_revoke(api, token));
+            return (AdminLoginResult.unreachable, null);
+          }
           _lastRequest = ref.read(clockProvider).now();
           state = token;
           return (AdminLoginResult.success, null);
@@ -44,16 +53,24 @@ class AdminSessionNotifier extends Notifier<String?> {
     } on NetworkException catch (e) {
       _log.info('Admin login unreachable: ${e.message}');
       return (AdminLoginResult.unreachable, null);
+    } on ApiException catch (e) {
+      _log.warning('Admin login failed: ${e.message}');
+      return (AdminLoginResult.unreachable, null);
     }
   }
 
   /// Drops the token at once; the server is told on a best-effort basis.
   Future<void> logout() async {
     final token = state;
+    _generation++;
     state = null;
     _lastRequest = null;
     final api = ref.read(apiProvider);
     if (token == null || api == null) return;
+    await _revoke(api, token);
+  }
+
+  Future<void> _revoke(BarTabApi api, String token) async {
     try {
       await api.closeAdminSession(token);
     } on ApiException catch (e) {

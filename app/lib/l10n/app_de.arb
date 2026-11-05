@@ -72,5 +72,17 @@
   },
   "quantitySheetTotal": "Gesamt",
   "quantitySheetMore": "Weitere Getränke",
-  "quantitySheetBook": "Buchen"
+  "quantitySheetBook": "Buchen",
+  "adminTitle": "Admin",
+  "adminPinTitle": "Admin-PIN",
+  "adminPinLogin": "Anmelden",
+  "adminPinWrong": "PIN falsch",
+  "adminPinLocked": "Gesperrt – noch {seconds} s",
+  "@adminPinLocked": {
+    "description": "Too many wrong PINs; the next try is possible after this many seconds.",
+    "placeholders": {"seconds": {"type": "int"}}
+  },
+  "adminUnreachable": "Server nicht erreichbar",
+  "adminBookings": "Buchungen",
+  "adminLogout": "Abmelden"
 }
