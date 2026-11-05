@@ -85,6 +85,18 @@ void main() {
     });
   });
 
+  test('allPersonsByName: everyone incl. hidden, inactive, collective', () {
+    final c = catalog(
+      persons: [
+        person('p1', 'Zeta', collective: true),
+        person('p2', 'Ölaf', hidden: true),
+        person('p3', 'alpha', active: false),
+        person('p4', 'Beta', tier: 't2'),
+      ],
+    );
+    expect(c.allPersonsByName().map((p) => p.id), ['p3', 'p4', 'p2', 'p1']);
+  });
+
   test('collectiveAccounts: active, visible, collective, by name', () {
     final c = catalog(
       persons: [

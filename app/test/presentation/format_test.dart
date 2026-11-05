@@ -15,4 +15,15 @@ void main() {
       expect(formatCents(123456), '1.234,56 €');
     });
   });
+
+  group('formatBookingTime', () {
+    test('shows day, month and time in local time', () {
+      final local = DateTime(2026, 11, 5, 21, 7);
+      expect(formatBookingTime(local.toUtc()), '05.11. 21:07');
+    });
+
+    test('pads single digits', () {
+      expect(formatBookingTime(DateTime(2026, 1, 2, 3, 4)), '02.01. 03:04');
+    });
+  });
 }

@@ -82,6 +82,10 @@ abstract class Catalog with _$Catalog {
 
   const Catalog._();
 
+  /// Every person, including hidden, inactive and collective ones, by name
+  /// then id.
+  List<Person> allPersonsByName() => [...persons]..sort(_byNameThenId);
+
   bool _isVisible(Person p) => p.isActive && !p.isHidden;
 
   /// Active, visible collective accounts, ordered by name.

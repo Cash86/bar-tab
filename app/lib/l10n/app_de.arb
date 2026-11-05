@@ -84,5 +84,29 @@
   },
   "adminUnreachable": "Server nicht erreichbar",
   "adminBookings": "Buchungen",
-  "adminLogout": "Abmelden"
+  "adminLogout": "Abmelden",
+  "adminBookingsEmpty": "Keine Buchungen in dieser Periode",
+  "adminFilterAll": "Alle Personen",
+  "adminStorno": "Stornieren",
+  "adminStornoConfirm": "Buchung stornieren?",
+  "adminStornoSummary": "{time} · {person} · {line} · {amount}",
+  "@adminStornoSummary": {
+    "description": "Booking summary in the storno dialog; line is an orderLine value, e.g. '2× Apfelschorle'.",
+    "placeholders": {
+      "time": {"type": "String"},
+      "person": {"type": "String"},
+      "line": {"type": "String"},
+      "amount": {"type": "String"}
+    }
+  },
+  "adminQuantity": "{count}×",
+  "@adminQuantity": {
+    "description": "Quantity column of the admin bookings list, e.g. '2×'.",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "adminCancel": "Abbrechen",
+  "adminStornoDone": "Storniert",
+  "adminCancelled": "storniert",
+  "adminLate": "verspätet",
+  "adminStornoFailed": "Storno nicht möglich"
 }

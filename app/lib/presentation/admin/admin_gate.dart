@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../drinks/keypad.dart';
 import '../theme.dart';
+import 'admin_bookings_screen.dart';
 import 'admin_idle.dart';
 import 'admin_session.dart';
 
@@ -166,8 +167,11 @@ class _AdminHome extends ConsumerWidget {
           children: [
             FilledButton(
               key: const Key('admin-bookings'),
-              // AdminBookingsScreen follows with the bookings list.
-              onPressed: () {},
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AdminBookingsScreen(),
+                ),
+              ),
               child: Text(l10n.adminBookings),
             ),
             const SizedBox(height: 16),
