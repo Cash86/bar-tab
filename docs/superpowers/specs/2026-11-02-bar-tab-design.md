@@ -95,7 +95,8 @@ rail and as an accent on its tiles, condensed type for names, prices only on dri
   With more than two tiers, columns are added side by side.
 - Overflow: tiles shrink first (3 → 4 per row, flatter), then each column scrolls independently
   with a fade hint; the collective row stays fixed. Deactivating people keeps the list short.
-- An unobtrusive "Admin" button bottom-right opens the PIN prompt.
+- A small gear icon in the name list header opens the PIN prompt (maintainer, 2026-11-05; the
+  PIN is the protection, the entry need not be hidden). The PIN is entered on the in-app keypad.
 - **Screensaver:** after 2 minutes without a touch the screen goes dark with a small, slowly
   moving hint and the brightness is dimmed. The wakelock stays on, so there is no Android lock
   screen. The first touch only wakes the app and is not passed on to the tiles.
@@ -171,7 +172,9 @@ After booking, the latest order can be undone on the name list for 15 seconds (�
 wrong bookings are corrected by an admin storno (§4.3).
 
 ### 4.3 Admin area
-Entered with the shared admin PIN. Auto-logout after 2 minutes without interaction. Admin
+Entered with the shared admin PIN. The admin stays logged in until they log out or 2 minutes pass
+without interaction (the same idle that starts the screensaver); both end the session on the server
+too. While the admin is active the app keeps the server session alive (§5). Admin
 functions require a server connection (only bookings work offline).
 
 - **Delivery:** per drink, crates + loose units → stock increases.
@@ -186,8 +189,16 @@ functions require a server connection (only bookings work offline).
      be re-sent from admin.
 - **Event booking:** pick a person (typically a hidden account), enter quantities per drink
   including hidden drinks; booked with that person's tier prices.
-- **Bookings:** list of the current period's bookings (filter by person); a booking can be
-  cancelled (storno), which is recorded as a cancellation, not a delete.
+- **Bookings** (issue #3, maintainer 2026-11-05): list of the open period's bookings as the server
+  has them, newest first, with an optional person filter (hidden persons included). Each row shows
+  time, person, drink, quantity, unit price and amount. A booking can be cancelled (storno) after
+  an in-app confirmation; the storno is recorded on the booking (when, by which device), never a
+  delete. Cancelled bookings stay in the list, greyed out and marked "storniert". There is **no
+  editing**: a wrong booking is cancelled and the correct one is booked again through the normal
+  name list. No reason is asked for. A storno cannot be undone (book again instead). Only bookings
+  of the open period can be cancelled; bookings of closed periods are read-only. Bookings still
+  queued on the tablet appear once they are uploaded (fresh ones can be undone on the name list,
+  §4.1). After a storno the app refreshes the running totals.
 - **Master data:** create / edit / deactivate persons, price tiers, drink groups (order, colour),
   drinks (group, prices per tier, crate size, hidden, order). Nothing referenced by bookings is
   hard-deleted.
@@ -223,7 +234,12 @@ shrinkage, settlement figures, PDF content. The app only displays.
   the contract; the app's DTOs are hand-written, guarded by a contract test that fails when app and schema
   diverge.
 - **Auth:** each tablet sends a device key (bearer token). Admin endpoints additionally require an
-  admin session obtained by posting the PIN; the PIN is stored as a slow hash in the DB. Rate
+  admin session obtained by posting the PIN; the PIN is stored as a slow hash in the DB. The admin
+  session is sliding (maintainer, 2026-11-05): every admin request extends it, and the app sends a
+  keep-alive while the admin is interacting, so a session never expires during use. Logging out
+  (button or the tablet's 2-minute idle) revokes it on the server. As a safety net the server drops
+  a session after 5 minutes without any admin request. Sessions are bound to the device and kept
+  in memory (single worker); a server restart ends them and the app asks for the PIN again. Rate
   limiting / backoff on wrong PINs. The auth layer is built around a "principal" so that personal
   member logins (§10) can be added without reshaping the API.
 - **Period assignment:** a booking belongs to the period that is open when the server receives it.
@@ -244,10 +260,17 @@ shrinkage, settlement figures, PDF content. The app only displays.
   counts. Ranked by bookings, not quantity; ties are left to the app's grid-order tie-break. The
   app filters by what the person can book and merges the two lists. Delivered with the regular
   sync (exact endpoint left to the builder), not inside the catalog, so the catalog ETag keeps
-  changing only with master data. Once admin storno exists (§4.3), cancelled bookings do not
-  count.
+  changing only with master data. Cancelled (storno) bookings do not count.
   Best effort: if the rankings cannot be fetched or are invalid, the sync still succeeds and the
   last received rankings stay (logged only).
+- **Storno (§4.3):** admin-only endpoints list the open period's bookings (optional person filter)
+  and cancel one booking. A booking carries `cancelled_at` and the cancelling device; cancelled
+  bookings are excluded from running totals (`/tabs`), the drink rankings, the monthly report and
+  the settlement figures, including the booked quantity used for stock and shrinkage. Cancelling
+  a booking of a closed period, or one that is already cancelled, is rejected with 409 and a clear
+  detail string. The settlement PDF (milestone 4)
+  gets a section listing the period's cancelled bookings (booked at, cancelled at, person, drink,
+  quantity, amount) so the treasurer can spot misuse; no reason is recorded.
 - **Backups:** daily SQLite snapshot (online backup API) into a backup directory in the data
   volume, rotating; off-site copy is the operator's job and documented.
 - **Legacy import:** a CLI command that reads the old `user.csv` and `drink.csv`, repairs the
@@ -364,6 +387,15 @@ server; one monorepo; public repo `bar-tab` under `Cash86`; all configuration in
   fewer, none → hide; plain look until issue #4; 500 ms tap guard on the name list after a quick
   booking; rankings are fetched best effort (a failure never fails the sync, the last rankings
   stay).
+- Storno (maintainer, 2026-11-05, issue #3): cancel only, no editing; no reason; storno section in
+  the settlement PDF; gear icon in the name list header as admin entry. Claude's calls: cancelled rows stay visible greyed out; a storno cannot be undone; cancelling twice or in
+  a closed period → 409; queued (not yet uploaded) bookings are not listed; plain look until #4;
+  newest first by `booked_at`, late bookings marked; person filter includes hidden and deactivated
+  persons; an admin 401 (session gone, e.g. after a server restart) is treated as a logout and
+  asks for the PIN again.
+- Admin session (maintainer, 2026-11-05): sliding, never expires while in use; logout or the
+  tablet's 2-minute idle revokes it; server safety net 5 minutes without admin requests. Claude's
+  calls: in-memory session store; keep-alive throttled from user interaction.
 
 ## 13. Left to the builder
 Exact API shape, DB schema, package choices within the stack above, PDF layout, sync interval,
