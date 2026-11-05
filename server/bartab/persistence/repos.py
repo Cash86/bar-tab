@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -149,11 +150,50 @@ def add_booking(
     return booking
 
 
+class CancelOutcome(StrEnum):
+    CANCELLED = "cancelled"
+    NOT_FOUND = "not_found"
+    PERIOD_CLOSED = "period_closed"
+    ALREADY_CANCELLED = "already_cancelled"
+
+
+def open_period_bookings(session: Session, person_id: str | None = None) -> list[Booking]:
+    """Bookings of the open period, cancelled ones included, newest first."""
+    query = (
+        select(Booking)
+        .join(Period, Period.id == Booking.period_id)
+        .where(Period.closed_at.is_(None))
+        .order_by(Booking.booked_at.desc(), Booking.id.desc())
+    )
+    if person_id is not None:
+        query = query.where(Booking.person_id == person_id)
+    return list(session.scalars(query))
+
+
+def cancel_booking(
+    session: Session, booking_id: str, device_id: str, clock: Clock
+) -> tuple[CancelOutcome, Booking | None]:
+    booking = session.get(Booking, booking_id)
+    if booking is None:
+        return CancelOutcome.NOT_FOUND, None
+    period = session.get(Period, booking.period_id)
+    if period is None or period.closed_at is not None:
+        return CancelOutcome.PERIOD_CLOSED, booking
+    if booking.cancelled_at is not None:
+        return CancelOutcome.ALREADY_CANCELLED, booking
+    now = clock.now()
+    booking.cancelled_at = now
+    booking.cancelled_by_device_id = device_id
+    booking.updated_at = now
+    session.flush()
+    return CancelOutcome.CANCELLED, booking
+
+
 def tabs_for_open_period(session: Session) -> dict[str, int]:
     rows = session.execute(
         select(Booking.person_id, func.sum(Booking.quantity * Booking.unit_price_cents))
         .join(Period, Period.id == Booking.period_id)
-        .where(Period.closed_at.is_(None))
+        .where(Period.closed_at.is_(None), Booking.cancelled_at.is_(None))
         .group_by(Booking.person_id)
     )
     return {person_id: int(total) for person_id, total in rows}
@@ -167,11 +207,10 @@ class DrinkRankings:
 
 def drink_rankings(session: Session) -> DrinkRankings:
     """Counts bookings (not units) per person and drink over all periods."""
-    # TODO(milestone 3): exclude cancelled (storno) bookings once admin storno exists (§4.3, §5).
     rows = session.execute(
-        select(Booking.person_id, Booking.drink_id, func.count(Booking.id)).group_by(
-            Booking.person_id, Booking.drink_id
-        )
+        select(Booking.person_id, Booking.drink_id, func.count(Booking.id))
+        .where(Booking.cancelled_at.is_(None))
+        .group_by(Booking.person_id, Booking.drink_id)
     )
     overall: dict[str, int] = {}
     persons: dict[str, dict[str, int]] = {}

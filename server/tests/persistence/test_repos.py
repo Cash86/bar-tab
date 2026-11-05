@@ -130,3 +130,81 @@ def test_persons_with_equal_names_are_ordered_by_id(db_session, clock):
     first = repos.get_catalog(db_session)
     assert [p.id for p in first.persons] == ["pa", "pb", "pm", "pz"]
     assert repos.get_catalog(db_session) == first
+
+
+def test_cancel_marks_booking_with_time_and_device(db_session, clock):
+    _seed(db_session, clock)
+    booking = _book(db_session, clock, bid="b1")
+    clock.advance(timedelta(minutes=3))
+    outcome, cancelled = repos.cancel_booking(db_session, "b1", "admin-dev", clock)
+    assert outcome == repos.CancelOutcome.CANCELLED
+    assert cancelled is booking
+    assert booking.cancelled_at == clock.now()
+    assert booking.cancelled_by_device_id == "admin-dev"
+    assert booking.updated_at == clock.now()
+
+
+def test_cancel_unknown_booking_is_not_found(db_session, clock):
+    outcome, booking = repos.cancel_booking(db_session, "missing", "dev", clock)
+    assert outcome == repos.CancelOutcome.NOT_FOUND
+    assert booking is None
+
+
+def test_cancel_twice_is_already_cancelled(db_session, clock):
+    _seed(db_session, clock)
+    booking = _book(db_session, clock, bid="b1")
+    repos.cancel_booking(db_session, "b1", "dev-1", clock)
+    first = booking.cancelled_at
+    clock.advance(timedelta(minutes=1))
+    outcome, again = repos.cancel_booking(db_session, "b1", "dev-2", clock)
+    assert outcome == repos.CancelOutcome.ALREADY_CANCELLED
+    assert again is booking
+    assert booking.cancelled_at == first
+    assert booking.cancelled_by_device_id == "dev-1"
+
+
+def test_cancel_in_closed_period_is_rejected(db_session, clock):
+    _seed(db_session, clock)
+    period = repos.ensure_open_period(db_session, clock)
+    booking = _book(db_session, clock, bid="b1")
+    period.closed_at = clock.now()
+    db_session.flush()
+    repos.ensure_open_period(db_session, clock)
+    outcome, found = repos.cancel_booking(db_session, "b1", "dev", clock)
+    assert outcome == repos.CancelOutcome.PERIOD_CLOSED
+    assert found is booking
+    assert booking.cancelled_at is None
+
+
+def test_open_period_bookings_newest_first_and_filtered(db_session, clock):
+    _seed(db_session, clock)
+    old = repos.ensure_open_period(db_session, clock)
+    t0 = clock.now()
+    _book(db_session, clock, person="pb", bid="old", booked_at=t0)
+    old.closed_at = clock.now()
+    db_session.flush()
+    repos.ensure_open_period(db_session, clock)
+    _book(db_session, clock, person="pa", bid="b1", booked_at=t0 + timedelta(minutes=1))
+    _book(db_session, clock, person="pb", bid="b2", booked_at=t0 + timedelta(minutes=3))
+    _book(db_session, clock, person="pa", bid="b3", booked_at=t0 + timedelta(minutes=2))
+    repos.cancel_booking(db_session, "b3", "dev", clock)
+    assert [b.id for b in repos.open_period_bookings(db_session)] == ["b2", "b3", "b1"]
+    assert [b.id for b in repos.open_period_bookings(db_session, "pa")] == ["b3", "b1"]
+
+
+def test_tabs_exclude_cancelled_bookings(db_session, clock):
+    _seed(db_session, clock)
+    _book(db_session, clock, qty=2, price=60, bid="b1")
+    _book(db_session, clock, qty=1, price=130, bid="b2")
+    repos.cancel_booking(db_session, "b2", "dev", clock)
+    assert repos.tabs_for_open_period(db_session) == {"pa": 120}
+
+
+def test_rankings_exclude_cancelled_bookings(db_session, clock):
+    _seed(db_session, clock)
+    _book(db_session, clock, qty=1, price=60, bid="b1")
+    _book(db_session, clock, qty=2, price=60, bid="b2")
+    repos.cancel_booking(db_session, "b2", "dev", clock)
+    rankings = repos.drink_rankings(db_session)
+    assert rankings.overall == {"d1": 1}
+    assert rankings.persons == {"pa": {"d1": 1}}

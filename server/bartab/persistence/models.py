@@ -120,6 +120,8 @@ class Booking(_Timestamps, Base):
     received_at: Mapped[datetime] = mapped_column(UtcDateTime)
     device_id: Mapped[str]
     is_late: Mapped[bool]
+    cancelled_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
+    cancelled_by_device_id: Mapped[str | None]
 
 
 class AppSetting(Base):

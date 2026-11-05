@@ -103,3 +103,14 @@ def test_negative_price_is_rejected(db_path: Path) -> None:
                 "VALUES ('d1', 't1', -1)"
             )
         )
+
+
+@pytest.mark.filterwarnings("ignore:Skipped unsupported reflection of expression-based index")
+def test_downgrade_removes_storno_columns(db_path: Path) -> None:
+    config = Config(str(SERVER_DIR / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    command.downgrade(config, "-1")
+    engine = create_engine(f"sqlite:///{db_path}")
+    columns = {column["name"] for column in inspect(engine).get_columns("bookings")}
+    assert "cancelled_at" not in columns
+    assert "cancelled_by_device_id" not in columns
