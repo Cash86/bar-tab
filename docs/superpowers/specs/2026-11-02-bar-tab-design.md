@@ -347,7 +347,11 @@ data, enabling screen pinning.
 2. App: name list + drink selection + offline queue against the real API.
 3. Admin: master data, deliveries, event bookings, booking corrections, including re-pairing
    the tablet (new server URL/device key) without losing queued bookings.
-4. Inventory & settlement flow + PDF + mail; monthly interim report.
+4. Inventory & settlement flow + PDF + mail; monthly interim report. Carry-over from the storno
+   (§5): every stock, settlement and monthly-report query must exclude cancelled bookings
+   (`cancelled_at IS NULL`); the settlement PDF gets the storno section (booked at, cancelled at,
+   person, drink, quantity, amount; the cancelling device is available as
+   `cancelled_by_device_id`).
 5. Legacy import, deployment on netcup, README/operator docs; cut-over from the old script.
 6. **Later:** members book from their own phones — personal login, same Flutter app or a phone
    layout of it. Out of scope until 1–5 run in production.
@@ -392,10 +396,15 @@ server; one monorepo; public repo `bar-tab` under `Cash86`; all configuration in
   a closed period → 409; queued (not yet uploaded) bookings are not listed; plain look until #4;
   newest first by `booked_at`, late bookings marked; person filter includes hidden and deactivated
   persons; an admin 401 (session gone, e.g. after a server restart) is treated as a logout and
-  asks for the PIN again.
+  asks for the PIN again; back is blocked on the admin home (the admin area is left only via
+  "Abmelden" or the 2-minute idle); any login failure other than wrong PIN or lockout (device key
+  rejected, 5xx, unreadable answer) shows "Server nicht erreichbar"; a refused storno (already
+  cancelled / period closed / not found) shows "Storno nicht möglich" and reloads the list.
 - Admin session (maintainer, 2026-11-05): sliding, never expires while in use; logout or the
   tablet's 2-minute idle revokes it; server safety net 5 minutes without admin requests. Claude's
-  calls: in-memory session store; keep-alive throttled from user interaction.
+  calls: in-memory session store; keep-alive throttled from user interaction (at most every 60 s);
+  the admin idle uses the same 2-minute timeout as the screensaver; keep-alive interval plus idle
+  must stay below the server's 300 s session limit.
 
 ## 13. Left to the builder
 Exact API shape, DB schema, package choices within the stack above, PDF layout, sync interval,
