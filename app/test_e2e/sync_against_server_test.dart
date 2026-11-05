@@ -21,10 +21,12 @@ import 'package:uuid/uuid.dart';
 
 const _baseUrl = String.fromEnvironment('E2E_BASE_URL');
 const _deviceKey = String.fromEnvironment('E2E_DEVICE_KEY');
+const _adminPin = String.fromEnvironment('E2E_ADMIN_PIN');
 
-final _skipReason = (_baseUrl.isEmpty || _deviceKey.isEmpty)
+final _skipReason =
+    (_baseUrl.isEmpty || _deviceKey.isEmpty || _adminPin.isEmpty)
     ? 'Needs a running server: run app/tool/e2e.sh '
-          '(sets E2E_BASE_URL and E2E_DEVICE_KEY)'
+          '(sets E2E_BASE_URL, E2E_DEVICE_KEY and E2E_ADMIN_PIN)'
     : null;
 
 void main() {
@@ -174,4 +176,52 @@ void main() {
     },
     skip: _skipReason,
   );
+
+  test('storno removes a booking from the tab', () async {
+    final fetch = await api.getCatalog();
+    final catalog = catalogFromDto((fetch as CatalogUpdated).catalog);
+    final person = catalog.persons.firstWhere((p) => p.name == 'Jörg');
+    final drinks = catalog.drinksFor(person).expand((g) => g.$2).toList();
+    final pils = drinks.firstWhere((d) => d.name == 'Pils');
+    final price = catalog.priceFor(pils, person)!;
+
+    final before = await serverTab(person.id);
+    final booking = queued(person, pils, 2, price);
+    await bookings.addAll([booking]);
+    await sync.syncNow();
+    expect(await serverTab(person.id), before + 2 * price);
+    expect(await tabs.watchTab(person.id).first, before + 2 * price);
+
+    final login = await api.openAdminSession(_adminPin);
+    expect(login, isA<AdminLoggedIn>());
+    final token = (login as AdminLoggedIn).token;
+
+    final listed = await api.listAdminBookings(token, personId: person.id);
+    final dto = listed.firstWhere((b) => b.id == booking.id);
+    expect(dto.cancelledAt, isNull);
+
+    final cancelled = await api.cancelBooking(token, booking.id);
+    expect(cancelled.cancelledAt, isNotNull);
+
+    await sync.syncNow();
+    expect(await serverTab(person.id), before);
+    expect(await tabs.watchTab(person.id).first, before);
+
+    await expectLater(
+      api.cancelBooking(token, booking.id),
+      throwsA(
+        isA<BookingNotCancellableException>().having(
+          (e) => e.reason,
+          'reason',
+          'already_cancelled',
+        ),
+      ),
+    );
+
+    await api.closeAdminSession(token);
+    await expectLater(
+      api.pingAdmin(token),
+      throwsA(isA<AdminSessionEndedException>()),
+    );
+  }, skip: _skipReason);
 }

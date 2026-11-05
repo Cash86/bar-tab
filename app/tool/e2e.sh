@@ -83,4 +83,5 @@ echo "== running e2e test"
 cd "$app_dir"
 flutter test test_e2e \
   --dart-define=E2E_BASE_URL="$base_url" \
-  --dart-define=E2E_DEVICE_KEY="$device_key"
+  --dart-define=E2E_DEVICE_KEY="$device_key" \
+  --dart-define=E2E_ADMIN_PIN=4711
