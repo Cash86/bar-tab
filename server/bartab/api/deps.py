@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from bartab.config import Settings
 from bartab.domain.clock import Clock
-from bartab.security import PinLockout, match_device_key, verify_admin_token
+from bartab.security import AdminSessions, PinLockout, match_device_key
 
 # auto_error=False: these only declare the schemes and read the credentials;
 # every failure is raised below as the documented 401.
@@ -38,6 +38,10 @@ def get_lockout(request: Request) -> PinLockout:
     return request.app.state.lockout
 
 
+def get_admin_sessions(request: Request) -> AdminSessions:
+    return request.app.state.admin_sessions
+
+
 def require_device(
     settings: Settings = Depends(get_settings),
     credentials: HTTPAuthorizationCredentials | None = Depends(device_key_scheme),
@@ -51,12 +55,11 @@ def require_device(
 
 
 def require_admin(
-    settings: Settings = Depends(get_settings),
-    clock: Clock = Depends(get_clock),
+    sessions: AdminSessions = Depends(get_admin_sessions),
     device_id: str = Depends(require_device),
     x_admin_token: str | None = Depends(admin_token_scheme),
-) -> None:
-    if not x_admin_token or not verify_admin_token(
-        settings.secret_key, clock, x_admin_token, device_id
-    ):
+) -> str:
+    """Returns the device id of the admin session; every call slides the idle window."""
+    if not x_admin_token or not sessions.touch(x_admin_token, device_id):
         raise HTTPException(status_code=401, detail="admin_session_required")
+    return device_id

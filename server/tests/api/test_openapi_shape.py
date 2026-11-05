@@ -4,6 +4,7 @@ OPERATION_IDS = {
     "getHealth",
     "openAdminSession",
     "pingAdmin",
+    "closeAdminSession",
     "getCatalog",
     "postBookings",
     "getTabs",
@@ -32,6 +33,8 @@ def test_catalog_operation_is_client_ready(spec):
 def test_admin_and_health_security(spec):
     paths = spec["paths"]
     assert paths["/api/v1/admin/ping"]["get"]["security"] == [{"deviceKey": [], "adminToken": []}]
+    close = paths["/api/v1/admin/session"]["delete"]
+    assert close["security"] == [{"deviceKey": [], "adminToken": []}]
     assert "security" not in paths["/api/v1/health"]["get"]
     for path in paths.values():
         for op in path.values():

@@ -1,12 +1,12 @@
 import hashlib
 import hmac
 import math
+import secrets
 import threading
 from datetime import datetime, timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from itsdangerous import BadSignature, TimestampSigner
 from sqlalchemy.orm import Session
 
 from bartab.config import Settings
@@ -14,7 +14,7 @@ from bartab.domain.clock import Clock
 from bartab.persistence.repos import get_setting, set_setting
 
 ADMIN_PIN_HASH_KEY = "admin_pin_hash"
-ADMIN_TOKEN_MAX_AGE = 900
+ADMIN_SESSION_IDLE_SECONDS = 300
 
 _hasher = PasswordHasher()
 
@@ -89,28 +89,38 @@ class PinLockout:
             self._locked_until.pop(device_id, None)
 
 
-class ClockSigner(TimestampSigner):
-    """TimestampSigner whose time source is the injected clock."""
+class AdminSessions:
+    """In-memory sliding admin sessions: every successful touch restarts the idle window."""
 
-    clock: Clock
+    def __init__(self, clock: Clock, idle_seconds: int = ADMIN_SESSION_IDLE_SECONDS) -> None:
+        self._clock = clock
+        self._idle = timedelta(seconds=idle_seconds)
+        self._sessions: dict[str, tuple[str, datetime]] = {}
+        self._mutex = threading.Lock()
 
-    def get_timestamp(self) -> int:
-        return int(self.clock.now().timestamp())
+    def open(self, device_id: str) -> str:
+        token = secrets.token_urlsafe(32)
+        with self._mutex:
+            self._sessions[token] = (device_id, self._clock.now() + self._idle)
+        return token
 
+    def touch(self, token: str, device_id: str) -> bool:
+        with self._mutex:
+            entry = self._sessions.get(token)
+            if entry is None:
+                return False
+            owner, expires_at = entry
+            now = self._clock.now()
+            if now >= expires_at:
+                del self._sessions[token]
+                return False
+            if not hmac.compare_digest(owner.encode(), device_id.encode()):
+                return False
+            self._sessions[token] = (owner, now + self._idle)
+            return True
 
-def _signer(secret_key: str, clock: Clock) -> ClockSigner:
-    signer = ClockSigner(secret_key)
-    signer.clock = clock
-    return signer
-
-
-def issue_admin_token(secret_key: str, clock: Clock, device_id: str) -> str:
-    return _signer(secret_key, clock).sign(device_id).decode()
-
-
-def verify_admin_token(secret_key: str, clock: Clock, token: str, device_id: str) -> bool:
-    try:
-        value = _signer(secret_key, clock).unsign(token, max_age=ADMIN_TOKEN_MAX_AGE)
-    except BadSignature:
-        return False
-    return hmac.compare_digest(value, device_id.encode())
+    def revoke(self, token: str, device_id: str) -> None:
+        with self._mutex:
+            entry = self._sessions.get(token)
+            if entry is not None and hmac.compare_digest(entry[0].encode(), device_id.encode()):
+                del self._sessions[token]

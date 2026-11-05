@@ -512,6 +512,31 @@
       }
     },
     "/api/v1/admin/session": {
+      "delete": {
+        "operationId": "closeAdminSession",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Closeadminsession"
+      },
       "post": {
         "operationId": "openAdminSession",
         "requestBody": {

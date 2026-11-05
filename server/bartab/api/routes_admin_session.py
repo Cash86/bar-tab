@@ -3,10 +3,10 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from bartab.api.deps import (
-    get_clock,
+    admin_token_scheme,
+    get_admin_sessions,
     get_lockout,
     get_session,
-    get_settings,
     require_admin,
     require_device,
 )
@@ -16,15 +16,13 @@ from bartab.api.schemas import (
     ErrorResponse,
     LockedResponse,
 )
-from bartab.config import Settings
-from bartab.domain.clock import Clock
 from bartab.persistence.repos import get_setting
 from bartab.security import (
     ADMIN_PIN_HASH_KEY,
-    ADMIN_TOKEN_MAX_AGE,
+    ADMIN_SESSION_IDLE_SECONDS,
+    AdminSessions,
     LockedOut,
     PinLockout,
-    issue_admin_token,
     verify_pin,
 )
 
@@ -40,8 +38,7 @@ router = APIRouter()
 def open_admin_session(
     body: AdminSessionRequest,
     device_id: str = Depends(require_device),
-    settings: Settings = Depends(get_settings),
-    clock: Clock = Depends(get_clock),
+    sessions: AdminSessions = Depends(get_admin_sessions),
     lockout: PinLockout = Depends(get_lockout),
     session: Session = Depends(get_session),
 ) -> AdminSessionResponse | JSONResponse:
@@ -55,8 +52,8 @@ def open_admin_session(
     if pin_hash is None or not verify_pin(body.pin, pin_hash):
         raise HTTPException(status_code=401, detail="wrong_pin")
     lockout.reset(device_id)
-    token = issue_admin_token(settings.secret_key, clock, device_id)
-    return AdminSessionResponse(token=token, expires_in=ADMIN_TOKEN_MAX_AGE)
+    token = sessions.open(device_id)
+    return AdminSessionResponse(token=token, expires_in=ADMIN_SESSION_IDLE_SECONDS)
 
 
 @router.get(
@@ -67,4 +64,20 @@ def open_admin_session(
     responses={401: {"model": ErrorResponse}},
 )
 def admin_ping() -> Response:
+    return Response(status_code=204)
+
+
+@router.delete(
+    "/admin/session",
+    name="closeAdminSession",
+    status_code=204,
+    responses={401: {"model": ErrorResponse}},
+)
+def close_admin_session(
+    device_id: str = Depends(require_device),
+    sessions: AdminSessions = Depends(get_admin_sessions),
+    x_admin_token: str | None = Depends(admin_token_scheme),
+) -> Response:
+    if x_admin_token:
+        sessions.revoke(x_admin_token, device_id)
     return Response(status_code=204)

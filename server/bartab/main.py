@@ -15,7 +15,7 @@ from bartab.config import Settings
 from bartab.domain.clock import Clock, SystemClock
 from bartab.persistence.db import make_engine, make_session_factory
 from bartab.persistence.repos import ensure_open_period
-from bartab.security import PinLockout, seed_admin_pin
+from bartab.security import AdminSessions, PinLockout, seed_admin_pin
 
 
 def _merge_security(app: FastAPI) -> None:
@@ -59,6 +59,7 @@ def create_app(settings: Settings, clock: Clock) -> FastAPI:
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.lockout = PinLockout(clock)
+    app.state.admin_sessions = AdminSessions(clock)
     app.include_router(routes_health.router, prefix="/api/v1")
     app.include_router(routes_admin_session.router, prefix="/api/v1")
     app.include_router(routes_catalog.router, prefix="/api/v1")

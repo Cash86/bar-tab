@@ -37,7 +37,7 @@ def test_correct_pin_gives_token_that_opens_ping(client, device_headers):
     r = _login(client, device_headers)
     assert r.status_code == 200
     body = r.json()
-    assert body["expires_in"] == 900
+    assert body["expires_in"] == 300
     ping = client.get(PING, headers={**device_headers, "X-Admin-Token": body["token"]})
     assert ping.status_code == 204
 
@@ -55,13 +55,59 @@ def test_garbage_token_is_401(client, device_headers):
     assert r.json() == {"detail": "admin_session_required"}
 
 
-def test_token_expires_after_900_seconds_of_injected_clock(client, clock, device_headers):
+def test_session_expires_after_300_idle_seconds(client, clock, device_headers):
     token = _login(client, device_headers).json()["token"]
     headers = {**device_headers, "X-Admin-Token": token}
-    clock.advance(timedelta(seconds=899))
+    clock.advance(timedelta(seconds=299))
     assert client.get(PING, headers=headers).status_code == 204
-    clock.advance(timedelta(seconds=2))
+    clock.advance(timedelta(seconds=301))
     r = client.get(PING, headers=headers)
+    assert r.status_code == 401
+    assert r.json() == {"detail": "admin_session_required"}
+
+
+def test_each_admin_request_extends_the_session(client, clock, device_headers):
+    token = _login(client, device_headers).json()["token"]
+    headers = {**device_headers, "X-Admin-Token": token}
+    for _ in range(4):
+        clock.advance(timedelta(seconds=250))
+        assert client.get(PING, headers=headers).status_code == 204
+
+
+def test_logout_revokes_the_session(client, device_headers):
+    token = _login(client, device_headers).json()["token"]
+    headers = {**device_headers, "X-Admin-Token": token}
+    assert client.delete(SESSION, headers=headers).status_code == 204
+    r = client.get(PING, headers=headers)
+    assert r.status_code == 401
+    assert r.json() == {"detail": "admin_session_required"}
+
+
+def test_logout_is_idempotent_and_needs_device_key(client, device_headers):
+    assert client.delete(SESSION, headers=device_headers).status_code == 204
+    garbage = {**device_headers, "X-Admin-Token": "garbage"}
+    assert client.delete(SESSION, headers=garbage).status_code == 204
+    r = client.delete(SESSION)
+    assert r.status_code == 401
+    assert r.json() == {"detail": "invalid_device_key"}
+
+
+def test_other_device_cannot_revoke(client, device_headers, device_b_headers):
+    token = _login(client, device_headers).json()["token"]
+    r = client.delete(SESSION, headers={**device_b_headers, "X-Admin-Token": token})
+    assert r.status_code == 204
+    ping = client.get(PING, headers={**device_headers, "X-Admin-Token": token})
+    assert ping.status_code == 204
+
+
+def test_sessions_do_not_survive_a_new_app(client, settings, clock, device_headers):
+    from fastapi.testclient import TestClient
+
+    from bartab.main import create_app
+
+    token = _login(client, device_headers).json()["token"]
+    with TestClient(create_app(settings, clock)) as second:
+        r = second.get(PING, headers={**device_headers, "X-Admin-Token": token})
     assert r.status_code == 401
     assert r.json() == {"detail": "admin_session_required"}
 
