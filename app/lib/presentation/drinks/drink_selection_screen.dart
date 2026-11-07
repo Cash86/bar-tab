@@ -183,6 +183,7 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
                       right: 33,
                       bottom: kOrderBarBottom,
                       child: OrderBar(
+                        design: design,
                         summary: orderSummary(
                           AppLocalizations.of(context),
                           order.draft,
@@ -197,17 +198,24 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
                       ),
                     ),
                   if (sheetId != null) ...[
-                    const Positioned.fill(
+                    Positioned.fill(
                       child: AbsorbPointer(
-                        child: ColoredBox(color: Color(0x9916302A)),
+                        child: ColoredBox(color: quantitySheetScrim(design)),
                       ),
                     ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: _sheet(catalog, order, sheetId),
-                    ),
+                    if (design == AppDesign.standard)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: _sheet(catalog, order, sheetId, design),
+                      )
+                    else
+                      Positioned.fill(
+                        child: Center(
+                          child: _sheet(catalog, order, sheetId, design),
+                        ),
+                      ),
                   ],
                 ],
               ),
@@ -218,7 +226,12 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
     );
   }
 
-  Widget _sheet(Catalog? catalog, OrderState order, String drinkId) {
+  Widget _sheet(
+    Catalog? catalog,
+    OrderState order,
+    String drinkId,
+    AppDesign design,
+  ) {
     final drink = catalog?.drinks.where((d) => d.id == drinkId).firstOrNull;
     final group = catalog?.groups
         .where((g) => g.id == drink?.groupId)
@@ -226,6 +239,7 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
     final line = order.draft.lines.firstWhere((l) => l.drinkId == drinkId);
     return QuantitySheet(
       key: ValueKey(drinkId),
+      design: design,
       drinkName: drink?.name ?? '',
       unitPriceCents: line.unitPriceCents,
       crateSize: drink?.crateSize,

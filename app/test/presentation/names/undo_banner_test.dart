@@ -1,21 +1,27 @@
 import 'dart:async';
 
+import 'package:bar_tab/domain/app_design.dart';
 import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/design/chalk/chalk_extras.dart';
+import 'package:bar_tab/presentation/design/coaster/coaster_extras.dart';
+import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/drink_selection_screen.dart';
 import 'package:bar_tab/presentation/kiosk.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
+import 'package:bar_tab/presentation/names/undo_banner.dart';
 import 'package:bar_tab/presentation/providers.dart';
-import 'package:bar_tab/presentation/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../fixtures/designs.dart';
 import '../../fixtures/fakes.dart';
+import '../../fixtures/font_rules.dart';
 
 const _nbsp = '\u00A0';
 
@@ -81,6 +87,10 @@ class _FakeTimeClock implements Clock {
 }
 
 void main() {
+  forEachDesign(_bannerTests);
+}
+
+void _bannerTests(AppDesign design) {
   late _FakeTimeClock clock;
   late FakeBookingRepository bookings;
   late FakeSyncService sync;
@@ -96,7 +106,9 @@ void main() {
     WidgetTester tester, {
     List<Override> extra = const [],
   }) async {
-    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.physicalSize = design == AppDesign.standard
+        ? const Size(1280, 800)
+        : const Size(1280, 720);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final observer = RouteObserver<ModalRoute<void>>();
@@ -116,10 +128,11 @@ void main() {
           clockProvider.overrideWithValue(clock),
           kioskPlatformProvider.overrideWithValue(_FakeKiosk()),
           routeObserverProvider.overrideWithValue(observer),
+          designOverride(design),
           ...extra,
         ],
         child: MaterialApp(
-          theme: BarTabTheme.data,
+          theme: themeFor(design),
           locale: const Locale('de'),
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: const [
@@ -296,4 +309,111 @@ void main() {
     expect(hint, findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
+
+  testWidgets('the line drains over the undo window', (tester) async {
+    await pumpApp(tester);
+    await book(tester, 'Kim Example');
+    await tester.pump(const Duration(seconds: 1));
+    // The drawn line, as painted (a design may shrink it by a transform).
+    double line() => tester
+        .getRect(
+          find
+              .descendant(
+                of: find.byKey(const Key('undo-banner-progress')),
+                matching: find.byType(ColoredBox),
+              )
+              .last,
+        )
+        .width;
+    final start = line();
+    expect(start, greaterThan(0));
+    await tester.pump(const Duration(seconds: 5));
+    final later = line();
+    expect(later, lessThan(start));
+    await tester.pump(const Duration(seconds: 5));
+    expect(line(), lessThan(later));
+    expectFontRules(tester);
+    await tester.pump(kUndoWindow);
+  });
+
+  if (design == AppDesign.kreidetafel) {
+    testWidgets('the banner is a pinned paper note', (tester) async {
+      await pumpApp(tester);
+      await book(tester, 'Kim Example');
+      final note = find.byType(ChalkNote);
+      expect(note, findsOneWidget);
+      expect(find.descendant(of: note, matching: undo), findsOneWidget);
+      expect(
+        find.descendant(
+          of: note,
+          matching: find.byWidgetPredicate(
+            (w) => w is CustomPaint && w.painter is ChalkPinPainter,
+          ),
+        ),
+        findsOneWidget,
+      );
+      await tester.pump(kUndoWindow);
+    });
+  }
+
+  if (design == AppDesign.bierdeckel) {
+    testWidgets('the banner is a till receipt sliding in from the top', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await book(tester, 'Kim Example');
+      final receipt = find.byType(TillReceipt);
+      expect(receipt, findsOneWidget);
+      expect(find.descendant(of: receipt, matching: undo), findsOneWidget);
+      final text = tester.widget<Text>(
+        find.text('Kim Example: 1× Apfelschorle gebucht'),
+      );
+      expect(text.style?.fontFamily, 'monospace');
+      // Hangs from the top edge once it is in.
+      expect(tester.getRect(receipt).top, 0);
+      await tester.pump(kUndoWindow);
+    });
+
+    testWidgets('the receipt moves down into place', (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: themeFor(design),
+          locale: const Locale('de'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: Scaffold(
+            body: Stack(
+              children: [
+                Positioned(
+                  top: 0,
+                  right: 28,
+                  child: UndoBanner(
+                    design: design,
+                    text: 'Kim: 1× Lager gebucht',
+                    secondsLeft: kUndoWindow.inSeconds,
+                    onUndo: () {},
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      final start = tester.getRect(find.byType(TillReceipt)).top;
+      expect(start, lessThan(0));
+      await tester.pump(const Duration(milliseconds: 150));
+      final mid = tester.getRect(find.byType(TillReceipt)).top;
+      expect(mid, greaterThan(start));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(TillReceipt)).top, 0);
+    });
+  }
 }

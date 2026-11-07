@@ -1,16 +1,23 @@
+import 'package:bar_tab/domain/app_design.dart';
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/design/chalk/chalk_extras.dart';
+import 'package:bar_tab/presentation/design/coaster/coaster_extras.dart';
+import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/drink_selection_screen.dart';
 import 'package:bar_tab/presentation/drinks/order_controller.dart';
 import 'package:bar_tab/presentation/kiosk.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/names/name_tile.dart';
+import 'package:bar_tab/presentation/names/screensaver.dart';
 import 'package:bar_tab/presentation/providers.dart';
-import 'package:bar_tab/presentation/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../fixtures/designs.dart';
+import '../../fixtures/font_rules.dart';
 
 class _FakeKiosk implements KioskPlatform {
   final calls = <String>[];
@@ -45,13 +52,23 @@ const _catalog = Catalog(
 );
 
 void main() {
+  forEachDesign(_screensaverTests);
+}
+
+void _screensaverTests(AppDesign design) {
   late _FakeKiosk kiosk;
   final observer = RouteObserver<ModalRoute<void>>();
   final hint = find.text('Zum Buchen antippen');
+  // The chalk and coaster boards draw no NameTile; names are found by text.
+  final nameTile = design == AppDesign.standard
+      ? find.byType(NameTile).first
+      : find.text('Anton');
 
   Future<void> pumpScreen(WidgetTester tester) async {
     kiosk = _FakeKiosk();
-    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.physicalSize = design == AppDesign.standard
+        ? const Size(1280, 800)
+        : const Size(1280, 720);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -61,6 +78,7 @@ void main() {
           syncStateProvider.overrideWith((ref) => const Stream.empty()),
           kioskPlatformProvider.overrideWithValue(kiosk),
           routeObserverProvider.overrideWithValue(observer),
+          designOverride(design),
           // These tests are about the screensaver, not the drink screen's own
           // 30 s idle exit.
           drinkScreenIdleTimeoutProvider.overrideWithValue(
@@ -68,7 +86,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
-          theme: BarTabTheme.data,
+          theme: themeFor(design),
           locale: const Locale('de'),
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: const [
@@ -110,7 +128,9 @@ void main() {
     await pumpScreen(tester);
     await tester.pump(kIdleTimeout);
     final text = tester.widget<Text>(hint);
-    expect(text.style?.fontFamily, BarTabTheme.fontFamily);
+    // The design's display font; Archivo in the standard design.
+    expect(text.style?.fontFamily, tokensFor(design).displayFont);
+    expectFontRules(tester);
     await unmount(tester);
   });
 
@@ -132,7 +152,7 @@ void main() {
     await tester.pump(kIdleTimeout);
     expect(hint, findsOneWidget);
 
-    final tile = find.byType(NameTile).first;
+    final tile = nameTile;
     final center = tester.getCenter(tile);
     await tester.tapAt(center);
     await tester.pump();
@@ -173,7 +193,7 @@ void main() {
   });
 
   Future<void> openDrinkScreen(WidgetTester tester) async {
-    await tester.tap(find.byType(NameTile).first);
+    await tester.tap(nameTile);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(DrinkSelectionScreen), findsOneWidget);
@@ -221,4 +241,57 @@ void main() {
     expect(hint, findsOneWidget);
     await unmount(tester);
   });
+
+  testWidgets('the hint visits every position in turn', (tester) async {
+    await pumpScreen(tester);
+    await tester.pump(kIdleTimeout);
+    for (final position in [
+      ...screensaverHintPositions,
+      screensaverHintPositions.first,
+    ]) {
+      expect(hintAlignment(tester), position);
+      expect(hint, findsOneWidget);
+      await tester.pump(kScreensaverHintInterval);
+    }
+    await unmount(tester);
+  });
+
+  if (design == AppDesign.kreidetafel) {
+    testWidgets('a chalk beer glass beside the hint on a near-black board', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await tester.pump(kIdleTimeout);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('screensaver-hint')),
+          matching: find.byWidgetPredicate(
+            (w) => w is CustomPaint && w.painter is ChalkBeerGlassPainter,
+          ),
+        ),
+        findsOneWidget,
+      );
+      await unmount(tester);
+    });
+  }
+
+  if (design == AppDesign.bierdeckel) {
+    testWidgets('one coaster carries the hint and turns as it moves', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await tester.pump(kIdleTimeout);
+      final coaster = find.descendant(
+        of: find.byKey(const Key('screensaver-hint')),
+        matching: find.byType(SaverCoaster),
+      );
+      expect(coaster, findsOneWidget);
+      expect(find.descendant(of: coaster, matching: hint), findsOneWidget);
+      double angle() => tester.widget<SaverCoaster>(coaster).turns;
+      final first = angle();
+      await tester.pump(kScreensaverHintInterval);
+      expect(angle(), isNot(first));
+      await unmount(tester);
+    });
+  }
 }

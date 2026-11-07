@@ -3,7 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/app_design.dart';
 import '../../l10n/app_localizations.dart';
+import '../design/chalk/chalk_extras.dart';
+import '../design/coaster/coaster_extras.dart';
+import '../design/coaster/counter_background.dart';
+import '../design/design.dart';
 import '../kiosk.dart';
 import '../theme.dart';
 
@@ -19,6 +24,17 @@ const screensaverHintPositions = <Alignment>[
   Alignment(0.0, 0.0),
   Alignment(-0.7, 0.0),
   Alignment(0.6, 0.1),
+];
+
+/// How far the Bierdeckel coaster is turned at each hint position, in turns.
+const _coasterTurns = <double>[
+  -0.022,
+  0.017,
+  -0.011,
+  0.028,
+  -0.028,
+  0.008,
+  0.0,
 ];
 
 /// Dims the app to a near-black screen with a moving hint after the idle
@@ -137,26 +153,79 @@ class _IdleScreensaverState extends ConsumerState<IdleScreensaver>
         fit: StackFit.expand,
         children: [
           widget.child,
-          if (_dimmed)
-            // Opaque: swallows the waking touch, nothing underneath sees it.
-            ColoredBox(
-              color: const Color(0xFF000000),
-              child: Align(
-                key: const Key('screensaver-hint'),
-                alignment: screensaverHintPositions[_hintIndex],
-                child: Text(
-                  AppLocalizations.of(context).screensaverHint,
-                  style: const TextStyle(
-                    fontFamily: BarTabTheme.fontFamily,
-                    color: BarTabTheme.muted,
-                    fontSize: 20,
-                    decoration: TextDecoration.none,
-                  ),
-                ),
-              ),
-            ),
+          if (_dimmed) _overlay(context, ref.watch(appDesignProvider)),
         ],
       ),
     );
+  }
+
+  /// Opaque: swallows the waking touch, nothing underneath sees it.
+  Widget _overlay(BuildContext context, AppDesign design) {
+    final tokens = DesignTokens.of(context);
+    final label = AppLocalizations.of(context).screensaverHint;
+    final alignment = screensaverHintPositions[_hintIndex];
+    switch (design) {
+      case AppDesign.standard:
+        return ColoredBox(
+          color: const Color(0xFF000000),
+          child: Align(
+            key: const Key('screensaver-hint'),
+            alignment: alignment,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: BarTabTheme.fontFamily,
+                color: BarTabTheme.muted,
+                fontSize: 20,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ),
+        );
+      case AppDesign.kreidetafel:
+        return ColoredBox(
+          color: kChalkSaverBoard,
+          child: Align(
+            key: const Key('screensaver-hint'),
+            alignment: alignment,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CustomPaint(
+                  size: Size(56, 70),
+                  painter: ChalkBeerGlassPainter(kChalkFaint),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  label,
+                  style: chalkStyle(
+                    tokens,
+                    40,
+                    color: kChalkFaint,
+                  ).copyWith(decoration: TextDecoration.none),
+                ),
+              ],
+            ),
+          ),
+        );
+      case AppDesign.bierdeckel:
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            const CounterBackground(child: SizedBox.expand()),
+            ColoredBox(
+              color: const Color(0xC7000000),
+              child: Align(
+                key: const Key('screensaver-hint'),
+                alignment: alignment,
+                child: SaverCoaster(
+                  label: label,
+                  turns: _coasterTurns[_hintIndex % _coasterTurns.length],
+                ),
+              ),
+            ),
+          ],
+        );
+    }
   }
 }

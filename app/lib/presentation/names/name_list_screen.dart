@@ -422,15 +422,17 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
                     // Over the title row, so the names never move when it shows.
                     if (offer != null || info != null)
                       Positioned(
-                        top: 8,
+                        // The till receipt hangs from the top edge.
+                        top: design == AppDesign.bierdeckel ? 0 : 8,
                         right: 28,
                         child: offer != null
                             ? UndoBanner(
+                                design: design,
                                 text: offer.text,
                                 secondsLeft: _offerSecondsLeft,
                                 onUndo: _undoing ? null : _undo,
                               )
-                            : UndoInfo(info!),
+                            : UndoInfo(info!, design: design),
                       ),
                   ],
                 ),

@@ -1,12 +1,23 @@
+import 'package:bar_tab/domain/app_design.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/design/chalk/chalk_board.dart';
+import 'package:bar_tab/presentation/design/chalk/chalk_extras.dart';
+import 'package:bar_tab/presentation/design/coaster/coaster_extras.dart';
+import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/keypad.dart';
 import 'package:bar_tab/presentation/drinks/quantity_sheet.dart';
-import 'package:bar_tab/presentation/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../fixtures/designs.dart';
+import '../../fixtures/font_rules.dart';
+
 void main() {
+  forEachDesign(_sheetTests);
+}
+
+void _sheetTests(AppDesign design) {
   late int quantity;
   late int more;
   late int book;
@@ -16,7 +27,9 @@ void main() {
     int initial = 3,
     int? crateSize = 20,
   }) async {
-    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.physicalSize = design == AppDesign.standard
+        ? const Size(1280, 800)
+        : const Size(1280, 720);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     quantity = initial;
@@ -24,7 +37,7 @@ void main() {
     book = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: BarTabTheme.data,
+        theme: themeFor(design),
         locale: const Locale('de'),
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const [
@@ -35,10 +48,14 @@ void main() {
         ],
         home: Scaffold(
           body: Align(
-            alignment: Alignment.centerRight,
+            // The drink screen centres the new designs' sheets.
+            alignment: design == AppDesign.standard
+                ? Alignment.centerRight
+                : Alignment.center,
             child: StatefulBuilder(
               builder: (context, setState) => QuantitySheet(
                 key: ValueKey(initial),
+                design: design,
                 drinkName: 'Lemon Fizz',
                 unitPriceCents: 115,
                 crateSize: crateSize,
@@ -231,4 +248,77 @@ void main() {
     expect(find.textContaining('Kasten'), findsNothing);
     expect(find.byKey(const Key('keypad-0')), findsOneWidget);
   });
+
+  testWidgets('the sheet fits the screen and keeps the font rules', (
+    tester,
+  ) async {
+    await pump(tester);
+    final screen = Offset.zero & tester.view.physicalSize;
+    final sheet = tester.getRect(find.byType(QuantitySheet));
+    expect(screen.intersect(sheet), sheet);
+    expectFontRules(tester);
+  });
+
+  if (design == AppDesign.kreidetafel) {
+    testWidgets('a framed slate board with chalk-circle keys', (tester) async {
+      await pump(tester);
+      expect(
+        find.descendant(
+          of: find.byType(QuantitySheet),
+          matching: find.byType(ChalkBoard),
+        ),
+        findsOneWidget,
+      );
+      for (final k in ['1', '0', 'crate', 'backspace']) {
+        expect(
+          find.descendant(
+            of: find.byKey(Key('keypad-$k')),
+            matching: find.byWidgetPredicate(
+              (w) => w is CustomPaint && w.painter is ChalkCirclePainter,
+            ),
+          ),
+          findsOneWidget,
+          reason: k,
+        );
+      }
+      // The quantity in large yellow chalk.
+      final qty = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(QuantitySheet.fieldKey),
+          matching: find.byType(Text),
+        ),
+      );
+      expect(qty.style?.color, tokensFor(design).accent);
+      expect(qty.style!.fontSize, greaterThanOrEqualTo(56));
+    });
+  }
+
+  if (design == AppDesign.bierdeckel) {
+    testWidgets('a round coaster carries the keypad, the buttons sit beside', (
+      tester,
+    ) async {
+      await pump(tester);
+      final disc = tester.getRect(find.byType(SheetCoaster));
+      expect(disc.width, disc.height);
+      bool inside(Finder f) =>
+          (tester.getCenter(f) - disc.center).distance < disc.width / 2;
+      for (final k in [...List.generate(10, (i) => '$i'), 'crate']) {
+        expect(inside(find.byKey(Key('keypad-$k'))), isTrue, reason: k);
+      }
+      expect(inside(find.byKey(QuantitySheet.fieldKey)), isTrue);
+      expect(inside(find.text('Lemon Fizz')), isTrue);
+      expect(inside(find.text('Buchen')), isFalse);
+      expect(inside(find.text('Weitere Getränke')), isFalse);
+      // "Kasten" in the accent colour.
+      final crate = tester.widget<Material>(
+        find
+            .descendant(
+              of: find.byKey(const Key('keypad-crate')),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(crate.color, tokensFor(design).accent);
+    });
+  }
 }

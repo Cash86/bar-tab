@@ -1075,6 +1075,47 @@ void main() {
       expect(style('Andere Person').fontWeight, FontWeight.w600);
     });
   });
+  forEachDesign((d) {
+    testWidgets('order bar, sheet and scrim take the design', (tester) async {
+      design = d;
+      await pumpApp(tester);
+      tester.view.physicalSize = const Size(1280, 720);
+      await tester.pumpAndSettle();
+      await open(tester, 'Kim Example');
+      await tapDrink(tester, 'd1');
+      expect(tester.widget<OrderBar>(find.byType(OrderBar)).design, d);
+      await tapDrink(tester, 'd1', 2);
+      expect(
+        tester.widget<QuantitySheet>(find.byType(QuantitySheet)).design,
+        d,
+      );
+      final scrim =
+          tester
+                  .widget<AbsorbPointer>(
+                    find.byWidgetPredicate(
+                      (w) => w is AbsorbPointer && w.child is ColoredBox,
+                    ),
+                  )
+                  .child!
+              as ColoredBox;
+      expect(scrim.color, quantitySheetScrim(d));
+      if (d == AppDesign.standard) {
+        expect(scrim.color, const Color(0x9916302A));
+      } else {
+        expect(scrim.color, isNot(const Color(0x9916302A)));
+        // The new designs centre their sheet over the selection.
+        final sheet = tester.getRect(find.byType(QuantitySheet));
+        expect(sheet.center.dx, closeTo(640, 1));
+        expect(sheet.top, greaterThanOrEqualTo(0));
+        expect(sheet.bottom, lessThanOrEqualTo(720));
+      }
+      await tester.tap(find.text('Weitere Getränke'));
+      await tester.pump();
+      await tester.tap(find.text('Verwerfen'));
+      await tester.pump();
+    });
+  });
+
   testWidgets('Kreidetafel: the order bar covers no drink box on 16:9', (
     tester,
   ) async {

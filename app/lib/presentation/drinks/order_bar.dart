@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/app_design.dart';
 import '../../domain/catalog.dart';
 import '../../domain/order.dart';
 import '../../l10n/app_localizations.dart';
+import '../design/chalk/chalk_extras.dart';
+import '../design/coaster/coaster.dart';
+import '../design/coaster/coaster_extras.dart';
 import '../design/design.dart';
 import '../format.dart';
 import 'order_controller.dart';
@@ -18,7 +22,8 @@ String orderSummary(AppLocalizations l10n, OrderDraft draft, Catalog? catalog) {
 /// Distance of the order bar from the bottom of the drink screen.
 const double kOrderBarBottom = 24;
 
-/// The pending order: lines, total, countdown, discard and done.
+/// The pending order: lines, total, countdown, discard and done. Kreidetafel
+/// shows it as a framed slate strip, Bierdeckel as a till receipt.
 class OrderBar extends StatelessWidget {
   const OrderBar({
     required this.summary,
@@ -28,8 +33,11 @@ class OrderBar extends StatelessWidget {
     required this.onDiscard,
     this.saveFailed = false,
     required this.onDone,
+    this.design = AppDesign.standard,
     super.key,
   });
+
+  final AppDesign design;
 
   /// Height of the bar with one summary line, the content's height in every
   /// design's font (checked in order_bar_test.dart). The bar is never lower,
@@ -49,11 +57,151 @@ class OrderBar extends StatelessWidget {
   final VoidCallback onDone;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(minHeight: height),
+    child: switch (design) {
+      AppDesign.standard => _standard(context),
+      AppDesign.kreidetafel => _chalk(context),
+      AppDesign.bierdeckel => _receipt(context),
+    },
+  );
+
+  /// The summary and countdown on the left, the total and the buttons on
+  /// the right.
+  Widget _row(
+    BuildContext context, {
+    required TextStyle summaryStyle,
+    required TextStyle countdownStyle,
+    required TextStyle totalStyle,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                summary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: summaryStyle,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                saveFailed
+                    ? l10n.orderBarRetrying
+                    : l10n.orderBarCountdown(secondsLeft),
+                style: countdownStyle,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 20),
+        Text(formatCents(totalCents), style: totalStyle),
+        const SizedBox(width: 20),
+        OrderButton(
+          design: design,
+          label: l10n.orderBarDiscard,
+          solid: false,
+          onTap: onDiscard,
+        ),
+        const SizedBox(width: 12),
+        OrderButton(
+          design: design,
+          label: l10n.orderBarDone,
+          solid: true,
+          onTap: onDone,
+        ),
+      ],
+    );
+  }
+
+  Widget _chalk(BuildContext context) {
+    final tokens = DesignTokens.of(context);
+    // The countdown runs along the whole lower edge, over the frame.
+    return Stack(
+      // The strip takes the bar's minimum height.
+      fit: StackFit.passthrough,
+      children: [
+        ChalkStrip(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 6, 12, 10),
+            child: _row(
+              context,
+              summaryStyle: chalkStyle(tokens, 30, height: 1.05),
+              countdownStyle: chalkStyle(
+                tokens,
+                20,
+                color: tokens.muted,
+                height: 1.05,
+              ),
+              totalStyle: chalkStyle(
+                tokens,
+                38,
+                color: tokens.accent,
+                height: 1,
+              ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+            ),
+          ),
+        ),
+        Positioned(
+          key: const Key('order-bar-progress'),
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 10,
+          child: _CountdownStrip(run: countdownRun, color: tokens.text),
+        ),
+      ],
+    );
+  }
+
+  Widget _receipt(BuildContext context) {
+    final tokens = DesignTokens.of(context);
+    return Material(
+      color: kReceiptPaper,
+      borderRadius: BorderRadius.circular(4),
+      clipBehavior: Clip.antiAlias,
+      elevation: 12,
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(26, 12, 18, 22),
+            child: _row(
+              context,
+              summaryStyle: coasterBodyStyle(tokens, 25),
+              countdownStyle: coasterBodyStyle(
+                tokens,
+                17,
+                weight: FontWeight.w600,
+                color: kCoasterInk.withValues(alpha: 0.75),
+              ),
+              totalStyle: coasterDisplayStyle(
+                tokens,
+                28,
+              ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+            ),
+          ),
+          Positioned(
+            key: const Key('order-bar-progress'),
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 10,
+            child: _CountdownStrip(run: countdownRun, color: tokens.accent),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _standard(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final tokens = DesignTokens.of(context);
     final text = tokens.background;
-    final bar = Material(
+    return Material(
       color: tokens.text,
       borderRadius: BorderRadius.circular(15),
       clipBehavior: Clip.antiAlias,
@@ -123,14 +271,10 @@ class OrderBar extends StatelessWidget {
             right: 0,
             bottom: 0,
             height: 12,
-            child: _CountdownStrip(run: countdownRun),
+            child: _CountdownStrip(run: countdownRun, color: tokens.background),
           ),
         ],
       ),
-    );
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: height),
-      child: bar,
     );
   }
 }
@@ -138,9 +282,10 @@ class OrderBar extends StatelessWidget {
 /// Starts full for every countdown run and drains continuously to empty
 /// over [kAutoBookDelay], when the order books.
 class _CountdownStrip extends StatefulWidget {
-  const _CountdownStrip({required this.run});
+  const _CountdownStrip({required this.run, required this.color});
 
   final int run;
+  final Color color;
 
   @override
   State<_CountdownStrip> createState() => _CountdownStripState();
@@ -174,7 +319,7 @@ class _CountdownStripState extends State<_CountdownStrip>
 
   @override
   Widget build(BuildContext context) {
-    final color = DesignTokens.of(context).background;
+    final color = widget.color;
     return ColoredBox(
       color: color.withValues(alpha: 0.15),
       child: AnimatedBuilder(
@@ -196,16 +341,63 @@ class OrderButton extends StatelessWidget {
     required this.label,
     required this.solid,
     required this.onTap,
+    this.design = AppDesign.standard,
     super.key,
   });
 
   final String label;
   final bool solid;
   final VoidCallback onTap;
+  final AppDesign design;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DesignTokens.of(context);
+    switch (design) {
+      case AppDesign.standard:
+        break;
+      case AppDesign.kreidetafel:
+        // Solid yellow chalk, or a dashed chalk line.
+        final color = solid ? tokens.accent : tokens.text;
+        return ChalkBox(
+          color: color,
+          dashed: !solid,
+          onTap: onTap,
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: chalkStyle(tokens, 28, color: color, height: 1),
+          ),
+        );
+      case AppDesign.bierdeckel:
+        if (solid) {
+          return CoasterButton(label: label, primary: true, onTap: onTap);
+        }
+        return Material(
+          color: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+            side: const BorderSide(color: kCoasterInk, width: 2),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: coasterBodyStyle(tokens, 20),
+              ),
+            ),
+          ),
+        );
+    }
     final text = tokens.background;
     return Material(
       color: solid ? text : Colors.transparent,

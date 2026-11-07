@@ -50,7 +50,7 @@ class ChalkBoard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               const RepaintBoundary(
-                child: CustomPaint(painter: _SlateGrainPainter()),
+                child: CustomPaint(painter: SlateGrainPainter()),
               ),
               child,
             ],
@@ -62,8 +62,8 @@ class ChalkBoard extends StatelessWidget {
 }
 
 /// Faint diagonal grain and chalk dust, seeded so every paint is the same.
-class _SlateGrainPainter extends CustomPainter {
-  const _SlateGrainPainter();
+class SlateGrainPainter extends CustomPainter {
+  const SlateGrainPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -91,7 +91,7 @@ class _SlateGrainPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SlateGrainPainter oldDelegate) => false;
+  bool shouldRepaint(SlateGrainPainter oldDelegate) => false;
 }
 
 /// A chalk line around a box with [kChalkCorners]; dashed or solid.
