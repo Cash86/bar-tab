@@ -325,16 +325,19 @@ class _CountdownStripState extends State<_CountdownStrip>
   @override
   Widget build(BuildContext context) {
     final color = widget.color;
-    return ColoredBox(
-      color: color.withValues(alpha: 0.15),
-      child: AnimatedBuilder(
-        animation: _drain,
-        builder: (context, child) => FractionallySizedBox(
-          alignment: Alignment.centerLeft,
-          widthFactor: _drain.value,
-          child: child,
+    // Drains every frame: repaint only the strip, not the bar or the board.
+    return RepaintBoundary(
+      child: ColoredBox(
+        color: color.withValues(alpha: 0.15),
+        child: AnimatedBuilder(
+          animation: _drain,
+          builder: (context, child) => FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: _drain.value,
+            child: child,
+          ),
+          child: ColoredBox(color: color),
         ),
-        child: ColoredBox(color: color),
       ),
     );
   }

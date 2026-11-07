@@ -227,15 +227,18 @@ class DrainingLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(end: left),
-      duration: const Duration(seconds: 1),
-      builder: (context, value, child) => Transform.scale(
-        scaleX: value,
-        alignment: Alignment.centerLeft,
-        child: child,
+    // Animates every frame: repaint only the line, not the screen.
+    return RepaintBoundary(
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(end: left),
+        duration: const Duration(seconds: 1),
+        builder: (context, value, child) => Transform.scale(
+          scaleX: value,
+          alignment: Alignment.centerLeft,
+          child: child,
+        ),
+        child: ColoredBox(color: color, child: const SizedBox.expand()),
       ),
-      child: ColoredBox(color: color, child: const SizedBox.expand()),
     );
   }
 }

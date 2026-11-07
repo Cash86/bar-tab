@@ -7,6 +7,7 @@ import 'package:bar_tab/presentation/design/coaster/coaster_extras.dart';
 import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/order_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +36,39 @@ void main() {
       }
       await loader.load();
     }
+  });
+
+  forEachDesign((design) {
+    testWidgets('the countdown repaints on its own layer', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: themeFor(design),
+          locale: const Locale('de'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          home: Scaffold(
+            body: OrderBar(
+              design: design,
+              summary: '1× Lager',
+              totalCents: 120,
+              secondsLeft: 5,
+              countdownRun: 0,
+              onDiscard: () {},
+              onDone: () {},
+            ),
+          ),
+        ),
+      );
+      // The strip animates every frame; it must not repaint the bar or the
+      // board behind it.
+      expect(
+        tester.renderObject(find.byKey(const Key('order-bar-progress'))),
+        isA<RenderRepaintBoundary>(),
+      );
+    });
   });
 
   forEachDesign((design) {

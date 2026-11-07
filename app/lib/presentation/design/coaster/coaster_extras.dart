@@ -128,8 +128,13 @@ class _SlideInFromTopState extends State<SlideInFromTop>
   }
 
   @override
-  Widget build(BuildContext context) =>
-      SlideTransition(position: _offset, child: widget.child);
+  // Moves every frame: neither the screen nor the child repaints for it.
+  Widget build(BuildContext context) => RepaintBoundary(
+    child: SlideTransition(
+      position: _offset,
+      child: RepaintBoundary(child: widget.child),
+    ),
+  );
 }
 
 /// A flat button on the counter: dark red when [primary], else cream.

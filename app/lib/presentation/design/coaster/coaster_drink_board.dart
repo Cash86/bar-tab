@@ -18,10 +18,6 @@ const double kCoasterTrayWidth = 168;
 /// Space between the tray and the ring blocks.
 const double kCoasterTrayGap = 22;
 
-/// Free space below the rings so the order bar never covers a coaster; kept
-/// even without an order, so the board does not jump on the first tap.
-const double kCoasterOrderBarRoom = OrderBar.height + kOrderBarBottom + 6;
-
 /// Fixed turns of the favourites on the tray, in degrees.
 const _turns = [-5.0, 4.0, -3.0, 6.0];
 
@@ -34,21 +30,24 @@ class CoasterDrinkBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (data.favourites.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 14),
-            child: SizedBox(
-              width: kCoasterTrayWidth,
-              child: _Tray(data, key: const ValueKey('coaster-tray')),
+    // The order countdown animates every frame next to the board.
+    return RepaintBoundary(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (data.favourites.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 14),
+              child: SizedBox(
+                width: kCoasterTrayWidth,
+                child: _Tray(data, key: const ValueKey('coaster-tray')),
+              ),
             ),
-          ),
-          const SizedBox(width: kCoasterTrayGap),
+            const SizedBox(width: kCoasterTrayGap),
+          ],
+          Expanded(child: _Rings(data)),
         ],
-        Expanded(child: _Rings(data)),
-      ],
+      ),
     );
   }
 }
@@ -64,7 +63,7 @@ class _Rings extends StatelessWidget {
       builder: (context, constraints) {
         final area = Size(
           constraints.maxWidth,
-          math.max(0, constraints.maxHeight - kCoasterOrderBarRoom),
+          math.max(0, constraints.maxHeight - kBoardOrderBarRoom),
         );
         final plan = planCoasterBoard([
           for (final (_, drinks) in data.groups) drinks.length,
@@ -96,7 +95,7 @@ class _Rings extends StatelessWidget {
           return Align(alignment: Alignment.topLeft, child: board);
         }
         return SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: kCoasterOrderBarRoom),
+          padding: const EdgeInsets.only(bottom: kBoardOrderBarRoom),
           child: board,
         );
       },

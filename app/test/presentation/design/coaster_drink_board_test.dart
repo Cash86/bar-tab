@@ -9,6 +9,7 @@ import 'package:bar_tab/presentation/design/coaster_plan.dart';
 import 'package:bar_tab/presentation/design/coaster_text.dart';
 import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/drink_board_data.dart';
+import 'package:bar_tab/presentation/drinks/order_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -281,7 +282,7 @@ void main() {
       board.left + kCoasterTrayWidth + kCoasterTrayGap,
       board.top,
       board.right,
-      board.bottom - kCoasterOrderBarRoom,
+      board.bottom - kBoardOrderBarRoom,
     );
     // The largest coaster step that fits 4 groups next to the tray.
     final plan = planCoasterBoard([5, 3, 11, 1], area.size);
@@ -488,6 +489,16 @@ void main() {
     expect(
       find.descendant(of: quick('x'), matching: find.text(thirtyChars)),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('the board repaints apart from the animations around it', (
+    tester,
+  ) async {
+    await pumpBoard(tester, data(groups: realAssortment()));
+    expect(
+      tester.renderObject(find.byType(CoasterDrinkBoard)),
+      isA<RenderRepaintBoundary>(),
     );
   });
 

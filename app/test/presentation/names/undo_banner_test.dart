@@ -14,6 +14,7 @@ import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/names/undo_banner.dart';
 import 'package:bar_tab/presentation/providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
@@ -335,6 +336,45 @@ void _bannerTests(AppDesign design) {
     expectFontRules(tester);
     await tester.pump(kUndoWindow);
   });
+
+  if (design != AppDesign.standard) {
+    testWidgets('the draining line and the slide repaint on their own layer', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: themeFor(design),
+          locale: const Locale('de'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: Scaffold(
+            body: UndoBanner(
+              design: design,
+              text: 'Kim: 1× Lager gebucht',
+              secondsLeft: kUndoWindow.inSeconds,
+              onUndo: () {},
+            ),
+          ),
+        ),
+      );
+      expect(
+        tester.renderObject(find.byType(DrainingLine)),
+        isA<RenderRepaintBoundary>(),
+      );
+      if (design == AppDesign.bierdeckel) {
+        expect(
+          tester.renderObject(find.byType(SlideInFromTop)),
+          isA<RenderRepaintBoundary>(),
+        );
+      }
+      await tester.pumpAndSettle();
+    });
+  }
 
   if (design == AppDesign.kreidetafel) {
     testWidgets('the banner is a pinned paper note', (tester) async {
