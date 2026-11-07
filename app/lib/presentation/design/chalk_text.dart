@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'coaster_text.dart';
+import 'text_fit.dart';
 
 /// The largest size from [style]'s size down to [minFontSize] at which
 /// [text] fits [box] in up to [maxLines] lines without breaking a word;

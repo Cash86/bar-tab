@@ -54,6 +54,7 @@ class Coaster extends StatelessWidget {
                 ring: ring,
                 highlighted: highlighted,
                 picked: quantity > 0,
+                highlight: tokens.highlight,
               ),
             ),
           ),
@@ -282,12 +283,16 @@ class _CoasterPainter extends CustomPainter {
     required this.ring,
     required this.highlighted,
     required this.picked,
+    required this.highlight,
   });
 
   final Color face;
   final Color ring;
   final bool highlighted;
   final bool picked;
+
+  /// The gold rim and ★ of a highlighted coaster.
+  final Color highlight;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -309,12 +314,8 @@ class _CoasterPainter extends CustomPainter {
     final w = 0.053 * d;
     canvas.drawCircle(c, r - 0.043 * d - w / 2, _stroke(ring, w));
     final gold = 0.021 * d;
-    canvas.drawCircle(
-      c,
-      r - 0.096 * d - gold / 2,
-      _stroke(const Color(0xFFD9A441), gold),
-    );
-    _star(canvas, Offset(c.dx, 0.17 * d), 0.055 * d, const Color(0xFFD9A441));
+    canvas.drawCircle(c, r - 0.096 * d - gold / 2, _stroke(highlight, gold));
+    _star(canvas, Offset(c.dx, 0.17 * d), 0.055 * d, highlight);
   }
 
   @override
@@ -322,7 +323,8 @@ class _CoasterPainter extends CustomPainter {
       old.face != face ||
       old.ring != ring ||
       old.highlighted != highlighted ||
-      old.picked != picked;
+      old.picked != picked ||
+      old.highlight != highlight;
 }
 
 /// A five-pointed star; painted because the fonts' ★ cannot be relied on.

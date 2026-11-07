@@ -22,6 +22,11 @@ String orderSummary(AppLocalizations l10n, OrderDraft draft, Catalog? catalog) {
 /// Distance of the order bar from the bottom of the drink screen.
 const double kOrderBarBottom = 24;
 
+/// Free space the Kreidetafel and Bierdeckel drink boards keep below their
+/// boxes so the order bar never covers one; kept even without an order, so
+/// a board does not jump on the first tap.
+const double kBoardOrderBarRoom = OrderBar.height + kOrderBarBottom + 6;
+
 /// The pending order: lines, total, countdown, discard and done. Kreidetafel
 /// shows it as a framed slate strip, Bierdeckel as a till receipt.
 class OrderBar extends StatelessWidget {

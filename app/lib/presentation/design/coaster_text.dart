@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/app_design.dart';
 import 'design.dart';
+import 'text_fit.dart';
 
 /// Share of the coaster diameter that the text must fit into (a square
 /// inside the round coaster); also the line width several words wrap at.
@@ -48,29 +49,6 @@ class CoasterTextFit {
 /// Text breaks into several lines only at spaces; a hyphenated name such as
 /// "Hans-Joachim" is one word.
 bool _isSingleWord(String text) => !text.trim().contains(RegExp(r'\s'));
-
-/// The largest font size in [min]..[max] for which [fits] holds; [min] when
-/// none does. Assumes that a text fitting at one size fits at every smaller
-/// one.
-double largestFittingFontSize(
-  double min,
-  double max,
-  bool Function(double size) fits,
-) {
-  if (max <= min || fits(max)) return max;
-  if (!fits(min)) return min;
-  var lo = min;
-  var hi = max;
-  for (var i = 0; i < 10; i++) {
-    final mid = (lo + hi) / 2;
-    if (fits(mid)) {
-      lo = mid;
-    } else {
-      hi = mid;
-    }
-  }
-  return lo;
-}
 
 /// Lays out [text] for a coaster of [diameter].
 ///

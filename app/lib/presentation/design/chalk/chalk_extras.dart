@@ -14,6 +14,9 @@ const Color kChalkNoteInk = Color(0xFF2F2A20);
 /// The near-black board of the screensaver.
 const Color kChalkSaverBoard = Color(0xFF0D0F0E);
 
+/// Yellow chalk rubbed lighter: collective names, favourite prices.
+const Color kChalkCollectiveText = Color(0xFFFFF3C4);
+
 /// Chalk rubbed thin, for the screensaver hint.
 const Color kChalkFaint = Color(0x8CF4F1E8);
 

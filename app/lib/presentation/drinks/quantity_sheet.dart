@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/app_design.dart';
-
 import '../../domain/order.dart';
 import '../../l10n/app_localizations.dart';
 import '../design/chalk/chalk_board.dart';
