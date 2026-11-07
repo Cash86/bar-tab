@@ -179,8 +179,9 @@ CoasterBoardPlan planCoasterBoard(
 
   for (final step in steps) {
     final plan = build(step, false);
-    final width = _rowWidth(_columns(plan.groups, area.height));
-    if (width <= area.width) return plan;
+    final columns = _columns(plan.groups, area.height);
+    final tallest = columns.fold<double>(0, (m, c) => math.max(m, c.height));
+    if (_rowWidth(columns) <= area.width && tallest <= area.height) return plan;
   }
   return build(steps.last, true);
 }

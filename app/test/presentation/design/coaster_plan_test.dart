@@ -82,5 +82,19 @@ void main() {
         }
       }
     });
+
+    test('a group taller than the area drops a step instead of clipping', () {
+      final plan = planCoasterBoard([30], const Size(1000, 480));
+      expect(plan.coaster, lessThan(72));
+      expect(plan.scrolls, isFalse);
+      expect(plan.blocks.single.bottom, lessThanOrEqualTo(480));
+    });
+
+    test('a group too tall even at the smallest step scrolls', () {
+      final plan = planCoasterBoard([30], const Size(1000, 300));
+      expect(plan.coaster, 50);
+      expect(plan.scrolls, isTrue);
+      expect(plan.blocks.single.bottom, greaterThan(300));
+    });
   });
 }
