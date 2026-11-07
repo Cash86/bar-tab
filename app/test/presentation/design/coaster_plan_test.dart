@@ -61,6 +61,37 @@ void main() {
       }
     });
 
+    test('blocks are spread over the area, not packed top-left', () {
+      const area = Size(1000, 480);
+      final plan = planCoasterBoard([5, 3, 11, 1], area);
+      final b = plan.blocks;
+      // Columns: [Bier over Alkoholfrei], [Limo & Saft], [Wasser]; equal
+      // margins at the edges and between the columns (plus the gap).
+      final margin = b[0].left;
+      expect(margin, greaterThan(20));
+      expect(b[2].left - b[0].right, closeTo(margin + kCoasterGap, 1e-6));
+      expect(b[3].left - b[2].right, closeTo(margin + kCoasterGap, 1e-6));
+      expect(area.width - b[3].right, closeTo(margin, 1e-6));
+      // A lone block sits in the middle of its column.
+      expect(b[2].center.dy, closeTo(area.height / 2, 1e-6));
+      expect(b[3].center.dy, closeTo(area.height / 2, 1e-6));
+      // A stacked column spreads its blocks evenly over the height.
+      final top = b[0].top;
+      expect(top, greaterThan(0));
+      expect(area.height - b[1].bottom, closeTo(top, 1e-6));
+      expect(b[1].top - b[0].bottom, closeTo(top + kCoasterGap, 1e-6));
+    });
+
+    test('wrapped rows are spread over the width', () {
+      final plan = planCoasterBoard(List.filled(8, 30), const Size(1000, 480));
+      final b = plan.blocks;
+      // Two blocks per row.
+      expect(b[0].top, closeTo(b[1].top, 1e-6));
+      expect(b[2].top, greaterThan(b[0].bottom));
+      expect(b[0].left, greaterThan(20));
+      expect(1000 - b[1].right, closeTo(b[0].left, 1e-6));
+    });
+
     test('two small groups keep the largest step', () {
       final plan = planCoasterBoard([3, 2], const Size(1000, 480));
       expect(plan.coaster, 72);

@@ -9,6 +9,8 @@ import '../../domain/quick_bar.dart';
 import '../../l10n/app_localizations.dart';
 import '../design/chalk/chalk_board.dart';
 import '../design/chalk/chalk_drink_board.dart';
+import '../design/coaster/coaster_drink_board.dart';
+import '../design/coaster/counter_background.dart';
 import '../design/design.dart';
 import '../format.dart';
 import '../providers.dart';
@@ -160,9 +162,9 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
                         if (data != null)
                           Expanded(
                             child: switch (design) {
+                              AppDesign.standard => _StandardBoard(data),
                               AppDesign.kreidetafel => ChalkDrinkBoard(data),
-                              // Bierdeckel gets its own board in a later step.
-                              _ => _StandardBoard(data),
+                              AppDesign.bierdeckel => CoasterDrinkBoard(data),
                             },
                           ),
                       ],
@@ -356,7 +358,8 @@ class _Header extends ConsumerWidget {
 }
 
 /// The design's background behind the screen: the framed slate board for
-/// Kreidetafel, the theme's plain background otherwise.
+/// Kreidetafel, the green counter for Bierdeckel, the theme's plain
+/// background for Standard.
 class _Backdrop extends StatelessWidget {
   const _Backdrop({required this.design, required this.child});
 
@@ -364,8 +367,11 @@ class _Backdrop extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) =>
-      design == AppDesign.kreidetafel ? ChalkBoard(child: child) : child;
+  Widget build(BuildContext context) => switch (design) {
+    AppDesign.standard => child,
+    AppDesign.kreidetafel => ChalkBoard(child: child),
+    AppDesign.bierdeckel => CounterBackground(child: child),
+  };
 }
 
 /// Standard: the quick bar row on top, then one row per group.

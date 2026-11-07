@@ -127,6 +127,8 @@ double _rowWidth(List<_Column> cols) =>
 
 /// Picks the largest coaster step whose blocks fit [area]; if none does, uses
 /// the smallest step and wraps columns into rows that scroll vertically.
+/// Blocks are spread over the area: columns across the width (per row),
+/// blocks over the height of the area (or of their row when wrapped).
 CoasterBoardPlan planCoasterBoard(
   List<int> counts,
   Size area, {
@@ -150,10 +152,16 @@ CoasterBoardPlan planCoasterBoard(
     final blocks = List<Rect>.filled(groups.length, Rect.zero);
     var y = 0.0;
     for (final row in rows) {
-      var x = 0.0;
-      var rowHeight = 0.0;
+      final rowHeight = row.fold<double>(0, (m, c) => math.max(m, c.height));
+      // Free space is shared evenly: at both edges and between columns, and
+      // within a column above, between and below its blocks.
+      final spread =
+          math.max(0, area.width - _rowWidth(row)) / (row.length + 1);
+      final span = wrap ? rowHeight : area.height;
+      var x = spread;
       for (final col in row) {
-        var top = y;
+        final gap = math.max(0, span - col.height) / (col.items.length + 1);
+        var top = y + gap;
         for (final i in col.items) {
           final size = groups[i].footprint;
           blocks[i] = Rect.fromLTWH(
@@ -162,10 +170,9 @@ CoasterBoardPlan planCoasterBoard(
             size.width,
             size.height,
           );
-          top += size.height + kCoasterGap;
+          top += size.height + kCoasterGap + gap;
         }
-        rowHeight = math.max(rowHeight, col.height);
-        x += col.width + kCoasterGap;
+        x += col.width + kCoasterGap + spread;
       }
       y += rowHeight + kCoasterGap;
     }
