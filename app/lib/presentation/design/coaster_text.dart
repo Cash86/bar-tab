@@ -40,8 +40,9 @@ class CoasterTextFit {
   final bool ellipsized;
 }
 
-/// Text breaks into several lines only at spaces and after hyphens.
-bool _isSingleWord(String text) => !text.trim().contains(RegExp(r'[\s-]'));
+/// Text breaks into several lines only at spaces; a hyphenated name such as
+/// "Hans-Joachim" is one word.
+bool _isSingleWord(String text) => !text.trim().contains(RegExp(r'\s'));
 
 /// The largest font size in [min]..[max] for which [fits] holds; [min] when
 /// none does. Assumes that a text fitting at one size fits at every smaller
@@ -69,8 +70,8 @@ double largestFittingFontSize(
 /// Lays out [text] for a coaster of [diameter].
 ///
 /// The text has to fit, in up to three lines, into the height of the inner
-/// square (`0.78 * diameter`). Several words wrap at spaces and after hyphens
-/// at the inner square's width. A word is never broken: one longer than the
+/// square (`0.78 * diameter`). Several words wrap at spaces (not at hyphens:
+/// "Hans-Joachim" is one word) at the inner square's width. A word is never broken: one longer than the
 /// inner square widens the text box up to `1.15 * diameter` and may cross
 /// the rim. The size shrinks from the style's size down to [minFontSize];
 /// if the text still does not fit there, it is cut with `…` (a single word
@@ -88,7 +89,7 @@ CoasterTextFit fitCoasterText(
   final widest = _wordShare * diameter;
   final segments = text
       .trim()
-      .split(RegExp(r'\s+|(?<=-)'))
+      .split(RegExp(r'\s+'))
       .where((s) => s.isNotEmpty)
       .toList();
 

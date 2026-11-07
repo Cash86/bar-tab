@@ -60,6 +60,24 @@ void main() {
       expect(fit.ellipsized, isFalse);
     });
 
+    test('a hyphenated name is one word on one line', () {
+      final fit = fitCoasterText('Hans-Joachim', 72, style);
+      expect(fit.lines, 1);
+      expect(fit.ellipsized, isFalse);
+    });
+
+    test('a long hyphenated word stays on one line, cut at the minimum', () {
+      const name = 'Hans-Joachim-Maximilian-Friedrich';
+      final fit = fitCoasterText(name, 72, style);
+      expect(fit.lines, 1);
+      expect(fit.fontSize, 9);
+      expect(fit.ellipsized, isTrue);
+      // Above the minimum it is never cut.
+      final big = fitCoasterText(name, 72, style, minFontSize: 3);
+      expect(big.lines, 1);
+      expect(big.ellipsized, isFalse);
+    });
+
     test('a 40-character single word is cut at the minimum size', () {
       final fit = fitCoasterText(fortyChars, 72, style);
       expect(fortyChars.length, 40);
