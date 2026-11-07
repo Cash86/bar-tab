@@ -234,6 +234,25 @@ void main() {
         }
       });
 
+      if (design == AppDesign.kreidetafel) {
+        testWidgets('one much longer name shrinks alone, not its column', (
+          tester,
+        ) async {
+          await pumpScreen(
+            tester,
+            design,
+            catalogOf(realisticPersons(extra: [longWord])),
+          );
+          double sizeOf(String name) =>
+              tester.widget<Text>(find.text(name)).style!.fontSize!;
+          // One size for the other names of the column ...
+          expect(sizeOf('Carla'), sizeOf('Paul'));
+          expect(sizeOf('Carla'), sizeOf('Hannes'));
+          // ... and larger than the long name needs.
+          expect(sizeOf('Carla'), greaterThan(1.5 * sizeOf(longWord)));
+        });
+      }
+
       testWidgets('tier colours follow the position among all tiers', (
         tester,
       ) async {
