@@ -1062,8 +1062,16 @@ void main() {
       expect(style('Kim Example').fontFamily, tokens.displayFont);
       expect(style('Members').color, tokens.muted);
       expect(style('Members').fontFamily, tokens.bodyFont);
-      // Static faces (Barlow Condensed) are picked by weight only.
-      expect(style('Kim Example').fontWeight, FontWeight.w800);
+      // Static faces (Barlow Condensed) are picked by weight only; a
+      // single-face display font (Alfa Slab One) gets none, or it is faked.
+      expect(
+        style('Kim Example').fontWeight,
+        tokens.displayHasWeights ? FontWeight.w800 : null,
+      );
+      expect(
+        style('44,35$_nbsp€').fontWeight,
+        tokens.displayHasWeights ? FontWeight.w700 : null,
+      );
       expect(style('Andere Person').fontWeight, FontWeight.w600);
     });
   });
@@ -1094,6 +1102,12 @@ void main() {
       await open(tester, 'Kim Example');
       expect(find.byType(CounterBackground), findsOneWidget);
       expect(find.byType(CoasterDrinkBoard), findsOneWidget);
+      // A compact header leaves the counter more height (about 40 px less
+      // than the 123 px header area of the other designs).
+      expect(
+        tester.getRect(find.byType(CoasterDrinkBoard)).top,
+        lessThanOrEqualTo(88),
+      );
       await tapDrink(tester, 'd1');
       final bar = tester.getRect(find.byType(OrderBar));
       for (final id in ['d1', 'd2', 'd3', for (var i = 0; i < 7; i++) 'j$i']) {

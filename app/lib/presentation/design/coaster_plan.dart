@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 /// Coaster diameters in design px, largest first.
-const kCoasterSteps = [72.0, 60.0, 50.0];
+const kCoasterSteps = [72.0, 66.0, 60.0, 50.0];
 
 /// Gap between coasters on a ring, and between ring blocks on the board.
 const kCoasterGap = 8.0;

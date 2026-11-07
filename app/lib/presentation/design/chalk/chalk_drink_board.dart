@@ -141,26 +141,6 @@ class _Field extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DesignTokens.of(context);
-    final columns = field.boxColumns;
-    final rows = <Widget>[
-      for (var i = 0; i < drinks.length; i += columns)
-        Padding(
-          // Packed from the top only when the field scrolls.
-          padding: EdgeInsets.only(bottom: field.scrolls ? kChalkBoxGap : 0),
-          child: Row(
-            children: [
-              for (var j = 0; j < columns; j++) ...[
-                if (j > 0) const SizedBox(width: _boxColumnGap),
-                Expanded(
-                  child: i + j < drinks.length
-                      ? _box(drinks[i + j])
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ],
-          ),
-        ),
-    ];
     return CustomPaint(
       painter: ChalkBorderPainter(color: tokens.text.withAlpha(140)),
       child: Padding(
@@ -183,17 +163,12 @@ class _Field extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: field.scrolls
-                  ? SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      child: Column(children: rows),
-                    )
-                  // Boxes are capped in height; even gaps fill the field
-                  // (half a gap at the edges keeps boxes near the heading).
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: rows,
-                    ),
+              child: LayoutBuilder(
+                builder: (context, constraints) => _boxes(
+                  tokens,
+                  _nameSize(context, tokens, constraints.maxWidth),
+                ),
+              ),
             ),
           ],
         ),
@@ -201,7 +176,84 @@ class _Field extends StatelessWidget {
     );
   }
 
-  Widget _box(Drink drink) {
+  Widget _boxes(DesignTokens tokens, double nameSize) {
+    final columns = field.boxColumns;
+    final rows = <Widget>[
+      for (var i = 0; i < drinks.length; i += columns)
+        Padding(
+          // Packed from the top only when the field scrolls.
+          padding: EdgeInsets.only(bottom: field.scrolls ? kChalkBoxGap : 0),
+          child: Row(
+            children: [
+              for (var j = 0; j < columns; j++) ...[
+                if (j > 0) const SizedBox(width: _boxColumnGap),
+                Expanded(
+                  child: i + j < drinks.length
+                      ? _box(drinks[i + j], nameSize)
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ],
+          ),
+        ),
+    ];
+    return field.scrolls
+        ? SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: Column(children: rows),
+          )
+        // Boxes are capped in height; even gaps fill the field (half a gap
+        // at the edges keeps boxes near the heading).
+        : Column(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: rows,
+          );
+  }
+
+  /// One name size for the whole field: the largest at which every name
+  /// fits its box in up to two lines next to its price.
+  double _nameSize(BuildContext context, DesignTokens tokens, double width) {
+    final scale = field.boxHeight / kChalkBoxHeight;
+    final base = DefaultTextStyle.of(context).style;
+    final scaler = MediaQuery.textScalerOf(context);
+    final columns = field.boxColumns;
+    final boxWidth = (width - (columns - 1) * _boxColumnGap) / columns;
+    final nameStyle = base.merge(_chalk(tokens, _DrinkBox.nameBase * scale));
+    final priceStyle = base.merge(_DrinkBox.priceStyle(tokens, scale));
+    var size = nameStyle.fontSize!;
+    for (final drink in drinks) {
+      final price = TextPainter(
+        text: TextSpan(
+          text: formatCents(data.priceOf(drink)),
+          style: priceStyle,
+        ),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+      )..layout();
+      // One px to spare for rounding in the row's layout.
+      final nameWidth =
+          boxWidth -
+          2 * _DrinkBox.padding -
+          _DrinkBox.priceGap -
+          price.width -
+          1;
+      price.dispose();
+      size = math.min(
+        size,
+        fitChalkFontSize(
+          drink.name,
+          nameStyle,
+          Size(math.max(0, nameWidth), field.boxHeight),
+          minFontSize: _DrinkBox.minName,
+          maxLines: 2,
+          textScaler: scaler,
+        ),
+      );
+    }
+    return size;
+  }
+
+  Widget _box(Drink drink, double nameSize) {
     final price = data.priceOf(drink);
     return _DrinkBox(
       key: ValueKey('drink-${drink.id}'),
@@ -209,21 +261,34 @@ class _Field extends StatelessWidget {
       priceCents: price,
       quantity: data.quantities[drink.id] ?? 0,
       height: field.boxHeight,
+      nameSize: nameSize,
       onTap: () => data.onTap(drink, price),
     );
   }
 }
 
-/// "name … price" in a dashed chalk box; a count badge once ordered.
+/// "name … price" in a dashed chalk box; a count badge on its corner once
+/// ordered.
 class _DrinkBox extends StatelessWidget {
   const _DrinkBox({
     required this.name,
     required this.priceCents,
     required this.quantity,
     required this.height,
+    required this.nameSize,
     required this.onTap,
     super.key,
   });
+
+  /// Name size at the base box height, before the field fits it.
+  static const nameBase = 23.0;
+  static const minName = 14.0;
+  static const padding = 10.0;
+  static const priceGap = 6.0;
+
+  /// Grows less than the name: narrow fields need the width for the name.
+  static TextStyle priceStyle(DesignTokens tokens, double scale) =>
+      _chalk(tokens, math.min(21 * scale, 24), color: tokens.accent);
 
   final String name;
   final int priceCents;
@@ -231,6 +296,9 @@ class _DrinkBox extends StatelessWidget {
 
   /// Box height from the plan; the lettering grows with it.
   final double height;
+
+  /// The field's name size (see [_Field._nameSize]).
+  final double nameSize;
   final VoidCallback onTap;
 
   @override
@@ -240,43 +308,55 @@ class _DrinkBox extends StatelessWidget {
     final scale = height / kChalkBoxHeight;
     return SizedBox(
       height: height,
-      child: CustomPaint(
-        painter: ChalkBorderPainter(
-          color: tokens.text.withAlpha(153),
-          dashed: true,
-          fill: picked ? tokens.text.withAlpha(36) : null,
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: onTap,
-            customBorder: const RoundedRectangleBorder(
-              borderRadius: kChalkCorners,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ChalkText(name, style: _chalk(tokens, 23 * scale)),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: ChalkBorderPainter(
+                color: tokens.text.withAlpha(153),
+                dashed: true,
+                fill: picked ? tokens.text.withAlpha(36) : null,
+              ),
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  onTap: onTap,
+                  customBorder: const RoundedRectangleBorder(
+                    borderRadius: kChalkCorners,
                   ),
-                  if (picked) ...[const SizedBox(width: 6), _Badge(quantity)],
-                  const SizedBox(width: 6),
-                  Text(
-                    formatCents(priceCents),
-                    // Grows less than the name: narrow fields need the
-                    // width for the name.
-                    style: _chalk(
-                      tokens,
-                      math.min(21 * scale, 24),
-                      color: tokens.accent,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: padding),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ChalkText(
+                            name,
+                            style: _chalk(tokens, nameSize),
+                            // The field already fitted the size.
+                            minFontSize: nameSize,
+                            maxLines: 2,
+                          ),
+                        ),
+                        const SizedBox(width: priceGap),
+                        Text(
+                          formatCents(priceCents),
+                          style: priceStyle(tokens, scale),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+          if (picked)
+            Positioned(
+              top: -10,
+              right: -8,
+              child: IgnorePointer(child: _Badge(quantity)),
+            ),
+        ],
       ),
     );
   }

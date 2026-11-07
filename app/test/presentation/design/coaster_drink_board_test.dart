@@ -10,6 +10,8 @@ import 'package:bar_tab/presentation/design/coaster_text.dart';
 import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/drink_board_data.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,8 +19,8 @@ const _nbsp = ' ';
 const thirtyChars = 'Schwarzwaldkirschwasserbrandls';
 
 /// Where the board sits on the drink screen at 1280×720: screen padding
-/// left/right, header above.
-const _padding = EdgeInsets.fromLTRB(33, 120, 33, 0);
+/// left/right, the compact header above (measured with the real fonts).
+const _padding = EdgeInsets.fromLTRB(33, 82, 33, 0);
 
 Drink drink(String id, String name, String group, int sort) => Drink(
   id: id,
@@ -104,7 +106,58 @@ List<double> radii(WidgetTester tester, String groupId, List<String> ids) {
   ];
 }
 
+/// The real names of the approved mockup, [5, 3, 11, 1].
+List<(DrinkGroup, List<Drink>)> realNames() {
+  const names = [
+    [
+      'Ötti Hell',
+      'Ötti Weizen',
+      'Alpi klein',
+      'Alpi Spezial',
+      'Augustiner Hell',
+    ],
+    ['Krombacher alkoholfrei', 'Erdinger alkoholfrei', 'Jever Fun'],
+    [
+      'Colamix',
+      'Colamix Zero',
+      'Cola-Orange',
+      'Limo Zitrone',
+      'Limo Orange',
+      'Eistee Zitrone',
+      'Eistee Pfirsich',
+      'ACE',
+      'Apfelschorle',
+      'Apfelkirsch',
+      'Iso',
+    ],
+    ['Mineralwasser'],
+  ];
+  const groups = ['Bier', 'Alkoholfrei', 'Limo & Saft', 'Wasser'];
+  return [
+    for (var g = 0; g < 4; g++)
+      (
+        group('g$g', groups[g], g),
+        [
+          for (var i = 0; i < names[g].length; i++)
+            drink('n$g-$i', names[g][i], 'g$g', i),
+        ],
+      ),
+  ];
+}
+
 void main() {
+  // The real fonts: text fitting depends on them.
+  setUpAll(() async {
+    final alfa = FontLoader('Alfa Slab One')
+      ..addFont(rootBundle.load('assets/fonts/AlfaSlabOne-Regular.ttf'));
+    await alfa.load();
+    final barlow = FontLoader('Barlow Condensed');
+    for (final face in ['Regular', 'SemiBold', 'Bold', 'ExtraBold']) {
+      barlow.addFont(rootBundle.load('assets/fonts/BarlowCondensed-$face.ttf'));
+    }
+    await barlow.load();
+  });
+
   Widget app(DrinkBoardData data) => MaterialApp(
     theme: themeFor(AppDesign.bierdeckel),
     locale: const Locale('de'),
@@ -451,5 +504,55 @@ void main() {
     final before = name();
     await tester.pumpWidget(app(data(groups: groups, quantities: {'b1': 1})));
     expect(identical(name(), before), isTrue);
+  });
+
+  testWidgets('the real names are never cut; coasters at 66 px or larger', (
+    tester,
+  ) async {
+    final groups = realNames();
+    final favourites = [
+      groups[0].$2[0],
+      groups[1].$2[0],
+      groups[2].$2[8],
+      groups[3].$2[0],
+    ];
+    await pumpBoard(tester, data(groups: groups, favourites: favourites));
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(tile('n0-0')).width, greaterThanOrEqualTo(66));
+    RenderParagraph paragraph(Finder of, String text) =>
+        tester.renderObject<RenderParagraph>(
+          find.descendant(of: of, matching: find.text(text)),
+        );
+    for (final (g, drinks) in groups) {
+      for (final d in drinks) {
+        expect(
+          paragraph(tile(d.id), d.name).didExceedMaxLines,
+          isFalse,
+          reason: '${d.name} is cut',
+        );
+      }
+      // The group name stays inside its hub.
+      final name = paragraph(hub(g.id), g.name);
+      expect(name.didExceedMaxLines, isFalse, reason: g.name);
+      expect(
+        name.size.width,
+        lessThanOrEqualTo(tester.getSize(hub(g.id)).width),
+        reason: g.name,
+      );
+    }
+    for (final d in favourites) {
+      expect(
+        paragraph(quick(d.id), d.name).didExceedMaxLines,
+        isFalse,
+        reason: '${d.name} is cut on the tray',
+      );
+    }
+    // The blocks spread over the board next to the slim tray.
+    final board = tester.getRect(find.byType(CoasterDrinkBoard));
+    final used = [
+      for (final (g, _) in groups) tester.getRect(block(g.id)),
+    ].reduce((a, b) => a.expandToInclude(b));
+    final left = board.left + kCoasterTrayWidth + kCoasterTrayGap;
+    expect(used.width, greaterThan((board.right - left) * 0.9));
   });
 }

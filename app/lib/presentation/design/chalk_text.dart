@@ -2,6 +2,50 @@ import 'package:flutter/material.dart';
 
 import 'coaster_text.dart';
 
+/// The largest size from [style]'s size down to [minFontSize] at which
+/// [text] fits [box] in up to [maxLines] lines without breaking a word;
+/// [minFontSize] when none does. [style] must be complete (merged into the
+/// default text style), as [Text] paints it.
+double fitChalkFontSize(
+  String text,
+  TextStyle style,
+  Size box, {
+  double minFontSize = 14,
+  int maxLines = 1,
+  TextScaler textScaler = TextScaler.noScaling,
+  TextDirection textDirection = TextDirection.ltr,
+}) {
+  final base = style.fontSize ?? 14;
+  bool fits(double size) {
+    TextPainter paint(String text, {int? maxLines}) => TextPainter(
+      text: TextSpan(
+        text: text,
+        style: style.copyWith(fontSize: size),
+      ),
+      textDirection: textDirection,
+      textScaler: textScaler,
+      maxLines: maxLines,
+    )..layout(maxWidth: box.width);
+    final p = paint(text, maxLines: maxLines);
+    var ok = !p.didExceedMaxLines && p.height <= box.height;
+    p.dispose();
+    // A word wider than the box would be broken inside the word.
+    for (final word in text.trim().split(RegExp(r'\s+'))) {
+      if (!ok) break;
+      final wp = paint(word, maxLines: 1);
+      ok = !wp.didExceedMaxLines;
+      wp.dispose();
+    }
+    return ok;
+  }
+
+  return largestFittingFontSize(
+    minFontSize < base ? minFontSize : base,
+    base,
+    fits,
+  );
+}
+
 /// Text that shrinks from its style's size down to [minFontSize] to fit the
 /// box it is given, and is cut with `…` when even that is too large.
 class ChalkText extends StatelessWidget {
@@ -26,34 +70,14 @@ class ChalkText extends StatelessWidget {
     final style = DefaultTextStyle.of(context).style.merge(this.style);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final base = style.fontSize ?? 14;
-        bool fits(double size) {
-          TextPainter paint(String text, {int? maxLines}) => TextPainter(
-            text: TextSpan(
-              text: text,
-              style: style.copyWith(fontSize: size),
-            ),
-            textDirection: direction,
-            textScaler: scaler,
-            maxLines: maxLines,
-          )..layout(maxWidth: constraints.maxWidth);
-          final p = paint(text, maxLines: maxLines);
-          var ok = !p.didExceedMaxLines && p.height <= constraints.maxHeight;
-          p.dispose();
-          // A word wider than the box would be broken inside the word.
-          for (final word in text.trim().split(RegExp(r'\s+'))) {
-            if (!ok) break;
-            final wp = paint(word, maxLines: 1);
-            ok = !wp.didExceedMaxLines;
-            wp.dispose();
-          }
-          return ok;
-        }
-
-        final size = largestFittingFontSize(
-          minFontSize < base ? minFontSize : base,
-          base,
-          fits,
+        final size = fitChalkFontSize(
+          text,
+          style,
+          constraints.biggest,
+          minFontSize: minFontSize,
+          maxLines: maxLines,
+          textScaler: scaler,
+          textDirection: direction,
         );
         return Text(
           text,

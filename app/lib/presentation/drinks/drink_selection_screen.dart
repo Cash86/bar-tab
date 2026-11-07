@@ -147,11 +147,18 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
               child: Stack(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(33, 22, 33, 0),
+                    padding: EdgeInsets.fromLTRB(
+                      33,
+                      design == AppDesign.bierdeckel ? 10 : 22,
+                      33,
+                      0,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _Header(
+                          // The counter needs the height for the rings.
+                          compact: design == AppDesign.bierdeckel,
                           person: person,
                           tierName: catalog?.tiers
                               .where((t) => t.id == person?.priceTierId)
@@ -234,11 +241,14 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
 
 class _Header extends ConsumerWidget {
   const _Header({
+    required this.compact,
     required this.person,
     required this.tierName,
     required this.onOtherPerson,
   });
 
+  /// Smaller name and total, less space below.
+  final bool compact;
   final Person? person;
   final String? tierName;
   final VoidCallback onOtherPerson;
@@ -251,8 +261,10 @@ class _Header extends ConsumerWidget {
     final total = person == null
         ? null
         : ref.watch(runningTotalProvider(person.id)).value;
+    // A single-face display font gets no weight, or it is faked bold.
+    final bold = tokens.displayHasWeights;
     return Container(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: EdgeInsets.only(bottom: compact ? 8 : 18),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: tokens.surfaceHigh)),
       ),
@@ -299,16 +311,18 @@ class _Header extends ConsumerWidget {
                   style: TextStyle(
                     color: tokens.text,
                     fontFamily: tokens.displayFont,
-                    fontSize: 56,
+                    fontSize: compact ? 40 : 56,
                     height: 0.95,
-                    fontWeight: FontWeight.w800,
-                    fontVariations: const [
-                      FontVariation('wdth', 118),
-                      FontVariation('wght', 850),
-                    ],
+                    fontWeight: bold ? FontWeight.w800 : null,
+                    fontVariations: bold
+                        ? const [
+                            FontVariation('wdth', 118),
+                            FontVariation('wght', 850),
+                          ]
+                        : null,
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: compact ? 2 : 6),
                 Text(
                   tierName ?? '',
                   style: TextStyle(
@@ -332,12 +346,15 @@ class _Header extends ConsumerWidget {
                 style: TextStyle(
                   color: tokens.text,
                   fontFamily: tokens.displayFont,
-                  fontSize: 38,
-                  fontWeight: FontWeight.w700,
-                  fontVariations: const [
-                    FontVariation('wdth', 90),
-                    FontVariation('wght', 700),
-                  ],
+                  fontSize: compact ? 30 : 38,
+                  height: compact ? 1.1 : null,
+                  fontWeight: bold ? FontWeight.w700 : null,
+                  fontVariations: bold
+                      ? const [
+                          FontVariation('wdth', 90),
+                          FontVariation('wght', 700),
+                        ]
+                      : null,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),

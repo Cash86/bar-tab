@@ -8,6 +8,7 @@ import 'package:bar_tab/presentation/design/chalk_plan.dart';
 import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/drink_board_data.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,6 +49,45 @@ List<(DrinkGroup, List<Drink>)> realAssortment() => [
   ),
   (group('g4', 'Wasser', 4), [drink('w0', 'Wasser', 'g4', 0)]),
 ];
+
+/// The real names of the approved mockup, [5, 3, 11, 1].
+List<(DrinkGroup, List<Drink>)> realNames() {
+  const names = [
+    [
+      'Ötti Hell',
+      'Ötti Weizen',
+      'Alpi klein',
+      'Alpi Spezial',
+      'Augustiner Hell',
+    ],
+    ['Krombacher alkoholfrei', 'Erdinger alkoholfrei', 'Jever Fun'],
+    [
+      'Colamix',
+      'Colamix Zero',
+      'Cola-Orange',
+      'Limo Zitrone',
+      'Limo Orange',
+      'Eistee Zitrone',
+      'Eistee Pfirsich',
+      'ACE',
+      'Apfelschorle',
+      'Apfelkirsch',
+      'Iso',
+    ],
+    ['Mineralwasser'],
+  ];
+  const groups = ['Bier', 'Alkoholfrei', 'Limo & Saft', 'Wasser'];
+  return [
+    for (var g = 0; g < 4; g++)
+      (
+        group('g$g', groups[g], g),
+        [
+          for (var i = 0; i < names[g].length; i++)
+            drink('n$g-$i', names[g][i], 'g$g', i),
+        ],
+      ),
+  ];
+}
 
 class Taps {
   final grid = <String>[];
@@ -351,5 +391,65 @@ void main() {
           .right,
       lessThanOrEqualTo(box.right),
     );
+  });
+
+  testWidgets('the real names are never cut; one name size per field', (
+    tester,
+  ) async {
+    final groups = realNames();
+    final favourites = [
+      groups[0].$2[0],
+      groups[1].$2[0],
+      groups[2].$2[8],
+      groups[3].$2[0],
+    ];
+    await pumpBoard(
+      tester,
+      data(groups: groups, favourites: favourites, quantities: {'n0-0': 2}),
+    );
+    expect(tester.takeException(), isNull);
+    for (final (_, drinks) in groups) {
+      final sizes = <double>{};
+      for (final d in drinks) {
+        final name = find.descendant(
+          of: tile(d.id),
+          matching: find.text(d.name),
+        );
+        expect(
+          tester.renderObject<RenderParagraph>(name).didExceedMaxLines,
+          isFalse,
+          reason: '${d.name} is cut',
+        );
+        sizes.add(tester.widget<Text>(name).style!.fontSize!);
+      }
+      expect(sizes, hasLength(1), reason: '$sizes');
+    }
+    for (final d in favourites) {
+      final name = find.descendant(
+        of: quick(d.id),
+        matching: find.text(d.name),
+      );
+      expect(
+        tester.renderObject<RenderParagraph>(name).didExceedMaxLines,
+        isFalse,
+        reason: '${d.name} is cut on the favourites board',
+      );
+    }
+    // Two words wrap rather than shrink to nothing.
+    final krombacher = find.descendant(
+      of: tile('n1-0'),
+      matching: find.text('Krombacher alkoholfrei'),
+    );
+    expect(
+      tester.renderObject<RenderParagraph>(krombacher).size.height,
+      greaterThan(tester.widget<Text>(krombacher).style!.fontSize! * 1.5),
+    );
+    // The badge sits on the box's top right corner, not in the row.
+    final box = tester.getRect(tile('n0-0'));
+    final badge = tester.getCenter(
+      find.descendant(of: tile('n0-0'), matching: find.text('2')),
+    );
+    expect(badge.dx, greaterThan(box.right - 24));
+    expect(badge.dy, lessThan(box.top + 16));
   });
 }

@@ -8,6 +8,9 @@ import '../design.dart';
 /// Dark brown print on the cream coasters.
 const Color kCoasterInk = Color(0xFF3A2414);
 
+/// Names on coasters never shrink below this.
+const double kCoasterMinFontSize = 10;
+
 /// The lighter cream of highlighted coasters and of the hub's inner line.
 const Color kCoasterPaper = Color(0xFFFFF6E6);
 
@@ -90,11 +93,18 @@ class Coaster extends StatelessWidget {
     final sub = subLabel;
     if (sub == null) {
       return Center(
-        child: CoasterText(label, diameter: d, style: name, strokeColor: face),
+        child: CoasterText(
+          label,
+          diameter: d,
+          style: name,
+          minFontSize: kCoasterMinFontSize,
+          strokeColor: face,
+        ),
       );
     }
-    // Nearly the whole coaster, so a long word may still cross the rim.
-    final nameBox = 0.9 * d;
+    // The whole coaster's text box, raised above the price; two lines at
+    // most so the name stays clear of it.
+    final nameBox = d;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -108,6 +118,8 @@ class Coaster extends StatelessWidget {
             label,
             diameter: nameBox,
             style: name,
+            minFontSize: kCoasterMinFontSize,
+            maxLines: 2,
             strokeColor: face,
           ),
         ),
@@ -170,6 +182,9 @@ class CoasterHub extends StatelessWidget {
                 height: 1,
                 color: kCoasterPaper,
               ),
+              minFontSize: kCoasterMinFontSize,
+              // Inside the hub's inner line: no word crosses its rim.
+              wordShare: 0.85,
               strokeColor: color,
             ),
           ),

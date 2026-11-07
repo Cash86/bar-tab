@@ -54,6 +54,7 @@ class DesignTokens extends ThemeExtension<DesignTokens> {
     required this.tierPalette,
     required this.bodyFont,
     required this.displayFont,
+    required this.displayHasWeights,
   });
 
   /// Main background (the darker end of a background gradient).
@@ -94,6 +95,10 @@ class DesignTokens extends ThemeExtension<DesignTokens> {
   /// Headings and names.
   final String displayFont;
 
+  /// The display font comes in several weights. Alfa Slab One has a single
+  /// face: a bold weight would be faked, so its text sets none.
+  final bool displayHasWeights;
+
   Color tierColor(int index) => tierPalette[index % tierPalette.length];
 
   /// The tokens of the current theme; standard when the theme has none.
@@ -115,6 +120,7 @@ class DesignTokens extends ThemeExtension<DesignTokens> {
     List<Color>? tierPalette,
     String? bodyFont,
     String? displayFont,
+    bool? displayHasWeights,
   }) => DesignTokens(
     background: background ?? this.background,
     backgroundHighlight: backgroundHighlight ?? this.backgroundHighlight,
@@ -129,6 +135,7 @@ class DesignTokens extends ThemeExtension<DesignTokens> {
     tierPalette: tierPalette ?? this.tierPalette,
     bodyFont: bodyFont ?? this.bodyFont,
     displayFont: displayFont ?? this.displayFont,
+    displayHasWeights: displayHasWeights ?? this.displayHasWeights,
   );
 
   /// Designs switch at once; fonts and palettes cannot be blended.
@@ -151,6 +158,7 @@ const _standard = DesignTokens(
   tierPalette: BarTabTheme.tierPalette,
   bodyFont: BarTabTheme.fontFamily,
   displayFont: BarTabTheme.fontFamily,
+  displayHasWeights: true,
 );
 
 const _kreidetafel = DesignTokens(
@@ -173,6 +181,7 @@ const _kreidetafel = DesignTokens(
   ],
   bodyFont: 'Caveat',
   displayFont: 'Caveat',
+  displayHasWeights: true,
 );
 
 const _bierdeckel = DesignTokens(
@@ -195,6 +204,7 @@ const _bierdeckel = DesignTokens(
   ],
   bodyFont: 'Barlow Condensed',
   displayFont: 'Alfa Slab One',
+  displayHasWeights: false,
 );
 
 DesignTokens tokensFor(AppDesign design) => switch (design) {

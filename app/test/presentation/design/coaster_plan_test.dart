@@ -92,6 +92,13 @@ void main() {
       expect(1000 - b[1].right, closeTo(b[0].left, 1e-6));
     });
 
+    test('the real assortment next to the tray fits at 66 on 16:9', () {
+      // 1280×720 minus header, tray and order-bar room.
+      final plan = planCoasterBoard([5, 3, 11, 1], const Size(1024, 510));
+      expect(plan.coaster, 66);
+      expect(plan.scrolls, isFalse);
+    });
+
     test('two small groups keep the largest step', () {
       final plan = planCoasterBoard([3, 2], const Size(1000, 480));
       expect(plan.coaster, 72);

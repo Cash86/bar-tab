@@ -11,8 +11,9 @@ import '../coaster_plan.dart';
 import '../design.dart';
 import 'coaster.dart';
 
-/// Width of the "Dein Tablett" serving tray.
-const double kCoasterTrayWidth = 236;
+/// Width of the "Dein Tablett" serving tray: just around its large
+/// coasters, so the rings get the width.
+const double kCoasterTrayWidth = 168;
 
 /// Space between the tray and the ring blocks.
 const double kCoasterTrayGap = 22;
@@ -192,7 +193,7 @@ class _Tray extends StatelessWidget {
           children: [
             const RepaintBoundary(child: CustomPaint(painter: _TrayPainter())),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 30, 20, 30),
+              padding: const EdgeInsets.fromLTRB(14, 28, 14, 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -204,7 +205,7 @@ class _Tray extends StatelessWidget {
                         fontFamily: tokens.bodyFont,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 2.2,
+                        letterSpacing: 1.6,
                         color: const Color(0xFF3B4248),
                       ),
                     ),

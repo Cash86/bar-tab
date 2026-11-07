@@ -10,6 +10,28 @@ const fortyChars = 'Donaudampfschifffahrtsgesellschaftskapit';
 
 const names = ['Anna', 'Krombacher alkoholfrei', 'Maximilian', fortyChars];
 
+/// The text ranges of the lines a [CoasterText] paints for [text] with
+/// [fit].
+List<TextRange> laidOutLines(String text, CoasterTextFit fit) {
+  final p = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: style.copyWith(fontSize: fit.fontSize),
+    ),
+    textDirection: TextDirection.ltr,
+    textAlign: TextAlign.center,
+    maxLines: fit.lines,
+    ellipsis: fit.ellipsized ? '…' : null,
+  )..layout(maxWidth: fit.width);
+  final lines = <TextRange>[];
+  for (final m in p.computeLineMetrics()) {
+    final start = p.getPositionForOffset(Offset(0, m.baseline - m.ascent / 2));
+    lines.add(p.getLineBoundary(start));
+  }
+  p.dispose();
+  return lines;
+}
+
 void main() {
   setUpAll(() async {
     final loader = FontLoader('Alfa Slab One')
@@ -84,6 +106,58 @@ void main() {
       expect(fit.lines, 1);
       expect(fit.fontSize, 9);
       expect(fit.ellipsized, isTrue);
+    });
+
+    test('a long single word may cross the rim up to 1.5 x the diameter', () {
+      // "Mineralwasser" is about 80 px wide at 10 px: too wide for 1.15 x 66.
+      final fit = fitCoasterText('Mineralwasser', 66, style, minFontSize: 10);
+      expect(fit.ellipsized, isFalse);
+      expect(fit.lines, 1);
+      expect(fit.width, greaterThan(1.15 * 66));
+      expect(fit.width, lessThanOrEqualTo(1.5 * 66));
+    });
+
+    test('"Krombacher alkoholfrei" never breaks inside a word', () {
+      for (var d = 30.0; d <= 72; d += 6) {
+        const text = 'Krombacher alkoholfrei';
+        final fit = fitCoasterText(text, d, style);
+        final lines = laidOutLines(text, fit);
+        for (var i = 0; i < lines.length; i++) {
+          final r = lines[i];
+          final cut = fit.ellipsized && i == lines.length - 1;
+          expect(
+            r.start == 0 || text[r.start - 1] == ' ',
+            isTrue,
+            reason: 'd=$d line $i starts inside a word',
+          );
+          expect(
+            cut ||
+                r.end >= text.trimRight().length ||
+                text[r.end] == ' ' ||
+                text[r.end - 1] == ' ',
+            isTrue,
+            reason: 'd=$d line $i ends inside a word',
+          );
+        }
+        // A cut keeps it on one line: no word is wrapped in pieces.
+        if (fit.ellipsized) expect(fit.lines, 1, reason: 'd=$d');
+      }
+    });
+
+    test('maxLines limits the wrapped lines', () {
+      final fit = fitCoasterText(
+        'Ein sehr langer Name',
+        72,
+        style,
+        maxLines: 2,
+      );
+      expect(fit.lines, lessThanOrEqualTo(2));
+    });
+
+    test('a word share keeps a word inside a hub', () {
+      final fit = fitCoasterText('Alkoholfrei', 89, style, wordShare: 0.85);
+      expect(fit.width, lessThanOrEqualTo(0.85 * 89));
+      expect(fit.ellipsized, isFalse);
     });
 
     test('many words at the minimum size are cut on the third line', () {

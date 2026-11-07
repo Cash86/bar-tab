@@ -7,8 +7,13 @@ import 'design.dart';
 /// inside the round coaster); also the line width several words wrap at.
 const _innerShare = 0.78;
 
-/// Share of the coaster diameter a word may take; it may cross the rim.
+/// Share of the coaster diameter a word of a several-word name may take; it
+/// may cross the rim.
 const _wordShare = 1.15;
+
+/// Share a single-word name may take; the outline keeps it readable over
+/// the rim.
+const _singleWordShare = 1.5;
 
 const _maxLines = 3;
 
@@ -29,8 +34,8 @@ class CoasterTextFit {
   final double fontSize;
   final int lines;
 
-  /// Width of the text box: the inner square, or wider (up to
-  /// `1.15 * diameter`) for a word that is longer than the inner square.
+  /// Width of the text box: the inner square, or wider (up to the word
+  /// share of the diameter) for a word that is longer than the inner square.
   final double width;
 
   /// The text box is wider than the coaster: a long word crosses the rim.
@@ -69,24 +74,31 @@ double largestFittingFontSize(
 
 /// Lays out [text] for a coaster of [diameter].
 ///
-/// The text has to fit, in up to three lines, into the height of the inner
-/// square (`0.78 * diameter`). Several words wrap at spaces (not at hyphens:
-/// "Hans-Joachim" is one word) at the inner square's width. A word is never broken: one longer than the
-/// inner square widens the text box up to `1.15 * diameter` and may cross
-/// the rim. The size shrinks from the style's size down to [minFontSize];
-/// if the text still does not fit there, it is cut with `…` (a single word
-/// on its one line, several words on the last line).
+/// The text has to fit, in up to [maxLines] lines, into the height of the
+/// inner square (`0.78 * diameter`). Several words wrap at spaces (not at
+/// hyphens: "Hans-Joachim" is one word) at the inner square's width. A word
+/// is never broken: one longer than the inner square widens the text box
+/// and may cross the rim, up to [wordShare] of the diameter (default
+/// `1.5` for a single word, `1.15` for a word among several). The size
+/// shrinks from the style's size down to [minFontSize]; if the text still
+/// does not fit there, it is cut with `…`: several words on the last line,
+/// or, when a word alone is too wide, the whole name on one line.
 CoasterTextFit fitCoasterText(
   String text,
   double diameter,
   TextStyle style, {
   double minFontSize = 9,
+  int maxLines = _maxLines,
+  double? wordShare,
   TextScaler textScaler = TextScaler.noScaling,
 }) {
   final base = style.fontSize ?? 14;
   final min = minFontSize < base ? minFontSize : base;
   final inner = _innerShare * diameter;
-  final widest = _wordShare * diameter;
+  final single = _isSingleWord(text);
+  final widest =
+      (wordShare ?? (single ? _singleWordShare : _wordShare)) * diameter;
+  final lineLimit = single ? 1 : maxLines;
   final segments = text
       .trim()
       .split(RegExp(r'\s+'))
@@ -133,7 +145,7 @@ CoasterTextFit fitCoasterText(
     final p = paint(
       text,
       size,
-      maxLines: _maxLines,
+      maxLines: lineLimit,
       maxWidth: boxWidth(longest),
     );
     final ok = !p.didExceedMaxLines && p.height <= inner;
@@ -143,27 +155,30 @@ CoasterTextFit fitCoasterText(
 
   final size = largestFittingFontSize(min, base, fits);
   final ellipsized = !fits(size);
-  final width = boxWidth(longestSegment(size));
-  // When cut, keep only as many lines as the inner square holds.
-  var maxLines = _isSingleWord(text) ? 1 : _maxLines;
+  final longest = longestSegment(size);
+  final width = boxWidth(longest);
+  // A word wider than the box would wrap in pieces: keep the name on one
+  // line and cut it there. Otherwise keep as many lines as the inner square
+  // holds.
+  var lines = longest > widest ? 1 : lineLimit;
   late TextPainter p;
   while (true) {
     p = paint(
       text,
       size,
-      maxLines: maxLines,
+      maxLines: lines,
       maxWidth: width,
       ellipsis: ellipsized ? '…' : null,
     );
-    if (maxLines == 1 || p.height <= inner) break;
+    if (lines == 1 || p.height <= inner) break;
     p.dispose();
-    maxLines--;
+    lines--;
   }
-  final lines = p.computeLineMetrics().length;
+  final laidOut = p.computeLineMetrics().length;
   p.dispose();
   return CoasterTextFit(
     fontSize: size,
-    lines: lines,
+    lines: laidOut,
     width: width,
     overflowsRim: width > diameter,
     ellipsized: ellipsized,
@@ -180,6 +195,8 @@ class CoasterText extends StatelessWidget {
     required this.diameter,
     required this.style,
     this.minFontSize = 9,
+    this.maxLines = _maxLines,
+    this.wordShare,
     this.strokeColor,
   });
 
@@ -187,6 +204,10 @@ class CoasterText extends StatelessWidget {
   final double diameter;
   final TextStyle style;
   final double minFontSize;
+  final int maxLines;
+
+  /// See [fitCoasterText]; e.g. `0.85` keeps every word inside a hub.
+  final double? wordShare;
 
   /// Defaults to the Bierdeckel coaster colour.
   final Color? strokeColor;
@@ -201,6 +222,8 @@ class CoasterText extends StatelessWidget {
       diameter,
       style,
       minFontSize: minFontSize,
+      maxLines: maxLines,
+      wordShare: wordShare,
       textScaler: scaler,
     );
     final fill = style.copyWith(fontSize: fit.fontSize);
