@@ -230,6 +230,10 @@ void main() {
         await tester.pump();
         final text = tester.widget<Text>(find.text('2 Buchungen warten'));
         expect(text.style?.color, tokensFor(design).muted);
+        expect(
+          text.style?.fontWeight,
+          design == AppDesign.standard ? null : FontWeight.w500,
+        );
       });
 
       testWidgets('order bar is text-coloured with background ink', (
@@ -261,12 +265,17 @@ void main() {
           tester.widget<Text>(find.text('1× Lager')).style?.color,
           tokens.background,
         );
-        // Static faces (Barlow Condensed) are picked by weight only.
+        // Static faces (Barlow Condensed) are picked by weight only;
+        // Standard keeps main's styles (Archivo's variation only).
         TextStyle style(String text) =>
             tester.widget<Text>(find.text(text)).style!;
-        expect(style('1× Lager').fontWeight, FontWeight.w700);
-        expect(style('1,20\u00A0€').fontWeight, FontWeight.w800);
-        expect(style('Fertig').fontWeight, FontWeight.w700);
+        final standard = design == AppDesign.standard;
+        expect(style('1× Lager').fontWeight, standard ? null : FontWeight.w700);
+        expect(
+          style('1,20\u00A0€').fontWeight,
+          standard ? null : FontWeight.w800,
+        );
+        expect(style('Fertig').fontWeight, standard ? null : FontWeight.w700);
       });
     });
   });

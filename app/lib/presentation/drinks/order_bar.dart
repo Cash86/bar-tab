@@ -206,6 +206,7 @@ class OrderBar extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final tokens = DesignTokens.of(context);
     final text = tokens.background;
+    FontWeight? weight(FontWeight w) => tokens.setsFontWeight ? w : null;
     return Material(
       color: tokens.text,
       borderRadius: BorderRadius.circular(15),
@@ -229,7 +230,7 @@ class OrderBar extends StatelessWidget {
                         style: TextStyle(
                           color: text,
                           fontSize: 23,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: weight(FontWeight.w700),
                           fontVariations: const [FontVariation('wght', 700)],
                         ),
                       ),
@@ -249,7 +250,7 @@ class OrderBar extends StatelessWidget {
                   style: TextStyle(
                     color: text,
                     fontSize: 28,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: weight(FontWeight.w800),
                     fontVariations: const [FontVariation('wght', 800)],
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -424,7 +425,7 @@ class OrderButton extends StatelessWidget {
             style: TextStyle(
               color: solid ? tokens.text : text,
               fontSize: 20,
-              fontWeight: FontWeight.w700,
+              fontWeight: tokens.setsFontWeight ? FontWeight.w700 : null,
               fontVariations: const [FontVariation('wght', 700)],
             ),
           ),

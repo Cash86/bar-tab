@@ -28,12 +28,13 @@ class SyncIndicator extends ConsumerWidget {
     if (state == null) return const SizedBox.shrink();
     final text = syncIndicatorText(AppLocalizations.of(context), state);
     if (text == null) return const SizedBox.shrink();
+    final tokens = DesignTokens.of(context);
     return Text(
       text,
       style: TextStyle(
-        color: DesignTokens.of(context).muted,
+        color: tokens.muted,
         fontSize: 14,
-        fontWeight: FontWeight.w500,
+        fontWeight: tokens.setsFontWeight ? FontWeight.w500 : null,
         fontVariations: const [FontVariation('wght', 500)],
       ),
     );

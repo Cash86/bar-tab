@@ -275,8 +275,10 @@ class _Header extends ConsumerWidget {
     final total = person == null
         ? null
         : ref.watch(runningTotalProvider(person.id)).value;
-    // A single-face display font gets no weight, or it is faked bold.
+    // A single-face display font gets no weight, or it is faked bold;
+    // Standard's Archivo takes its weight from the variation only.
     final bold = tokens.displayHasWeights;
+    final weighted = tokens.setsFontWeight;
     return Container(
       padding: EdgeInsets.only(bottom: compact ? 8 : 18),
       decoration: BoxDecoration(
@@ -304,7 +306,7 @@ class _Header extends ConsumerWidget {
                       color: tokens.text,
                       fontFamily: tokens.bodyFont,
                       fontSize: 17,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: weighted ? FontWeight.w600 : null,
                       fontVariations: const [FontVariation('wght', 600)],
                     ),
                   ),
@@ -327,7 +329,7 @@ class _Header extends ConsumerWidget {
                     fontFamily: tokens.displayFont,
                     fontSize: compact ? 40 : 56,
                     height: 0.95,
-                    fontWeight: bold ? FontWeight.w800 : null,
+                    fontWeight: bold && weighted ? FontWeight.w800 : null,
                     fontVariations: bold
                         ? const [
                             FontVariation('wdth', 118),
@@ -362,7 +364,7 @@ class _Header extends ConsumerWidget {
                   fontFamily: tokens.displayFont,
                   fontSize: compact ? 30 : 38,
                   height: compact ? 1.1 : null,
-                  fontWeight: bold ? FontWeight.w700 : null,
+                  fontWeight: bold && weighted ? FontWeight.w700 : null,
                   fontVariations: bold
                       ? const [
                           FontVariation('wdth', 90),

@@ -55,6 +55,7 @@ class DesignTokens extends ThemeExtension<DesignTokens> {
     required this.bodyFont,
     required this.displayFont,
     required this.displayHasWeights,
+    required this.setsFontWeight,
   });
 
   /// Main background (the darker end of a background gradient).
@@ -99,6 +100,11 @@ class DesignTokens extends ThemeExtension<DesignTokens> {
   /// face: a bold weight would be faked, so its text sets none.
   final bool displayHasWeights;
 
+  /// Text sets [TextStyle.fontWeight] next to its `wght` variation: Barlow
+  /// Condensed's static faces are picked by weight only. Standard keeps its
+  /// styles as before the designs: Archivo is weighted by its variation.
+  final bool setsFontWeight;
+
   Color tierColor(int index) => tierPalette[index % tierPalette.length];
 
   /// The tokens of the current theme; standard when the theme has none.
@@ -121,6 +127,7 @@ class DesignTokens extends ThemeExtension<DesignTokens> {
     String? bodyFont,
     String? displayFont,
     bool? displayHasWeights,
+    bool? setsFontWeight,
   }) => DesignTokens(
     background: background ?? this.background,
     backgroundHighlight: backgroundHighlight ?? this.backgroundHighlight,
@@ -136,6 +143,7 @@ class DesignTokens extends ThemeExtension<DesignTokens> {
     bodyFont: bodyFont ?? this.bodyFont,
     displayFont: displayFont ?? this.displayFont,
     displayHasWeights: displayHasWeights ?? this.displayHasWeights,
+    setsFontWeight: setsFontWeight ?? this.setsFontWeight,
   );
 
   /// Designs switch at once; fonts and palettes cannot be blended.
@@ -159,6 +167,7 @@ const _standard = DesignTokens(
   bodyFont: BarTabTheme.fontFamily,
   displayFont: BarTabTheme.fontFamily,
   displayHasWeights: true,
+  setsFontWeight: false,
 );
 
 const _kreidetafel = DesignTokens(
@@ -182,6 +191,7 @@ const _kreidetafel = DesignTokens(
   bodyFont: 'Caveat',
   displayFont: 'Caveat',
   displayHasWeights: true,
+  setsFontWeight: true,
 );
 
 const _bierdeckel = DesignTokens(
@@ -205,6 +215,7 @@ const _bierdeckel = DesignTokens(
   bodyFont: 'Barlow Condensed',
   displayFont: 'Alfa Slab One',
   displayHasWeights: false,
+  setsFontWeight: true,
 );
 
 DesignTokens tokensFor(AppDesign design) => switch (design) {

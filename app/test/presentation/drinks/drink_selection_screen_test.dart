@@ -1062,17 +1062,21 @@ void main() {
       expect(style('Kim Example').fontFamily, tokens.displayFont);
       expect(style('Members').color, tokens.muted);
       expect(style('Members').fontFamily, tokens.bodyFont);
-      // Static faces (Barlow Condensed) are picked by weight only; a
+      // Standard keeps main's styles: Archivo is weighted by its variation
+      // only. Static faces (Barlow Condensed) are picked by weight; a
       // single-face display font (Alfa Slab One) gets none, or it is faked.
-      expect(
-        style('Kim Example').fontWeight,
-        tokens.displayHasWeights ? FontWeight.w800 : null,
-      );
-      expect(
-        style('44,35$_nbsp€').fontWeight,
-        tokens.displayHasWeights ? FontWeight.w700 : null,
-      );
-      expect(style('Andere Person').fontWeight, FontWeight.w600);
+      final (name, total, other) = switch (design) {
+        AppDesign.standard => (null, null, null),
+        AppDesign.kreidetafel => (
+          FontWeight.w800,
+          FontWeight.w700,
+          FontWeight.w600,
+        ),
+        AppDesign.bierdeckel => (null, null, FontWeight.w600),
+      };
+      expect(style('Kim Example').fontWeight, name);
+      expect(style('44,35$_nbsp€').fontWeight, total);
+      expect(style('Andere Person').fontWeight, other);
     });
   });
   forEachDesign((d) {
