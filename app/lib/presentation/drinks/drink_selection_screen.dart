@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/catalog.dart';
 import '../../domain/quick_bar.dart';
 import '../../l10n/app_localizations.dart';
+import '../design/design.dart';
 import '../format.dart';
 import '../providers.dart';
 import '../theme.dart';
@@ -245,14 +246,15 @@ class _Header extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    final tokens = DesignTokens.of(context);
     final person = this.person;
     final total = person == null
         ? null
         : ref.watch(runningTotalProvider(person.id)).value;
     return Container(
       padding: const EdgeInsets.only(bottom: 18),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: BarTabTheme.bottle3)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: tokens.surfaceHigh)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -260,7 +262,7 @@ class _Header extends ConsumerWidget {
           Align(
             alignment: Alignment.center,
             child: Material(
-              color: BarTabTheme.bottle3,
+              color: tokens.surfaceHigh,
               borderRadius: BorderRadius.circular(10),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
@@ -272,10 +274,11 @@ class _Header extends ConsumerWidget {
                   ),
                   child: Text(
                     l10n.drinkSelectionOtherPerson,
-                    style: const TextStyle(
-                      color: BarTabTheme.paper,
+                    style: TextStyle(
+                      color: tokens.text,
+                      fontFamily: tokens.bodyFont,
                       fontSize: 17,
-                      fontVariations: [FontVariation('wght', 600)],
+                      fontVariations: const [FontVariation('wght', 600)],
                     ),
                   ),
                 ),
@@ -292,11 +295,12 @@ class _Header extends ConsumerWidget {
                   person?.name ?? '',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: BarTabTheme.paper,
+                  style: TextStyle(
+                    color: tokens.text,
+                    fontFamily: tokens.displayFont,
                     fontSize: 56,
                     height: 0.95,
-                    fontVariations: [
+                    fontVariations: const [
                       FontVariation('wdth', 118),
                       FontVariation('wght', 850),
                     ],
@@ -305,8 +309,9 @@ class _Header extends ConsumerWidget {
                 const SizedBox(height: 6),
                 Text(
                   tierName ?? '',
-                  style: const TextStyle(
-                    color: BarTabTheme.muted,
+                  style: TextStyle(
+                    color: tokens.muted,
+                    fontFamily: tokens.bodyFont,
                     fontSize: 16,
                   ),
                 ),
@@ -322,19 +327,24 @@ class _Header extends ConsumerWidget {
                 total == null
                     ? l10n.drinkSelectionTotalLoading
                     : formatCents(total),
-                style: const TextStyle(
-                  color: BarTabTheme.paper,
+                style: TextStyle(
+                  color: tokens.text,
+                  fontFamily: tokens.displayFont,
                   fontSize: 38,
-                  fontVariations: [
+                  fontVariations: const [
                     FontVariation('wdth', 90),
                     FontVariation('wght', 700),
                   ],
-                  fontFeatures: [FontFeature.tabularFigures()],
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               Text(
                 l10n.drinkSelectionTotalLabel,
-                style: const TextStyle(color: BarTabTheme.muted, fontSize: 15),
+                style: TextStyle(
+                  color: tokens.muted,
+                  fontFamily: tokens.bodyFont,
+                  fontSize: 15,
+                ),
               ),
             ],
           ),

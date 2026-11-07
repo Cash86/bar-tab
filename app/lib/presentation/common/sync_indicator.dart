@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/sync_state.dart';
 import '../../l10n/app_localizations.dart';
+import '../design/design.dart';
 import '../providers.dart';
-import '../theme.dart';
 
 /// Text for [state], or null when there is nothing to report.
 ///
@@ -30,10 +30,10 @@ class SyncIndicator extends ConsumerWidget {
     if (text == null) return const SizedBox.shrink();
     return Text(
       text,
-      style: const TextStyle(
-        color: BarTabTheme.muted,
+      style: TextStyle(
+        color: DesignTokens.of(context).muted,
         fontSize: 14,
-        fontVariations: [FontVariation('wght', 500)],
+        fontVariations: const [FontVariation('wght', 500)],
       ),
     );
   }

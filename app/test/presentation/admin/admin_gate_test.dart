@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:bar_tab/domain/app_design.dart';
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/admin/admin_session.dart';
+import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/kiosk.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/providers.dart';
@@ -16,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
+import '../../fixtures/designs.dart';
 import '../../fixtures/fakes.dart';
 
 http.Response _json(Object body, [int status = 200]) => http.Response(
@@ -316,6 +319,137 @@ void main() {
     expect(calls(), ['GET /api/v1/admin/ping']);
     expect(find.text('Admin-PIN'), findsOneWidget);
     expect(find.byKey(const Key('admin-bookings')), findsNothing);
+  });
+
+  group('design choice', () {
+    late FakeConfigStore store;
+
+    setUp(() => store = pairedStore());
+
+    // Like BarTabApp: the theme follows the chosen design.
+    Future<void> pumpDesigned(WidgetTester tester, AppDesign initial) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            configStoreProvider.overrideWithValue(store),
+            designOverride(initial),
+            httpClientProvider.overrideWithValue(server.client),
+            clockProvider.overrideWithValue(clock),
+            idleTimeoutProvider.overrideWithValue(_idle),
+            catalogProvider.overrideWith((ref) async => _catalog),
+            rankingsProvider.overrideWith((ref) => Stream.value(null)),
+            syncStateProvider.overrideWith((ref) => const Stream.empty()),
+          ],
+          child: Consumer(
+            builder: (context, ref, _) => MaterialApp(
+              theme: themeFor(ref.watch(appDesignProvider)),
+              locale: const Locale('de'),
+              supportedLocales: AppLocalizations.supportedLocales,
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const NameListScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await openGate(tester);
+      await login(tester);
+    }
+
+    Set<AppDesign> selected(WidgetTester tester) => tester
+        .widget<SegmentedButton<AppDesign>>(
+          find.byType(SegmentedButton<AppDesign>),
+        )
+        .selected;
+
+    Color nameListBackground(WidgetTester tester) => Theme.of(
+      tester.element(find.text('Wer trinkt?')),
+    ).scaffoldBackgroundColor;
+
+    testWidgets('the admin home offers the three designs above Buchungen', (
+      tester,
+    ) async {
+      await pumpDesigned(tester, AppDesign.standard);
+      expect(find.text('Design'), findsOneWidget);
+      expect(find.byKey(const Key('design-standard')), findsOneWidget);
+      expect(find.byKey(const Key('design-kreidetafel')), findsOneWidget);
+      expect(find.byKey(const Key('design-bierdeckel')), findsOneWidget);
+      expect(find.text('Standard'), findsOneWidget);
+      expect(find.text('Kreidetafel'), findsOneWidget);
+      expect(find.text('Bierdeckel'), findsOneWidget);
+      final choiceY = tester
+          .getCenter(find.byKey(const Key('design-kreidetafel')))
+          .dy;
+      final bookingsY = tester
+          .getCenter(find.byKey(const Key('admin-bookings')))
+          .dy;
+      expect(choiceY, lessThan(bookingsY));
+    });
+
+    forEachDesign((design) {
+      testWidgets('the current design is marked', (tester) async {
+        await pumpDesigned(tester, design);
+        expect(selected(tester), {design});
+      });
+    });
+
+    testWidgets('choosing a design stores it and restyles the name list', (
+      tester,
+    ) async {
+      await pumpDesigned(tester, AppDesign.standard);
+      await tester.tap(find.byKey(const Key('design-kreidetafel')));
+      await tester.pumpAndSettle();
+      expect(store.values[kDesignConfigKey], 'kreidetafel');
+      expect(selected(tester), {AppDesign.kreidetafel});
+
+      await tester.tap(find.byKey(const Key('admin-logout')));
+      await tester.pumpAndSettle();
+      expect(
+        nameListBackground(tester),
+        tokensFor(AppDesign.kreidetafel).background,
+      );
+      expect(
+        nameListBackground(tester),
+        isNot(tokensFor(AppDesign.standard).background),
+      );
+    });
+
+    testWidgets('a failed write keeps the old design', (tester) async {
+      await pumpDesigned(tester, AppDesign.standard);
+      store.writeError = StateError('disk full');
+      await tester.tap(find.byKey(const Key('design-bierdeckel')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(selected(tester), {AppDesign.standard});
+      expect(store.values[kDesignConfigKey], isNull);
+    });
+
+    testWidgets('the chosen design survives a restart', (tester) async {
+      await pumpDesigned(tester, AppDesign.standard);
+      await tester.tap(find.byKey(const Key('design-bierdeckel')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('admin-logout')));
+      await tester.pumpAndSettle();
+
+      // A new app start reads the design before building the scope.
+      await tester.pumpWidget(const SizedBox());
+      await pumpDesigned(tester, await loadDesign(store));
+      expect(selected(tester), {AppDesign.bierdeckel});
+      await tester.tap(find.byKey(const Key('admin-logout')));
+      await tester.pumpAndSettle();
+      expect(
+        nameListBackground(tester),
+        tokensFor(AppDesign.bierdeckel).background,
+      );
+    });
   });
 }
 

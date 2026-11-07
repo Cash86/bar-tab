@@ -81,6 +81,26 @@ flutter:
     - family: Archivo
       fonts:
         - asset: assets/fonts/Archivo-Variable.ttf
+    - family: Caveat
+      fonts:
+        - asset: assets/fonts/Caveat-Variable.ttf
+    - family: Alfa Slab One
+      fonts:
+        - asset: assets/fonts/AlfaSlabOne-Regular.ttf
+    - family: Barlow Condensed
+      fonts:
+        - asset: assets/fonts/BarlowCondensed-Regular.ttf
+        - asset: assets/fonts/BarlowCondensed-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/BarlowCondensed-ExtraBold.ttf
+          weight: 800
+
+  # Font licences, shown via LicenseRegistry.
+  assets:
+    - assets/fonts/OFL-Archivo.txt
+    - assets/fonts/OFL-Caveat.txt
+    - assets/fonts/OFL-AlfaSlabOne.txt
+    - assets/fonts/OFL-BarlowCondensed.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:

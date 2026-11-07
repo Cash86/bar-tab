@@ -1,9 +1,9 @@
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/kiosk.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/providers.dart';
 import 'package:bar_tab/presentation/setup/setup_screen.dart';
-import 'package:bar_tab/presentation/theme.dart';
 import 'package:bar_tab/presentation/ui_scale.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -18,7 +18,7 @@ class BarTabApp extends ConsumerWidget {
       navigatorObservers: [ref.watch(routeObserverProvider)],
       onGenerateTitle: (context) =>
           AppLocalizations.of(context).appPlaceholderTitle,
-      theme: BarTabTheme.data,
+      theme: themeFor(ref.watch(appDesignProvider)),
       locale: const Locale('de'),
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [

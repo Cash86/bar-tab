@@ -11,7 +11,7 @@ import '../../domain/catalog.dart';
 import '../../l10n/app_localizations.dart';
 import '../format.dart';
 import '../providers.dart';
-import '../theme.dart';
+import '../design/design.dart';
 import 'admin_idle.dart';
 import 'admin_session.dart';
 
@@ -278,7 +278,7 @@ class _BookingRow extends StatelessWidget {
       child: DefaultTextStyle.merge(
         style: TextStyle(
           fontSize: 18,
-          color: b.isCancelled ? BarTabTheme.muted : null,
+          color: b.isCancelled ? DesignTokens.of(context).muted : null,
         ),
         child: Row(
           children: [

@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 
+import '../../domain/app_design.dart';
 import '../../l10n/app_localizations.dart';
+import '../design/design.dart';
 import '../drinks/keypad.dart';
-import '../theme.dart';
 import 'admin_bookings_screen.dart';
 import 'admin_idle.dart';
 import 'admin_session.dart';
+
+final _log = Logger('admin');
 
 const _minPinLength = 4;
 const _maxPinLength = 8;
@@ -89,6 +93,7 @@ class _PinPromptState extends ConsumerState<_PinPrompt> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final tokens = DesignTokens.of(context);
     final error = _error;
     return Center(
       child: ConstrainedBox(
@@ -100,7 +105,7 @@ class _PinPromptState extends ConsumerState<_PinPrompt> {
             Text(
               l10n.adminPinTitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: BarTabTheme.paper, fontSize: 24),
+              style: TextStyle(color: tokens.text, fontSize: 24),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -109,8 +114,8 @@ class _PinPromptState extends ConsumerState<_PinPrompt> {
                 '•' * _pin.length,
                 key: const Key('admin-pin-digits'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: BarTabTheme.paper,
+                style: TextStyle(
+                  color: tokens.text,
                   fontSize: 32,
                   letterSpacing: 8,
                 ),
@@ -165,6 +170,8 @@ class _AdminHome extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const _DesignChoice(),
+            const SizedBox(height: 32),
             FilledButton(
               key: const Key('admin-bookings'),
               onPressed: () => Navigator.of(context).push(
@@ -187,5 +194,53 @@ class _AdminHome extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// Choice of the tablet's design; applies at once.
+class _DesignChoice extends ConsumerWidget {
+  const _DesignChoice();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final tokens = DesignTokens.of(context);
+    final labels = {
+      AppDesign.standard: l10n.designStandard,
+      AppDesign.kreidetafel: l10n.designKreidetafel,
+      AppDesign.bierdeckel: l10n.designBierdeckel,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          l10n.designTitle,
+          style: TextStyle(color: tokens.muted, fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<AppDesign>(
+          showSelectedIcon: false,
+          segments: [
+            for (final MapEntry(key: design, value: label) in labels.entries)
+              ButtonSegment(
+                value: design,
+                label: Text(label, key: Key('design-${design.storageKey}')),
+              ),
+          ],
+          selected: {ref.watch(appDesignProvider)},
+          onSelectionChanged: (choice) =>
+              unawaited(_select(ref, choice.single)),
+        ),
+      ],
+    );
+  }
+
+  /// A failed write keeps the old design; the choice can be tapped again.
+  Future<void> _select(WidgetRef ref, AppDesign design) async {
+    try {
+      await ref.read(appDesignProvider.notifier).select(design);
+    } on Object catch (e, st) {
+      _log.severe('Storing the design failed', e, st);
+    }
   }
 }

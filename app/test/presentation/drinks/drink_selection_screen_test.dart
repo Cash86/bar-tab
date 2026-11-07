@@ -5,6 +5,7 @@ import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/domain/rankings.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/drink_selection_screen.dart';
 import 'package:bar_tab/presentation/drinks/order_bar.dart';
 import 'package:bar_tab/presentation/drinks/order_controller.dart';
@@ -18,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../fixtures/designs.dart';
 import '../../fixtures/fakes.dart';
 
 const _nbsp = ' ';
@@ -99,6 +101,7 @@ void main() {
     WidgetTester tester, {
     List<Override> extra = const [],
     DrinkRankings? rankings,
+    ThemeData? theme,
   }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -122,7 +125,7 @@ void main() {
           ...extra,
         ],
         child: MaterialApp(
-          theme: BarTabTheme.data,
+          theme: theme ?? BarTabTheme.data,
           locale: const Locale('de'),
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: const [
@@ -979,6 +982,22 @@ void main() {
       await settleRoute(tester);
       expect(bookings.bookings.single.quantity, 5);
       await outlastUndoWindow(tester);
+    });
+  });
+
+  forEachDesign((design) {
+    testWidgets('the header takes the design colours and fonts', (
+      tester,
+    ) async {
+      final tokens = tokensFor(design);
+      await pumpApp(tester, theme: themeFor(design));
+      await open(tester, 'Kim Example');
+      TextStyle style(String text) =>
+          tester.widget<Text>(find.text(text)).style!;
+      expect(style('Kim Example').color, tokens.text);
+      expect(style('Kim Example').fontFamily, tokens.displayFont);
+      expect(style('Members').color, tokens.muted);
+      expect(style('Members').fontFamily, tokens.bodyFont);
     });
   });
 }

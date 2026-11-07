@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../domain/catalog.dart';
 import '../../domain/order.dart';
 import '../../l10n/app_localizations.dart';
+import '../design/design.dart';
 import '../format.dart';
-import '../theme.dart';
 import 'order_controller.dart';
 
 /// "2× Apfelschorle, 1× Augustiner Hell" in first-tap order.
@@ -43,9 +43,10 @@ class OrderBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    const text = BarTabTheme.bottle;
+    final tokens = DesignTokens.of(context);
+    final text = tokens.background;
     return Material(
-      color: BarTabTheme.paper,
+      color: tokens.text,
       borderRadius: BorderRadius.circular(15),
       clipBehavior: Clip.antiAlias,
       elevation: 12,
@@ -64,10 +65,10 @@ class OrderBar extends StatelessWidget {
                         summary,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: text,
                           fontSize: 23,
-                          fontVariations: [FontVariation('wght', 700)],
+                          fontVariations: const [FontVariation('wght', 700)],
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -75,7 +76,7 @@ class OrderBar extends StatelessWidget {
                         saveFailed
                             ? l10n.orderBarRetrying
                             : l10n.orderBarCountdown(secondsLeft),
-                        style: const TextStyle(color: text, fontSize: 15),
+                        style: TextStyle(color: text, fontSize: 15),
                       ),
                     ],
                   ),
@@ -83,11 +84,11 @@ class OrderBar extends StatelessWidget {
                 const SizedBox(width: 20),
                 Text(
                   formatCents(totalCents),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: text,
                     fontSize: 28,
-                    fontVariations: [FontVariation('wght', 800)],
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    fontVariations: const [FontVariation('wght', 800)],
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 const SizedBox(width: 20),
@@ -159,7 +160,7 @@ class _CountdownStripState extends State<_CountdownStrip>
 
   @override
   Widget build(BuildContext context) {
-    const color = BarTabTheme.bottle;
+    final color = DesignTokens.of(context).background;
     return ColoredBox(
       color: color.withValues(alpha: 0.15),
       child: AnimatedBuilder(
@@ -169,7 +170,7 @@ class _CountdownStripState extends State<_CountdownStrip>
           widthFactor: _drain.value,
           child: child,
         ),
-        child: const ColoredBox(color: color),
+        child: ColoredBox(color: color),
       ),
     );
   }
@@ -190,14 +191,13 @@ class OrderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const text = BarTabTheme.bottle;
+    final tokens = DesignTokens.of(context);
+    final text = tokens.background;
     return Material(
       color: solid ? text : Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: solid
-            ? BorderSide.none
-            : const BorderSide(color: text, width: 2.5),
+        side: solid ? BorderSide.none : BorderSide(color: text, width: 2.5),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -208,7 +208,7 @@ class OrderButton extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: solid ? BarTabTheme.paper : text,
+              color: solid ? tokens.text : text,
               fontSize: 20,
               fontVariations: const [FontVariation('wght', 700)],
             ),

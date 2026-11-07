@@ -108,5 +108,9 @@
   "adminStornoDone": "Storniert",
   "adminCancelled": "storniert",
   "adminLate": "verspätet",
-  "adminStornoFailed": "Storno nicht möglich"
+  "adminStornoFailed": "Storno nicht möglich",
+  "designTitle": "Design",
+  "designStandard": "Standard",
+  "designKreidetafel": "Kreidetafel",
+  "designBierdeckel": "Bierdeckel"
 }
