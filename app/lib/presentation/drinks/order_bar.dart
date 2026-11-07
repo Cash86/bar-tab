@@ -98,6 +98,8 @@ class OrderBar extends StatelessWidget {
                 saveFailed
                     ? l10n.orderBarRetrying
                     : l10n.orderBarCountdown(secondsLeft),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: countdownStyle,
               ),
             ],
@@ -239,6 +241,8 @@ class OrderBar extends StatelessWidget {
                         saveFailed
                             ? l10n.orderBarRetrying
                             : l10n.orderBarCountdown(secondsLeft),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: text, fontSize: 15),
                       ),
                     ],

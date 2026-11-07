@@ -113,6 +113,42 @@ void main() {
     });
   });
 
+  forEachDesign((design) {
+    testWidgets('the retry hint never makes the bar taller', (tester) async {
+      tester.view.physicalSize = const Size(640, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: themeFor(design),
+          locale: const Locale('de'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: OrderBar(
+                design: design,
+                summary: '2× Lager, 1× Lemonade',
+                totalCents: 290,
+                secondsLeft: 5,
+                countdownRun: 0,
+                saveFailed: true,
+                onDiscard: () {},
+                onDone: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(OrderBar)).height, OrderBar.height);
+    });
+  });
+
   group('look per design', () {
     Future<void> pumpBar(WidgetTester tester, AppDesign design) async {
       tester.view.physicalSize = const Size(1280, 720);
