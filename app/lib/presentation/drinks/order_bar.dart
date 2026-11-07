@@ -68,6 +68,7 @@ class OrderBar extends StatelessWidget {
                         style: TextStyle(
                           color: text,
                           fontSize: 23,
+                          fontWeight: FontWeight.w700,
                           fontVariations: const [FontVariation('wght', 700)],
                         ),
                       ),
@@ -87,6 +88,7 @@ class OrderBar extends StatelessWidget {
                   style: TextStyle(
                     color: text,
                     fontSize: 28,
+                    fontWeight: FontWeight.w800,
                     fontVariations: const [FontVariation('wght', 800)],
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -210,6 +212,7 @@ class OrderButton extends StatelessWidget {
             style: TextStyle(
               color: solid ? tokens.text : text,
               fontSize: 20,
+              fontWeight: FontWeight.w700,
               fontVariations: const [FontVariation('wght', 700)],
             ),
           ),

@@ -278,6 +278,7 @@ class _Header extends ConsumerWidget {
                       color: tokens.text,
                       fontFamily: tokens.bodyFont,
                       fontSize: 17,
+                      fontWeight: FontWeight.w600,
                       fontVariations: const [FontVariation('wght', 600)],
                     ),
                   ),
@@ -300,6 +301,7 @@ class _Header extends ConsumerWidget {
                     fontFamily: tokens.displayFont,
                     fontSize: 56,
                     height: 0.95,
+                    fontWeight: FontWeight.w800,
                     fontVariations: const [
                       FontVariation('wdth', 118),
                       FontVariation('wght', 850),
@@ -331,6 +333,7 @@ class _Header extends ConsumerWidget {
                   color: tokens.text,
                   fontFamily: tokens.displayFont,
                   fontSize: 38,
+                  fontWeight: FontWeight.w700,
                   fontVariations: const [
                     FontVariation('wdth', 90),
                     FontVariation('wght', 700),

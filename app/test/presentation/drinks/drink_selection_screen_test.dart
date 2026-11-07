@@ -998,6 +998,9 @@ void main() {
       expect(style('Kim Example').fontFamily, tokens.displayFont);
       expect(style('Members').color, tokens.muted);
       expect(style('Members').fontFamily, tokens.bodyFont);
+      // Static faces (Barlow Condensed) are picked by weight only.
+      expect(style('Kim Example').fontWeight, FontWeight.w800);
+      expect(style('Andere Person').fontWeight, FontWeight.w600);
     });
   });
 }

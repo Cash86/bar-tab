@@ -261,6 +261,12 @@ void main() {
           tester.widget<Text>(find.text('1× Lager')).style?.color,
           tokens.background,
         );
+        // Static faces (Barlow Condensed) are picked by weight only.
+        TextStyle style(String text) =>
+            tester.widget<Text>(find.text(text)).style!;
+        expect(style('1× Lager').fontWeight, FontWeight.w700);
+        expect(style('1,20\u00A0€').fontWeight, FontWeight.w800);
+        expect(style('Fertig').fontWeight, FontWeight.w700);
       });
     });
   });
