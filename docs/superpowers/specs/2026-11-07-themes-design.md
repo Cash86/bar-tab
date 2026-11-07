@@ -46,14 +46,16 @@ instead of today's one-row-per-group grid. Only the idea is borrowed; no brand l
 
 - Everything in the main spec's engineering rules applies (TDD, l10n `.arb` strings only, clock
   wrapper, no real data in the repo, `app/tool/check.sh` clean).
-- Landscape tablet, UI scaled to a 1280 design width (`UiScale`), large touch targets. A coaster
-  or tile is never smaller than ~44 design px across.
+- Landscape tablet, **16:9**: the design area is **1280×720** (the 1920×1080 tablet at density
+  1.0, scaled by `UiScale`); large touch targets. A coaster or tile is never smaller than ~44
+  design px across.
 - **Performance:** animations must be cheap (opacity/transform of a few widgets). No live blur
   (`BackdropFilter`). Textures (chalkboard grain, green counter speckle) are drawn once — cached
   painter or a small bundled image — not recomputed per frame.
 - **Offline kiosk:** fonts are bundled as assets (no runtime font download). New fonts must be
   open-licensed (OFL); the mockups used *Caveat* (handwriting) for Kreidetafel and
-  *Alfa Slab One* + *Barlow Condensed* for Bierdeckel. Standard keeps *Archivo*.
+  *Alfa Slab One* + *Barlow Condensed* for Bierdeckel. Standard keeps *Archivo*. The one
+  unbundled font is the Bierdeckel till receipt's: it uses the platform monospace font.
 - **Maximum lengths** (maintainer, 2026-11-07): person / collective account name **20**, drink
   **24**, drink group **16**, price tier **16** characters. Today no endpoint creates or renames
   these entities, so enforcement belongs to the work that adds those paths: the admin master-data
@@ -61,6 +63,11 @@ instead of today's one-row-per-group grid. Only the idea is borrowed; no brand l
   (milestone 5). Recorded in the main spec for those milestones. The app does not rely on the
   limit: a longer name is still rendered (multi-word wrap; a single word is shrunk to the minimum
   size and, if still too long, cut with an ellipsis) instead of breaking the layout.
+- **Text rules for long names** (both new designs): text never breaks inside a word; names wrap
+  only at spaces, and a hyphenated name ("Hans-Joachim") counts as one word. A word that does not
+  fit at the minimum size puts the whole name on one line, cut with an ellipsis. On coasters
+  names shrink to at least 10 px; a single-word name may extend to 1.5× the coaster diameter, a
+  word in a multi-word name to 1.15×, and hub names stay within 0.85× of the hub.
 
 ## 4. Decisions (maintainer, 2026-11-07)
 
@@ -68,7 +75,12 @@ instead of today's one-row-per-group grid. Only the idea is borrowed; no brand l
 - Admin home gets a "Design" choice with the three options; the choice is stored locally on the
   tablet (existing app config store) and applies at once, without restart. Default: Standard.
 - Setup, admin screens and the sync indicator only take over the design's **colours and fonts**;
-  they get no design-specific layout.
+  they get no design-specific layout. Kreidetafel uses Caveat as its body font too, so admin and
+  setup are handwritten.
+- The drink screen's **order bar** has a look per design (Kreidetafel: framed slate strip;
+  Bierdeckel: till receipt). The quantity sheet's dimming **scrim** is per design, and the new
+  designs centre the sheet over the selection. Bierdeckel uses a **compact header** (smaller name
+  and total). The admin **gear** is larger and recoloured in the new designs.
 
 ### 4.2 Standard
 Today's look and layout, unchanged (bottle green, coloured rails, quick bar row on top).
@@ -79,10 +91,15 @@ handwritten chalk lettering (`#f4f1e8`), prices and highlights in yellow chalk (
 tiles as hand-drawn dashed chalk boxes with slightly irregular corners.
 
 - **Drink selection:** each group is a chalk-framed **field** with the group name as an
-  underlined heading; drinks are chalk boxes "name … price". Fields are laid out as columns whose
-  share of the width follows their number of drinks; a large group uses two box columns inside
-  its field; small groups may stack in one column. When a field has more drinks than fit, that
-  field scrolls on its own (same idea as the name list today).
+  underlined heading; drinks are chalk boxes "name … price". Fields are laid out as columns; the
+  width is shared per **box column** (at least 170 px each), and a group uses two box columns only
+  when one does not fit. Columns stretch to the full board height; small groups may stack in one
+  column, stacked fields sharing the column height by their need. Boxes are 46–72 px high, spread
+  evenly over their field. One name size per field; two-word names wrap; the quantity badge sits
+  on the box's corner. When a field has more drinks than fit, that field scrolls on its own (same
+  idea as the name list today).
+- **Order-bar room:** below both new drink boards, room for the order bar is kept permanently,
+  so a board does not jump when the first drink is tapped; the favourites column keeps it too.
 - **Favourites:** a separate board on the left titled "Für dich" with ★ decorations, a yellow
   double frame, hung slightly crooked (≈ −1°), with the four drinks in large type (about twice
   the normal size).
@@ -97,8 +114,8 @@ tiles as hand-drawn dashed chalk boxes with slightly irregular corners.
 - **Quantity sheet:** a small slate board in a wooden frame over the dimmed selection; drink name,
   quantity in large yellow chalk, keys as hand-drawn chalk circles (incl. "Kasten" in yellow),
   "Buchen" and "Weitere Getränke" as chalk buttons.
-- **Screensaver:** near-black board; a chalk-drawn beer glass with "Zum Buchen antippen" slowly
-  moves between positions.
+- **Screensaver:** near-black board; a chalk-drawn beer glass with "Zum Buchen antippen" jumps
+  between positions like Standard's hint — no continuous movement (cost on the rk3399).
 
 ### 4.4 Bierdeckel (beer coasters)
 Look: **green bar counter** (dark green `#2f5a47` → `#17322a` with a fine speckle) — the brown
@@ -107,35 +124,41 @@ wood was rejected; coasters cream (`#f3e7cf`) with a coloured ring; slab-serif n
 
 - **Drink selection — rings:** each group is a large hub coaster in the group's colour showing
   the group name, with the drinks as coasters in rings around it.
-  - All coasters have one **fixed size**; the app knows 2–3 size steps.
+  - All coasters have one **fixed size**; the app knows four size steps: 72, 66, 60 and 50 px.
+    The hub is 1.35× a coaster.
   - The inner ring is filled first; when it is full, a second ring starts around it, then a third.
   - **A new ring is opened only when at least 3 coasters go into it.** Until then the previous
     ring takes the extra coasters: it first gets a slightly larger radius; if the screen space
     does not allow that, its coasters drop one size step and move closer together. Single
     coasters alone in an outer ring never appear.
   - Coasters in a ring are spread evenly around it.
-  - If all groups do not fit at a size step, every coaster drops one step together; if even the
-    smallest step does not fit, the selection area scrolls.
+  - Widening comes first; a size step is dropped only globally: if all groups do not fit at a
+    size step, every coaster drops one step together; if even the smallest step does not fit,
+    the selection area scrolls.
   - Group blocks are arranged to use the available area (e.g. two small groups stacked in a
     column next to a large one).
 - **Favourites:** four large coasters with a gold rim and a small ★ on a silver serving tray
-  ("Deine Favoriten") on the left, each slightly rotated.
+  ("Deine Favoriten", 168 px wide) on the left, each slightly rotated.
 - **Name list:** heading "Wer trinkt?", collective accounts as large gold-rimmed coasters on
   top, one column per price tier (tier colour as a dot next to the heading and as the persons'
   ring colour), persons as coasters, five per row, some slightly rotated; overflow as today.
   Coasters are as large as fit (up to 150 px, kept below the 120 px collective coasters); five
   per row, or four or three when that makes them larger, so a short list fills the height. Below
-  88 px the columns scroll at 88 px: a single word of 20 characters may cross the rim but is not
-  cut.
+  88 px the columns scroll at `min(88, column width / perRow − gap)`: a single word of 20
+  characters may cross the rim but is not cut. Known limit: with four or more price tiers the
+  columns get so narrow that coasters drop below 88 px and 20-character names can be cut (today
+  there are two tiers). Collective coasters never go below 44 px; more accounts wrap into a
+  further row.
 - **Undo banner:** a till receipt (monospace text, zigzag bottom edge) that slides in from the
   top, with a dark-red "Rückgängig" button and a draining line.
 - **Quantity sheet:** a large coaster in the middle carries drink name, quantity and the keypad
   (small round keys, "Kasten" in the accent colour); "Buchen" and "Weitere Getränke" sit next to
   it so the coaster stays round.
-- **Screensaver:** dimmed counter; one coaster with "Zum Buchen antippen" slowly moves and turns.
+- **Screensaver:** dimmed counter; one coaster with "Zum Buchen antippen" jumps between positions
+  like Standard's hint, turned differently per position — no continuous movement (rk3399).
 - **Text on coasters:**
-  - Names of **several words** wrap at spaces or hyphens onto up to three lines inside the
-    coaster, shrinking down to a minimum size.
+  - Names of **several words** wrap at spaces only (a hyphenated name is one word) onto up to
+    three lines inside the coaster, shrinking down to a minimum size.
   - A **single long word** keeps one line and may extend beyond the coaster's rim.
   - **Every** name on a coaster gets a sharp outline in the coaster colour (text drawn twice:
     stroke behind fill), so text that crosses the rim or the green counter stays readable and
@@ -154,12 +177,29 @@ wood was rejected; coasters cream (`#f3e7cf`) with a coloured ring; slab-serif n
 - The ring rule works with circumference: a ring holds as many coasters as fit with a fixed gap;
   "slightly larger radius" means up to the radius at which the extra coasters fit, limited by
   the space the group block has.
-- Kreidetafel field widths follow drink counts with a minimum width so a field with one drink
-  stays readable.
+- Kreidetafel field widths are shared per box column with a minimum width (170 px) so a field
+  with one drink stays readable (first planned as following the drink counts; changed for the
+  fill, §4.3).
 - The favourites column is used in both new designs even when a person has fewer than four
   favourites (fewer items, larger spacing); with none it is hidden, as today's quick bar.
-- The order bar, header (person, running total, "Andere Person") and sync indicator keep their
-  content and position and only take the design's colours and fonts.
+- The header (person, running total, "Andere Person") and sync indicator keep their content and
+  position and take the design's colours and fonts; the order bar keeps its content and position
+  but got a look per design (§4.1).
+- Tier palettes of Kreidetafel and Bierdeckel are Claude's picks (coloured chalk; coaster rings
+  readable on cream and on the green counter), checked on the tablet.
+- Kreidetafel uses Caveat also as body font: §4.1 gives those screens the design's fonts, and
+  Caveat stays readable at body sizes.
+- Standard keeps main's text styles exactly: Archivo is weighted by its `wght` variation only;
+  `fontWeight` is set only where a font needs it (Barlow Condensed's static faces, Caveat next to
+  its matching `wght`).
+- A multi-word name whose longest word is wider than the coaster's inner circle may widen to
+  1.15× the diameter and cross the rim (the outline keeps it readable) instead of staying inside;
+  a hyphenated name counts as one word (approved halo mockup).
+- Kreidetafel fill (maintainer: "fill the screen"): columns stretch to the full height, stacked
+  fields share it by need, width per box column, boxes grow from 46 to 72 px and capped boxes are
+  spread evenly; filling is judged on the field frames.
+- The screensaver hint keeps jumping between positions instead of a new continuous animation
+  (rk3399 cost); a slow tween can be added later.
 - Design-specific strings ("Für dich", "Deine Favoriten", "Design", the design names) go into
   `app_de.arb`.
 - Mockups live only in the git-ignored `.superpowers/brainstorm/` folder; this document is the
