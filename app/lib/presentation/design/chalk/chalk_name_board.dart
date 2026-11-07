@@ -7,9 +7,7 @@ import '../../../l10n/app_localizations.dart';
 import '../chalk_text.dart';
 import '../design.dart';
 import 'chalk_board.dart';
-
-/// Collective names: yellow chalk rubbed lighter.
-const Color kChalkCollectiveText = Color(0xFFFFF3C4);
+import 'chalk_extras.dart';
 
 const double _columnGap = 28;
 const double _boxGap = 10;
@@ -77,16 +75,6 @@ ChalkNameLayout planChalkNames({
   return ChalkNameLayout(perRow: 4, boxHeight: minCompact, scrolls: true);
 }
 
-/// Caveat is a variable font: the weight needs the matching variation.
-TextStyle _chalk(DesignTokens tokens, double size, {Color? color}) => TextStyle(
-  fontFamily: tokens.displayFont,
-  fontSize: size,
-  height: 1.05,
-  color: color ?? tokens.text,
-  fontWeight: FontWeight.w700,
-  fontVariations: const [FontVariation('wght', 700)],
-);
-
 /// The Kreidetafel name list: collective accounts in yellow chalk on top,
 /// one column per price tier with its name as underlined heading, persons
 /// as dashed chalk boxes. Taps are ignored while not [enabled].
@@ -109,79 +97,87 @@ class ChalkNameBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DesignTokens.of(context);
-    return IgnorePointer(
-      ignoring: !enabled,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (collective.isNotEmpty) ...[
-            SizedBox(
-              height: _collectiveHeight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    width: _collectiveLabelWidth,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: ChalkText(
-                        AppLocalizations.of(context).nameListCollective,
-                        style: _chalk(tokens, 30, color: tokens.accent),
-                      ),
-                    ),
-                  ),
-                  // Never wider than the board: many accounts share it.
-                  for (var i = 0; i < collective.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 14),
-                    Flexible(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: _collectiveWidth,
-                        ),
-                        child: _CollectiveBox(
-                          key: ValueKey('person-${collective[i].id}'),
-                          name: collective[i].name,
-                          onTap: () => onTap(collective[i]),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final layout = planChalkNames(
-                  maxNamesInColumn: tiers.fold(
-                    0,
-                    (m, t) => math.max(m, t.$2.length),
-                  ),
-                  availableHeight: constraints.maxHeight - _headingHeight,
-                );
-                return Row(
+    // The undo banner animates every frame over the board.
+    return RepaintBoundary(
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (collective.isNotEmpty) ...[
+              SizedBox(
+                height: _collectiveHeight,
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (var i = 0; i < tiers.length; i++) ...[
-                      if (i > 0) const SizedBox(width: _columnGap),
-                      Expanded(
-                        child: _TierColumn(
-                          title: tiers[i].$1.name,
-                          color: tierColor(tiers[i].$1),
-                          persons: tiers[i].$2,
-                          layout: layout,
-                          onTap: onTap,
+                    SizedBox(
+                      width: _collectiveLabelWidth,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: ChalkText(
+                          AppLocalizations.of(context).nameListCollective,
+                          style: chalkStyle(
+                            tokens,
+                            30,
+                            color: tokens.accent,
+                            height: 1.05,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Never wider than the board: many accounts share it.
+                    for (var i = 0; i < collective.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 14),
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: _collectiveWidth,
+                          ),
+                          child: _CollectiveBox(
+                            key: ValueKey('person-${collective[i].id}'),
+                            name: collective[i].name,
+                            onTap: () => onTap(collective[i]),
+                          ),
                         ),
                       ),
                     ],
                   ],
-                );
-              },
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final layout = planChalkNames(
+                    maxNamesInColumn: tiers.fold(
+                      0,
+                      (m, t) => math.max(m, t.$2.length),
+                    ),
+                    availableHeight: constraints.maxHeight - _headingHeight,
+                  );
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < tiers.length; i++) ...[
+                        if (i > 0) const SizedBox(width: _columnGap),
+                        Expanded(
+                          child: _TierColumn(
+                            title: tiers[i].$1.name,
+                            color: tierColor(tiers[i].$1),
+                            persons: tiers[i].$2,
+                            layout: layout,
+                            onTap: onTap,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -220,9 +216,9 @@ class _TierColumnState extends State<_TierColumn> {
     final key = Object.hash(Object.hashAll(names), width, layout);
     if (_size case (final k, final size) when k == key) return size;
     final boxWidth = (width - (layout.perRow - 1) * _boxGap) / layout.perRow;
-    final style = DefaultTextStyle.of(
-      context,
-    ).style.merge(_chalk(tokens, math.min(40, 0.44 * layout.boxHeight)));
+    final style = DefaultTextStyle.of(context).style.merge(
+      chalkStyle(tokens, math.min(40, 0.44 * layout.boxHeight), height: 1.05),
+    );
     final box = Size(
       math.max(0, boxWidth - 2 * _NameBox.padding - 1),
       layout.boxHeight - 4,
@@ -260,11 +256,12 @@ class _TierColumnState extends State<_TierColumn> {
             alignment: Alignment.centerLeft,
             child: ChalkText(
               widget.title,
-              style: _chalk(tokens, 38, color: widget.color).copyWith(
-                decoration: TextDecoration.underline,
-                decorationColor: widget.color,
-                decorationThickness: 2,
-              ),
+              style: chalkStyle(tokens, 38, color: widget.color, height: 1.05)
+                  .copyWith(
+                    decoration: TextDecoration.underline,
+                    decorationColor: widget.color,
+                    decorationThickness: 2,
+                  ),
             ),
           ),
         ),
@@ -359,7 +356,7 @@ class _NameBox extends StatelessWidget {
               child: Center(
                 child: ChalkText(
                   name,
-                  style: _chalk(tokens, nameSize),
+                  style: chalkStyle(tokens, nameSize, height: 1.05),
                   // Only a much longer name than the others shrinks here.
                   minFontSize: minName,
                   maxLines: 2,
@@ -398,7 +395,12 @@ class _CollectiveBox extends StatelessWidget {
             child: Center(
               child: ChalkText(
                 name,
-                style: _chalk(tokens, 32, color: kChalkCollectiveText),
+                style: chalkStyle(
+                  tokens,
+                  32,
+                  color: kChalkCollectiveText,
+                  height: 1.05,
+                ),
                 maxLines: 2,
                 textAlign: TextAlign.center,
               ),

@@ -19,6 +19,9 @@ const double _collectiveLabelWidth = 170;
 /// Between collective coasters: room for a long word crossing the rims.
 const double _collectiveGap = 0.5 * _collectiveDiameter;
 
+/// The smallest collective coaster: still a comfortable tap target.
+const double _minCollectiveDiameter = 44;
+
 /// Least space between two coasters in a row and between two rows.
 const double _minGap = 12;
 
@@ -120,98 +123,109 @@ class CoasterNameBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DesignTokens.of(context);
-    return IgnorePointer(
-      ignoring: !enabled,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (collective.isNotEmpty) ...[
-            SizedBox(
-              height: _collectiveDiameter,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: _collectiveLabelWidth,
-                    child: _Label(
-                      AppLocalizations.of(context).nameListCollective,
+    // The undo banner animates every frame over the board.
+    return RepaintBoundary(
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (collective.isNotEmpty) ...[
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: _collectiveDiameter,
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: _collectiveLabelWidth,
+                      child: _Label(
+                        AppLocalizations.of(context).nameListCollective,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        // Never wider than the board: many accounts share it.
-                        final d = math.min(
-                          _collectiveDiameter,
-                          constraints.maxWidth / collective.length -
-                              _collectiveGap,
-                        );
-                        return Row(
-                          children: [
-                            for (final p in collective)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  right: _collectiveGap,
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          // Never wider than the board: many accounts share
+                          // it, down to a size that still takes a tap; more
+                          // wrap into another row.
+                          final d =
+                              (constraints.maxWidth / collective.length -
+                                      _collectiveGap)
+                                  .clamp(
+                                    _minCollectiveDiameter,
+                                    _collectiveDiameter,
+                                  );
+                          return Wrap(
+                            runSpacing: _minGap,
+                            children: [
+                              for (final p in collective)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: _collectiveGap,
+                                  ),
+                                  child: Coaster(
+                                    key: ValueKey('person-${p.id}'),
+                                    label: p.name,
+                                    diameter: d,
+                                    ring: tokens.accent,
+                                    highlighted: true,
+                                    onTap: () => onTap(p),
+                                  ),
                                 ),
-                                child: Coaster(
-                                  key: ValueKey('person-${p.id}'),
-                                  label: p.name,
-                                  diameter: d,
-                                  ring: tokens.accent,
-                                  highlighted: true,
-                                  onTap: () => onTap(p),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final columnWidth = tiers.isEmpty
+                      ? 0.0
+                      : (constraints.maxWidth -
+                                (tiers.length - 1) * _columnGap) /
+                            tiers.length;
+                  final layout = planCoasterNames(
+                    maxNamesInColumn: tiers.fold(
+                      0,
+                      (m, t) => math.max(m, t.$2.length),
+                    ),
+                    area: Size(
+                      columnWidth,
+                      constraints.maxHeight - _headingHeight,
+                    ),
+                    maxDiameter: collective.isEmpty
+                        ? 150
+                        : _collectiveDiameter / _collectiveShare,
+                  );
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < tiers.length; i++) ...[
+                        if (i > 0) const SizedBox(width: _columnGap),
+                        Expanded(
+                          child: _TierColumn(
+                            title: tiers[i].$1.name,
+                            color: tierColor(tiers[i].$1),
+                            persons: tiers[i].$2,
+                            layout: layout,
+                            onTap: onTap,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 10),
           ],
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final columnWidth = tiers.isEmpty
-                    ? 0.0
-                    : (constraints.maxWidth - (tiers.length - 1) * _columnGap) /
-                          tiers.length;
-                final layout = planCoasterNames(
-                  maxNamesInColumn: tiers.fold(
-                    0,
-                    (m, t) => math.max(m, t.$2.length),
-                  ),
-                  area: Size(
-                    columnWidth,
-                    constraints.maxHeight - _headingHeight,
-                  ),
-                  maxDiameter: collective.isEmpty
-                      ? 150
-                      : _collectiveDiameter / _collectiveShare,
-                );
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < tiers.length; i++) ...[
-                      if (i > 0) const SizedBox(width: _columnGap),
-                      Expanded(
-                        child: _TierColumn(
-                          title: tiers[i].$1.name,
-                          color: tierColor(tiers[i].$1),
-                          persons: tiers[i].$2,
-                          layout: layout,
-                          onTap: onTap,
-                        ),
-                      ),
-                    ],
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -292,6 +292,46 @@ void main() {
         expect(find.textContaining('SECOND'), findsNothing);
       });
 
+      testWidgets('the board repaints apart from the animations around it', (
+        tester,
+      ) async {
+        await pumpScreen(tester, design, catalogOf(realisticPersons()));
+        expect(
+          tester.renderObject(
+            find.byType(
+              design == AppDesign.kreidetafel
+                  ? ChalkNameBoard
+                  : CoasterNameBoard,
+            ),
+          ),
+          isA<RenderRepaintBoundary>(),
+        );
+      });
+
+      if (design == AppDesign.bierdeckel) {
+        testWidgets('20 collective accounts: coasters stay 44 px or larger', (
+          tester,
+        ) async {
+          final collective = [
+            for (var i = 0; i < 20; i++)
+              person('k$i', 'Kasse $i', collective: true),
+          ];
+          await pumpScreen(
+            tester,
+            design,
+            catalogOf([...collective, ...realisticPersons().skip(3)]),
+          );
+          expect(tester.takeException(), isNull);
+          for (final p in collective) {
+            final size = tester.getSize(tile(p.id));
+            expect(size.width, greaterThanOrEqualTo(44), reason: p.name);
+            final r = tester.getRect(tile(p.id));
+            // The row wraps instead of running off the side.
+            expect(r.right, lessThanOrEqualTo(_screen.width), reason: p.name);
+          }
+        });
+      }
+
       testWidgets('a disabled board (tap guard) ignores taps', (tester) async {
         setScreen(tester);
         final tapped = <String>[];

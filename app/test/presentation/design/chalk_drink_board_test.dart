@@ -5,8 +5,10 @@ import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/design/chalk/chalk_drink_board.dart';
 import 'package:bar_tab/presentation/design/chalk_plan.dart';
+import 'package:bar_tab/presentation/design/chalk_text.dart';
 import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/drink_board_data.dart';
+import 'package:bar_tab/presentation/drinks/order_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -221,7 +223,7 @@ void main() {
       data(groups: groups, favourites: groups[0].$2.take(4).toList()),
     );
     final board = tester.getRect(find.byType(ChalkDrinkBoard));
-    final available = board.bottom - kChalkOrderBarRoom;
+    final available = board.bottom - kBoardOrderBarRoom;
     final columns = <double, double>{}; // left -> lowest field bottom
     for (final (g, _) in groups) {
       final field = tester.getRect(find.byKey(ValueKey('chalk-field-${g.id}')));
@@ -295,6 +297,32 @@ void main() {
     await tester.tap(quick('b1'));
     expect(taps.favourites, ['b1@101']);
     expect(taps.grid, isEmpty);
+  });
+
+  testWidgets('the board repaints apart from the animations around it', (
+    tester,
+  ) async {
+    await pumpBoard(tester, data(groups: realAssortment()));
+    expect(
+      tester.renderObject(find.byType(ChalkDrinkBoard)),
+      isA<RenderRepaintBoundary>(),
+    );
+  });
+
+  testWidgets('four favourites stay clear of the order bar room', (
+    tester,
+  ) async {
+    final groups = realAssortment();
+    final favourites = groups[0].$2.take(4).toList();
+    await pumpBoard(tester, data(groups: groups, favourites: favourites));
+    final board = tester.getRect(find.byType(ChalkDrinkBoard));
+    for (final d in favourites) {
+      expect(
+        tester.getRect(quick(d.id)).bottom,
+        lessThanOrEqualTo(board.bottom - kBoardOrderBarRoom),
+        reason: d.id,
+      );
+    }
   });
 
   testWidgets('no favourites: no board, the fields use the full width', (
@@ -383,14 +411,42 @@ void main() {
       findsOneWidget,
     );
     final box = tester.getRect(tile('x'));
-    expect(
-      tester
-          .getRect(
-            find.descendant(of: tile('x'), matching: find.text(thirtyChars)),
-          )
-          .right,
-      lessThanOrEqualTo(box.right),
+    final name = find.descendant(
+      of: tile('x'),
+      matching: find.text(thirtyChars),
     );
+    expect(tester.getRect(name).right, lessThanOrEqualTo(box.right));
+    // Too long for the box even at the minimum size: one line, cut with …,
+    // never broken inside the word.
+    final paragraph = tester.renderObject<RenderParagraph>(name);
+    expect(paragraph.didExceedMaxLines, isTrue);
+    final size = tester.widget<Text>(name).style!.fontSize!;
+    expect(paragraph.size.height, lessThan(1.5 * size));
+  });
+
+  testWidgets('rebuilding with the same drinks does not fit the names again', (
+    tester,
+  ) async {
+    // The screen rebuilds on every tap and every second of the order
+    // countdown; the field must not measure its names each time.
+    final groups = realNames();
+    final favourites = [groups[0].$2[0], groups[2].$2[8]];
+    await pumpBoard(
+      tester,
+      data(groups: groups, favourites: favourites, quantities: {'n0-0': 1}),
+    );
+    final before = debugChalkFitCount;
+    await pumpBoard(
+      tester,
+      data(groups: groups, favourites: favourites, quantities: {'n0-0': 1}),
+    );
+    expect(debugChalkFitCount, before);
+    // A new quantity changes no name: still no fitting.
+    await pumpBoard(
+      tester,
+      data(groups: groups, favourites: favourites, quantities: {'n0-0': 2}),
+    );
+    expect(debugChalkFitCount, before);
   });
 
   testWidgets('the real names are never cut; one name size per field', (
