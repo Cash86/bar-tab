@@ -172,7 +172,7 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
                     Positioned(
                       left: 33,
                       right: 33,
-                      bottom: 24,
+                      bottom: kOrderBarBottom,
                       child: OrderBar(
                         summary: orderSummary(
                           AppLocalizations.of(context),

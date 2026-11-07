@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/catalog.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../drinks/drink_board_data.dart';
+import '../../drinks/order_bar.dart';
 import '../../format.dart';
 import '../chalk_plan.dart';
 import '../chalk_text.dart';
@@ -14,8 +15,9 @@ import 'chalk_board.dart';
 /// Width of the "Für dich" board.
 const double kChalkFavouritesWidth = 236;
 
-/// Free space below the fields so the order bar never covers a box.
-const double kChalkOrderBarRoom = 128;
+/// Free space below the fields so the order bar never covers a box; kept
+/// even without an order, so the board does not jump on the first tap.
+const double kChalkOrderBarRoom = OrderBar.height + kOrderBarBottom + 6;
 
 const double _gap = 22;
 
@@ -99,6 +101,7 @@ class _Fields extends StatelessWidget {
                 Positioned.fromRect(
                   rect: plan.fields[i].rect,
                   child: _Field(
+                    key: ValueKey('chalk-field-${data.groups[i].$1.id}'),
                     group: data.groups[i].$1,
                     drinks: data.groups[i].$2,
                     field: plan.fields[i],
@@ -123,6 +126,7 @@ class _Fields extends StatelessWidget {
 /// One group: underlined heading, then its drinks as chalk boxes.
 class _Field extends StatelessWidget {
   const _Field({
+    super.key,
     required this.group,
     required this.drinks,
     required this.field,
@@ -141,7 +145,8 @@ class _Field extends StatelessWidget {
     final rows = <Widget>[
       for (var i = 0; i < drinks.length; i += columns)
         Padding(
-          padding: const EdgeInsets.only(bottom: kChalkBoxGap),
+          // Packed from the top only when the field scrolls.
+          padding: EdgeInsets.only(bottom: field.scrolls ? kChalkBoxGap : 0),
           child: Row(
             children: [
               for (var j = 0; j < columns; j++) ...[
@@ -178,12 +183,17 @@ class _Field extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: SingleChildScrollView(
-                physics: field.scrolls
-                    ? const ClampingScrollPhysics()
-                    : const NeverScrollableScrollPhysics(),
-                child: Column(children: rows),
-              ),
+              child: field.scrolls
+                  ? SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: Column(children: rows),
+                    )
+                  // Boxes are capped in height; even gaps fill the field
+                  // (half a gap at the edges keeps boxes near the heading).
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: rows,
+                    ),
             ),
           ],
         ),
@@ -198,6 +208,7 @@ class _Field extends StatelessWidget {
       name: drink.name,
       priceCents: price,
       quantity: data.quantities[drink.id] ?? 0,
+      height: field.boxHeight,
       onTap: () => data.onTap(drink, price),
     );
   }
@@ -209,6 +220,7 @@ class _DrinkBox extends StatelessWidget {
     required this.name,
     required this.priceCents,
     required this.quantity,
+    required this.height,
     required this.onTap,
     super.key,
   });
@@ -216,14 +228,18 @@ class _DrinkBox extends StatelessWidget {
   final String name;
   final int priceCents;
   final int quantity;
+
+  /// Box height from the plan; the lettering grows with it.
+  final double height;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DesignTokens.of(context);
     final picked = quantity > 0;
+    final scale = height / kChalkBoxHeight;
     return SizedBox(
-      height: kChalkBoxHeight,
+      height: height,
       child: CustomPaint(
         painter: ChalkBorderPainter(
           color: tokens.text.withAlpha(153),
@@ -241,12 +257,20 @@ class _DrinkBox extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Row(
                 children: [
-                  Expanded(child: ChalkText(name, style: _chalk(tokens, 23))),
+                  Expanded(
+                    child: ChalkText(name, style: _chalk(tokens, 23 * scale)),
+                  ),
                   if (picked) ...[const SizedBox(width: 6), _Badge(quantity)],
                   const SizedBox(width: 6),
                   Text(
                     formatCents(priceCents),
-                    style: _chalk(tokens, 21, color: tokens.accent),
+                    // Grows less than the name: narrow fields need the
+                    // width for the name.
+                    style: _chalk(
+                      tokens,
+                      math.min(21 * scale, 24),
+                      color: tokens.accent,
+                    ),
                   ),
                 ],
               ),

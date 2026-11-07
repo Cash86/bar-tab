@@ -60,9 +60,66 @@ void main() {
     );
   });
 
-  test('wider share for larger groups', () {
-    final plan = planChalkBoard([2, 10], const Size(900, 700));
-    expect(plan.fields[1].rect.width, greaterThan(plan.fields[0].rect.width));
+  test('width is shared equally per box column', () {
+    // 10 drinks fit one box column: same share as 2 drinks.
+    final one = planChalkBoard([2, 10], const Size(900, 700));
+    expect(one.fields[0].boxColumns, 1);
+    expect(one.fields[1].boxColumns, 1);
+    expect(one.fields[1].rect.width, closeTo(one.fields[0].rect.width, 0.01));
+    // 20 drinks need two box columns: twice the share.
+    final two = planChalkBoard([2, 20], const Size(900, 700));
+    expect(two.fields[1].boxColumns, 2);
+    expect(
+      two.fields[1].rect.width,
+      closeTo(2 * two.fields[0].rect.width, 0.01),
+    );
+  });
+
+  test('columns stretch to the area height; stacks share it by need', () {
+    // Needs 300, 196, 352 (2 box columns), 92: only 11 and 1 can stack.
+    final plan = planChalkBoard([5, 3, 11, 1], area);
+    for (final i in [0, 1]) {
+      expect(plan.fields[i].rect.top, 0);
+      expect(plan.fields[i].rect.bottom, closeTo(area.height, 0.01));
+    }
+    final limo = plan.fields[2].rect;
+    final wasser = plan.fields[3].rect;
+    expect(wasser.bottom, closeTo(area.height, 0.01));
+    expect(wasser.top - limo.bottom, closeTo(kChalkFieldGap, 0.01));
+    expect(limo.height / wasser.height, closeTo(352 / 92, 0.01));
+  });
+
+  test('boxes grow to fill the field, from 46 up to 72', () {
+    final plan = planChalkBoard([5, 3, 11, 1], area);
+    for (final f in plan.fields) {
+      expect(
+        f.boxHeight,
+        inInclusiveRange(kChalkBoxHeight, kChalkMaxBoxHeight),
+      );
+    }
+    // 5 boxes in 480: (480 - 40) / 5 - 6 = 82 → capped at 72.
+    expect(plan.fields[0].boxHeight, kChalkMaxBoxHeight);
+    // 11 drinks in 2 columns (6 rows) get (360.8 - 40) / 6 - 6 ≈ 47.5.
+    final limo = plan.fields[2];
+    expect(
+      limo.boxHeight,
+      closeTo((limo.rect.height - kChalkHeader) / 6 - kChalkBoxGap, 0.01),
+    );
+  });
+
+  test('a scrolling field keeps the smallest boxes', () {
+    final plan = planChalkBoard([40], area);
+    expect(plan.fields.single.scrolls, isTrue);
+    expect(plan.fields.single.boxHeight, kChalkBoxHeight);
+  });
+
+  test('wrapped rows keep their needs (no stretching)', () {
+    final plan = planChalkBoard(List.filled(8, 6), area);
+    expect(plan.scrolls, isTrue);
+    for (final f in plan.fields) {
+      expect(f.rect.height, closeTo(kChalkHeader + 6 * 52, 0.01));
+      expect(f.boxHeight, kChalkBoxHeight);
+    }
   });
 
   test('one group of 40 drinks uses two columns and scrolls on its own', () {

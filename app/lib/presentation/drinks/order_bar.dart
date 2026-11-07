@@ -15,6 +15,9 @@ String orderSummary(AppLocalizations l10n, OrderDraft draft, Catalog? catalog) {
       .join(', ');
 }
 
+/// Distance of the order bar from the bottom of the drink screen.
+const double kOrderBarBottom = 24;
+
 /// The pending order: lines, total, countdown, discard and done.
 class OrderBar extends StatelessWidget {
   const OrderBar({
@@ -27,6 +30,11 @@ class OrderBar extends StatelessWidget {
     required this.onDone,
     super.key,
   });
+
+  /// Height of the bar with one summary line, the content's height in every
+  /// design's font (checked in order_bar_test.dart). The bar is never lower,
+  /// so boards can keep this room before it shows.
+  static const double height = 99;
 
   final String summary;
   final int totalCents;
@@ -45,7 +53,7 @@ class OrderBar extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final tokens = DesignTokens.of(context);
     final text = tokens.background;
-    return Material(
+    final bar = Material(
       color: tokens.text,
       borderRadius: BorderRadius.circular(15),
       clipBehavior: Clip.antiAlias,
@@ -119,6 +127,10 @@ class OrderBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: height),
+      child: bar,
     );
   }
 }

@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:bar_tab/domain/app_design.dart';
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/design/chalk/chalk_drink_board.dart';
+import 'package:bar_tab/presentation/design/chalk_plan.dart';
 import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/drink_board_data.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +33,10 @@ DrinkGroup group(String id, String name, int sort) =>
 List<(DrinkGroup, List<Drink>)> realAssortment() => [
   (
     group('g1', 'Bier', 1),
-    [for (var i = 0; i < 5; i++) drink('b$i', 'Bier $i', 'g1', i)],
+    [
+      for (var i = 0; i < 5; i++)
+        drink('b$i', i == 0 ? 'Pils' : 'Bier $i', 'g1', i),
+    ],
   ),
   (
     group('g2', 'Alkoholfrei', 2),
@@ -166,6 +172,53 @@ void main() {
       }
     }
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the real assortment fills the 16:9 board', (tester) async {
+    final groups = realAssortment();
+    await pumpBoard(
+      tester,
+      data(groups: groups, favourites: groups[0].$2.take(4).toList()),
+    );
+    final board = tester.getRect(find.byType(ChalkDrinkBoard));
+    final available = board.bottom - kChalkOrderBarRoom;
+    final columns = <double, double>{}; // left -> lowest field bottom
+    for (final (g, _) in groups) {
+      final field = tester.getRect(find.byKey(ValueKey('chalk-field-${g.id}')));
+      // 4 columns of ~182 px: no group can stack at this height.
+      expect(field.width, greaterThanOrEqualTo(180), reason: g.name);
+      columns[field.left] = math.max(columns[field.left] ?? 0, field.bottom);
+    }
+    expect(columns, hasLength(4));
+    for (final MapEntry(key: left, value: bottom) in columns.entries) {
+      expect(bottom, greaterThan(available - 24), reason: 'column at $left');
+      expect(bottom, lessThanOrEqualTo(available), reason: 'column at $left');
+    }
+    // Capped boxes spread over their field: the single Wasser box sits in
+    // the middle of the space below the heading, not at its top.
+    final wasser = tester.getRect(find.byKey(const ValueKey('chalk-field-g4')));
+    final below = Rect.fromLTRB(
+      wasser.left,
+      wasser.top + kChalkHeader,
+      wasser.right,
+      wasser.bottom,
+    );
+    expect(tester.getCenter(tile('w0')).dy, closeTo(below.center.dy, 2));
+    // Alkoholfrei: three boxes with even gaps down to the field's bottom,
+    // half a gap at the edges.
+    final alk = tester.getRect(find.byKey(const ValueKey('chalk-field-g2')));
+    final a0 = tester.getRect(tile('a0'));
+    final a1 = tester.getRect(tile('a1'));
+    final a2 = tester.getRect(tile('a2'));
+    final gap = a1.top - a0.bottom;
+    expect(gap, greaterThan(kChalkBoxGap));
+    expect(a2.top - a1.bottom, closeTo(gap, 1));
+    expect(a0.top - (alk.top + kChalkHeader), closeTo(gap / 2, 1));
+    expect(alk.bottom - a2.bottom, closeTo(gap / 2, 1));
+    final pils = tester.widget<Text>(
+      find.descendant(of: tile('b0'), matching: find.text('Pils')),
+    );
+    expect(pils.style!.fontSize, greaterThanOrEqualTo(20));
   });
 
   testWidgets('two favourites: the board shows exactly those, in rank order', (
