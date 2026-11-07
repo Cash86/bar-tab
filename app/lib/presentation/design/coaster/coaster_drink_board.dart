@@ -11,7 +11,7 @@ import '../coaster_plan.dart';
 import '../design.dart';
 import 'coaster.dart';
 
-/// Width of the "Dein Tablett" serving tray: just around its large
+/// Width of the "Deine Favoriten" serving tray: just around its large
 /// coasters, so the rings get the width.
 const double kCoasterTrayWidth = 168;
 
@@ -170,7 +170,7 @@ class _RingBlock extends StatelessWidget {
   }
 }
 
-/// The silver serving tray: "Dein Tablett" and up to four large
+/// The silver serving tray: "Deine Favoriten" and up to four large
 /// gold-rimmed coasters, each slightly turned; inert and dimmed like
 /// Standard's quick bar.
 class _Tray extends StatelessWidget {

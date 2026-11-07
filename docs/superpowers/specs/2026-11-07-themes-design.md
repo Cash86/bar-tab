@@ -119,7 +119,7 @@ wood was rejected; coasters cream (`#f3e7cf`) with a coloured ring; slab-serif n
   - Group blocks are arranged to use the available area (e.g. two small groups stacked in a
     column next to a large one).
 - **Favourites:** four large coasters with a gold rim and a small ★ on a silver serving tray
-  ("Dein Tablett") on the left, each slightly rotated.
+  ("Deine Favoriten") on the left, each slightly rotated.
 - **Name list:** heading "Wer trinkt?", collective accounts as large gold-rimmed coasters on
   top, one column per price tier (tier colour as a dot next to the heading and as the persons'
   ring colour), persons as coasters, five per row, some slightly rotated; overflow as today.
@@ -160,7 +160,7 @@ wood was rejected; coasters cream (`#f3e7cf`) with a coloured ring; slab-serif n
   favourites (fewer items, larger spacing); with none it is hidden, as today's quick bar.
 - The order bar, header (person, running total, "Andere Person") and sync indicator keep their
   content and position and only take the design's colours and fonts.
-- Design-specific strings ("Für dich", "Dein Tablett", "Design", the design names) go into
+- Design-specific strings ("Für dich", "Deine Favoriten", "Design", the design names) go into
   `app_de.arb`.
 - Mockups live only in the git-ignored `.superpowers/brainstorm/` folder; this document is the
   record.

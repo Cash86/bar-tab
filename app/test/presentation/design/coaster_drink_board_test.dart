@@ -322,7 +322,7 @@ void main() {
       tester,
       data(groups: groups, favourites: favourites, taps: taps),
     );
-    expect(find.text('DEIN TABLETT'), findsOneWidget);
+    expect(find.text('DEINE FAVORITEN'), findsOneWidget);
     expect(quickKeys(tester), [
       for (final d in favourites) ValueKey('quick-${d.id}'),
     ]);
@@ -381,7 +381,7 @@ void main() {
     tester,
   ) async {
     await pumpBoard(tester, data(groups: realAssortment()));
-    expect(find.text('DEIN TABLETT'), findsNothing);
+    expect(find.text('DEINE FAVORITEN'), findsNothing);
     expect(quickKeys(tester), isEmpty);
     final hubs = [
       for (final g in ['g1', 'g2', 'g3', 'g4']) hub(g),
