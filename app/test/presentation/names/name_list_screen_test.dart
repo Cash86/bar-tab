@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:bar_tab/domain/app_design.dart';
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/drinks/drink_selection_screen.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/names/name_tile.dart';
@@ -12,6 +14,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../fixtures/designs.dart';
 
 const _tiers = [
   PriceTier(id: 't1', name: 'Members', sortOrder: 1),
@@ -49,6 +53,10 @@ Catalog catalogOf(List<Person> persons) => Catalog(
 );
 
 void main() {
+  // Standard unless a design group below sets another one.
+  var design = AppDesign.standard;
+  setUp(() => design = AppDesign.standard);
+
   Future<void> pump(
     WidgetTester tester,
     Catalog? catalog, {
@@ -64,9 +72,10 @@ void main() {
             (ref) => loading ?? Future.value(catalog),
           ),
           syncStateProvider.overrideWith((ref) => const Stream.empty()),
+          designOverride(design),
         ],
         child: MaterialApp(
-          theme: BarTabTheme.data,
+          theme: themeFor(design),
           locale: const Locale('de'),
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: const [
@@ -188,102 +197,6 @@ void main() {
     expect(find.text('Name 29'), findsOneWidget);
   });
 
-  testWidgets('60 persons: column scrolls, collective row stays put', (
-    tester,
-  ) async {
-    await pump(
-      tester,
-      catalogOf([person('c1', 'Team Bar', collective: true), ...many(60)]),
-    );
-    final before = tester.getTopLeft(find.text('Team Bar'));
-    expect(find.byType(Scrollable), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Name 59'),
-      200,
-      scrollable: find.byType(Scrollable),
-    );
-    expect(find.text('Name 59'), findsOneWidget);
-    expect(tester.getTopLeft(find.text('Team Bar')), before);
-  });
-
-  testWidgets('tapping a name opens drink selection for that person', (
-    tester,
-  ) async {
-    await pump(
-      tester,
-      catalogOf([person('p-anton', 'Anton'), person('p-berta', 'Berta')]),
-    );
-    await tester.tap(find.text('Berta'));
-    await tester.pumpAndSettle();
-    final screen = tester.widget<DrinkSelectionScreen>(
-      find.byType(DrinkSelectionScreen),
-    );
-    expect(screen.personId, 'p-berta');
-  });
-
-  testWidgets('the gear at the right of the title opens the PIN prompt', (
-    tester,
-  ) async {
-    await pump(tester, catalogOf([person('a', 'Anton')]));
-    final gear = find.byKey(const Key('admin-gear'));
-    final title = tester.getRect(find.text('Wer trinkt?'));
-    expect(tester.getCenter(gear).dx, greaterThan(1200));
-    expect(tester.getCenter(gear).dy, closeTo(title.center.dy, 12));
-    await tester.tap(gear);
-    await tester.pumpAndSettle();
-    expect(find.text('Admin-PIN'), findsOneWidget);
-  });
-
-  testWidgets('empty catalog shows the hint', (tester) async {
-    await pump(tester, catalogOf([person('h', 'Versteckt', hidden: true)]));
-    expect(
-      find.text(
-        'Noch keine Personen angelegt – bitte im Admin-Bereich anlegen.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Wer trinkt?'), findsOneWidget);
-  });
-
-  testWidgets('shows the sync indicator bottom right', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          catalogProvider.overrideWith((ref) async => catalogOf(many(3))),
-          syncStateProvider.overrideWith(
-            (ref) => Stream.value(
-              const SyncState(
-                queued: 2,
-                failed: 0,
-                isUnauthorised: false,
-                isOffline: true,
-              ),
-            ),
-          ),
-        ],
-        child: MaterialApp(
-          theme: BarTabTheme.data,
-          locale: const Locale('de'),
-          supportedLocales: AppLocalizations.supportedLocales,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          home: const NameListScreen(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final pos = tester.getBottomRight(find.text('2 Buchungen warten'));
-    expect(pos.dx, greaterThan(1000));
-    expect(pos.dy, greaterThan(700));
-  });
-
   testWidgets('tier colour follows the position among all tiers', (
     tester,
   ) async {
@@ -316,16 +229,118 @@ void main() {
     expect(cleo.accent, BarTabTheme.tierColor(2));
   });
 
-  testWidgets('no empty hint while the catalog is loading', (tester) async {
-    final completer = Completer<Catalog?>();
-    await pump(tester, null, loading: completer.future);
-    await tester.pump();
-    expect(
-      find.text(
-        'Noch keine Personen angelegt – bitte im Admin-Bereich anlegen.',
-      ),
-      findsNothing,
-    );
-    expect(find.text('Wer trinkt?'), findsOneWidget);
+  // Behaviour that every design keeps.
+  forEachDesign((d) {
+    setUp(() => design = d);
+
+    testWidgets('60 persons: column scrolls, collective row stays put', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        catalogOf([person('c1', 'Team Bar', collective: true), ...many(60)]),
+      );
+      final before = tester.getTopLeft(find.text('Team Bar'));
+      expect(find.byType(Scrollable), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Name 59'),
+        200,
+        scrollable: find.byType(Scrollable),
+      );
+      expect(find.text('Name 59'), findsOneWidget);
+      expect(tester.getTopLeft(find.text('Team Bar')), before);
+    });
+
+    testWidgets('tapping a name opens drink selection for that person', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        catalogOf([person('p-anton', 'Anton'), person('p-berta', 'Berta')]),
+      );
+      await tester.tap(find.text('Berta'));
+      await tester.pumpAndSettle();
+      final screen = tester.widget<DrinkSelectionScreen>(
+        find.byType(DrinkSelectionScreen),
+      );
+      expect(screen.personId, 'p-berta');
+    });
+
+    testWidgets('the gear at the right of the title opens the PIN prompt', (
+      tester,
+    ) async {
+      await pump(tester, catalogOf([person('a', 'Anton')]));
+      final gear = find.byKey(const Key('admin-gear'));
+      final title = tester.getRect(find.text('Wer trinkt?'));
+      expect(tester.getCenter(gear).dx, greaterThan(1200));
+      expect(tester.getCenter(gear).dy, closeTo(title.center.dy, 12));
+      await tester.tap(gear);
+      await tester.pumpAndSettle();
+      expect(find.text('Admin-PIN'), findsOneWidget);
+    });
+
+    testWidgets('empty catalog shows the hint', (tester) async {
+      await pump(tester, catalogOf([person('h', 'Versteckt', hidden: true)]));
+      expect(
+        find.text(
+          'Noch keine Personen angelegt – bitte im Admin-Bereich anlegen.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Wer trinkt?'), findsOneWidget);
+    });
+
+    testWidgets('shows the sync indicator bottom right', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            catalogProvider.overrideWith((ref) async => catalogOf(many(3))),
+            syncStateProvider.overrideWith(
+              (ref) => Stream.value(
+                const SyncState(
+                  queued: 2,
+                  failed: 0,
+                  isUnauthorised: false,
+                  isOffline: true,
+                ),
+              ),
+            ),
+            designOverride(design),
+          ],
+          child: MaterialApp(
+            theme: themeFor(design),
+            locale: const Locale('de'),
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const NameListScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final pos = tester.getBottomRight(find.text('2 Buchungen warten'));
+      expect(pos.dx, greaterThan(1000));
+      expect(pos.dy, greaterThan(700));
+    });
+
+    testWidgets('no empty hint while the catalog is loading', (tester) async {
+      final completer = Completer<Catalog?>();
+      await pump(tester, null, loading: completer.future);
+      await tester.pump();
+      expect(
+        find.text(
+          'Noch keine Personen angelegt – bitte im Admin-Bereich anlegen.',
+        ),
+        findsNothing,
+      );
+      expect(find.text('Wer trinkt?'), findsOneWidget);
+    });
   });
 }

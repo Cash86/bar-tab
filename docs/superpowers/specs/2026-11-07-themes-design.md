@@ -88,7 +88,10 @@ tiles as hand-drawn dashed chalk boxes with slightly irregular corners.
   the normal size).
 - **Name list:** heading "Wer trinkt?", collective accounts in yellow chalk on top, one column
   per price tier with its name as underlined heading, persons as chalk boxes, three per row,
-  alphabetical; overflow as today (shrink, then scroll per column).
+  alphabetical; overflow as today (shrink, then scroll per column). Boxes are as high as the
+  longest column allows (up to 100 px at 1280×720) so the board is filled; three per row down to
+  60 px, then four per row down to 50 px, then the columns scroll. One name size per column; a
+  name much longer than the others (fitted size below 80 % of the column's median) shrinks alone.
 - **Undo banner:** a paper note pinned with a red pin, slightly rotated, with the "Rückgängig"
   button drawn as a chalk box and a line that drains over the undo window.
 - **Quantity sheet:** a small slate board in a wooden frame over the dimmed selection; drink name,
@@ -120,6 +123,10 @@ wood was rejected; coasters cream (`#f3e7cf`) with a coloured ring; slab-serif n
 - **Name list:** heading "Wer trinkt?", collective accounts as large gold-rimmed coasters on
   top, one column per price tier (tier colour as a dot next to the heading and as the persons'
   ring colour), persons as coasters, five per row, some slightly rotated; overflow as today.
+  Coasters are as large as fit (up to 150 px, kept below the 120 px collective coasters); five
+  per row, or four or three when that makes them larger, so a short list fills the height. Below
+  88 px the columns scroll at 88 px: a single word of 20 characters may cross the rim but is not
+  cut.
 - **Undo banner:** a till receipt (monospace text, zigzag bottom edge) that slides in from the
   top, with a dark-red "Rückgängig" button and a draining line.
 - **Quantity sheet:** a large coaster in the middle carries drink name, quantity and the keypad

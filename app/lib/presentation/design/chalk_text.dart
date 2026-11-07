@@ -55,12 +55,14 @@ class ChalkText extends StatelessWidget {
     required this.style,
     this.minFontSize = 14,
     this.maxLines = 1,
+    this.textAlign,
   });
 
   final String text;
   final TextStyle style;
   final double minFontSize;
   final int maxLines;
+  final TextAlign? textAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +86,7 @@ class ChalkText extends StatelessWidget {
           style: style.copyWith(fontSize: size),
           textScaler: scaler,
           maxLines: maxLines,
+          textAlign: textAlign,
           softWrap: maxLines > 1,
           overflow: TextOverflow.ellipsis,
         );

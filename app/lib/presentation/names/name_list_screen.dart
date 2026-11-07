@@ -4,11 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 
+import '../../domain/app_design.dart';
 import '../../domain/booking.dart';
 import '../../domain/catalog.dart';
 import '../../l10n/app_localizations.dart';
 import '../admin/admin_gate.dart';
 import '../common/sync_indicator.dart';
+import '../design/chalk/chalk_board.dart';
+import '../design/chalk/chalk_name_board.dart';
+import '../design/coaster/coaster.dart';
+import '../design/coaster/coaster_name_board.dart';
+import '../design/coaster/counter_background.dart';
+import '../design/design.dart';
 import '../drinks/drink_selection_screen.dart';
 import '../drinks/order_bar.dart';
 import '../drinks/order_controller.dart';
@@ -260,6 +267,8 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final catalogValue = ref.watch(catalogProvider);
+    final design = ref.watch(appDesignProvider);
+    final tokens = DesignTokens.of(context);
     // Keeps the rankings stream subscribed, so the quick bar is complete the
     // moment the drink screen opens (no layout shift).
     ref.listen(rankingsProvider, (_, _) {});
@@ -269,8 +278,9 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
     // Colour by position among all tiers, so hidden empty tiers keep theirs.
     final tierOrder = [...?catalog?.tiers]
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    Color tierColor(PriceTier t) =>
-        BarTabTheme.tierColor(tierOrder.indexWhere((o) => o.id == t.id));
+    int tierIndex(PriceTier t) => tierOrder.indexWhere((o) => o.id == t.id);
+    Color tierColor(PriceTier t) => BarTabTheme.tierColor(tierIndex(t));
+    Color designTierColor(PriceTier t) => tokens.tierColor(tierIndex(t));
     final isEmpty = collective.isEmpty && tiers.isEmpty;
     final offer = _offer;
     final info = _info;
@@ -283,116 +293,147 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
         child: Scaffold(
           body: AbsorbPointer(
             absorbing: _guarded,
-            child: SafeArea(
-              child: Stack(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
+            child: _Backdrop(
+              design: design,
+              child: SafeArea(
+                child: Stack(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  l10n.nameListTitle,
+                                  style: _titleStyle(design, tokens),
+                                ),
+                              ),
+                              IconButton(
+                                key: const Key('admin-gear'),
+                                icon: const Icon(Icons.settings),
+                                iconSize: design == AppDesign.standard
+                                    ? 24
+                                    : 30,
+                                color: switch (design) {
+                                  AppDesign.standard => BarTabTheme.muted,
+                                  AppDesign.kreidetafel => tokens.text,
+                                  AppDesign.bierdeckel => kCoasterPaper,
+                                },
+                                onPressed: _openAdmin,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (catalogValue.isLoading && catalog == null)
+                            const Spacer()
+                          else if (isEmpty)
                             Expanded(
-                              child: Text(
-                                l10n.nameListTitle,
-                                style: const TextStyle(
-                                  color: BarTabTheme.paper,
-                                  fontSize: 30,
-                                  height: 1.2,
-                                  fontVariations: [
-                                    FontVariation('wdth', 118),
-                                    FontVariation('wght', 850),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              key: const Key('admin-gear'),
-                              icon: const Icon(Icons.settings),
-                              color: BarTabTheme.muted,
-                              onPressed: _openAdmin,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (catalogValue.isLoading && catalog == null)
-                          const Spacer()
-                        else if (isEmpty)
-                          Expanded(
-                            child: Center(
-                              child: Text(
-                                l10n.nameListEmpty,
-                                style: const TextStyle(
-                                  color: BarTabTheme.muted,
-                                  fontSize: 20,
-                                ),
-                              ),
-                            ),
-                          )
-                        else ...[
-                          if (collective.isNotEmpty) ...[
-                            _CollectiveRow(accounts: collective, onTap: _open),
-                            const SizedBox(height: 16),
-                          ],
-                          Expanded(
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final layout = chooseLayout(
-                                  maxNamesInColumn: tiers.fold(
-                                    0,
-                                    (m, t) => t.$2.length > m ? t.$2.length : m,
+                              child: Center(
+                                child: Text(
+                                  l10n.nameListEmpty,
+                                  style: TextStyle(
+                                    color: tokens.muted,
+                                    fontSize: 20,
                                   ),
-                                  availableHeight:
-                                      constraints.maxHeight -
-                                      _columnTitleHeight,
-                                );
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    for (var i = 0; i < tiers.length; i++) ...[
-                                      if (i > 0) const SizedBox(width: 20),
-                                      Expanded(
-                                        child: _TierColumn(
-                                          title: tiers[i].$1.name,
-                                          accent: tierColor(tiers[i].$1),
-                                          persons: tiers[i].$2,
-                                          layout: layout,
-                                          onTap: _open,
+                                ),
+                              ),
+                            )
+                          else if (design == AppDesign.kreidetafel)
+                            Expanded(
+                              child: ChalkNameBoard(
+                                collective: collective,
+                                tiers: tiers,
+                                tierColor: designTierColor,
+                                onTap: _open,
+                                enabled: !_guarded,
+                              ),
+                            )
+                          else if (design == AppDesign.bierdeckel)
+                            Expanded(
+                              child: CoasterNameBoard(
+                                collective: collective,
+                                tiers: tiers,
+                                tierColor: designTierColor,
+                                onTap: _open,
+                                enabled: !_guarded,
+                              ),
+                            )
+                          else ...[
+                            if (collective.isNotEmpty) ...[
+                              _CollectiveRow(
+                                accounts: collective,
+                                onTap: _open,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            Expanded(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final layout = chooseLayout(
+                                    maxNamesInColumn: tiers.fold(
+                                      0,
+                                      (m, t) =>
+                                          t.$2.length > m ? t.$2.length : m,
+                                    ),
+                                    availableHeight:
+                                        constraints.maxHeight -
+                                        _columnTitleHeight,
+                                  );
+                                  return Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      for (
+                                        var i = 0;
+                                        i < tiers.length;
+                                        i++
+                                      ) ...[
+                                        if (i > 0) const SizedBox(width: 20),
+                                        Expanded(
+                                          child: _TierColumn(
+                                            title: tiers[i].$1.name,
+                                            accent: tierColor(tiers[i].$1),
+                                            persons: tiers[i].$2,
+                                            layout: layout,
+                                            onTap: _open,
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ],
-                                  ],
-                                );
-                              },
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                          const SizedBox(
+                            height: 28,
+                            width: double.infinity,
+                            child: Align(
+                              alignment: Alignment.bottomRight,
+                              child: SyncIndicator(),
                             ),
                           ),
                         ],
-                        const SizedBox(
-                          height: 28,
-                          width: double.infinity,
-                          child: Align(
-                            alignment: Alignment.bottomRight,
-                            child: SyncIndicator(),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  // Over the title row, so the names never move when it shows.
-                  if (offer != null || info != null)
-                    Positioned(
-                      top: 8,
-                      right: 28,
-                      child: offer != null
-                          ? UndoBanner(
-                              text: offer.text,
-                              secondsLeft: _offerSecondsLeft,
-                              onUndo: _undoing ? null : _undo,
-                            )
-                          : UndoInfo(info!),
-                    ),
-                ],
+                    // Over the title row, so the names never move when it shows.
+                    if (offer != null || info != null)
+                      Positioned(
+                        top: 8,
+                        right: 28,
+                        child: offer != null
+                            ? UndoBanner(
+                                text: offer.text,
+                                secondsLeft: _offerSecondsLeft,
+                                onUndo: _undoing ? null : _undo,
+                              )
+                            : UndoInfo(info!),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -400,6 +441,52 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
       ),
     );
   }
+}
+
+TextStyle _titleStyle(AppDesign design, DesignTokens tokens) =>
+    switch (design) {
+      AppDesign.standard => const TextStyle(
+        color: BarTabTheme.paper,
+        fontSize: 30,
+        height: 1.2,
+        fontVariations: [
+          FontVariation('wdth', 118),
+          FontVariation('wght', 850),
+        ],
+      ),
+      AppDesign.kreidetafel => TextStyle(
+        fontFamily: tokens.displayFont,
+        color: tokens.text,
+        fontSize: 52,
+        height: 1,
+        fontWeight: FontWeight.w700,
+        fontVariations: const [FontVariation('wght', 700)],
+      ),
+      // Alfa Slab One has a single face: no weight.
+      AppDesign.bierdeckel => TextStyle(
+        fontFamily: tokens.displayFont,
+        color: kCoasterPaper,
+        fontSize: 38,
+        height: 1.1,
+        shadows: const [
+          Shadow(color: Color(0x4D000000), offset: Offset(0, 2), blurRadius: 3),
+        ],
+      ),
+    };
+
+/// The design's background behind the screen, as on the drink screen.
+class _Backdrop extends StatelessWidget {
+  const _Backdrop({required this.design, required this.child});
+
+  final AppDesign design;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => switch (design) {
+    AppDesign.standard => child,
+    AppDesign.kreidetafel => ChalkBoard(child: child),
+    AppDesign.bierdeckel => CounterBackground(child: child),
+  };
 }
 
 class _ColumnTitle extends StatelessWidget {
