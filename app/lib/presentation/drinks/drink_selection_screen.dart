@@ -3,13 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/app_design.dart';
 import '../../domain/catalog.dart';
 import '../../domain/quick_bar.dart';
 import '../../l10n/app_localizations.dart';
+import '../design/chalk/chalk_board.dart';
+import '../design/chalk/chalk_drink_board.dart';
 import '../design/design.dart';
 import '../format.dart';
 import '../providers.dart';
 import '../theme.dart';
+import 'drink_board_data.dart';
 import 'drink_tile.dart';
 import 'order_bar.dart';
 import 'order_controller.dart';
@@ -104,6 +108,25 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
         : const <Drink>[];
     final draft = order.effectiveDraft;
     final sheetId = order.sheetDrinkId;
+    final design = ref.watch(appDesignProvider);
+    final data = catalog != null && person != null
+        ? DrinkBoardData(
+            groups: catalog.drinksFor(person),
+            // The board only shows drinks priced for this person.
+            priceOf: (d) => catalog.priceFor(d, person)!,
+            colorOf: (d) => Color(
+              catalog.groups.firstWhere((g) => g.id == d.groupId).color,
+            ),
+            quantities: {for (final l in draft.lines) l.drinkId: l.quantity},
+            favourites: quickDrinks,
+            favouritesEnabled:
+                order.draft.isEmpty && !order.committing && sheetId == null,
+            favouritesDimmed: !order.draft.isEmpty || sheetId != null,
+            onTap: (drink, price) => _controller.tap(drink.id, price),
+            onFavouriteTap: (drink, price) =>
+                unawaited(_controller.quickBook(drink.id, price)),
+          )
+        : null;
 
     // System back leaves like "Andere Person": a pending order is booked.
     return PopScope<BookedOrder>(
@@ -116,94 +139,69 @@ class _DrinkSelectionScreenState extends ConsumerState<DrinkSelectionScreen> {
           behavior: HitTestBehavior.translucent,
           onPointerDown: (_) => _controller.activity(),
           onPointerMove: (_) => _controller.activity(),
-          child: SafeArea(
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(33, 22, 33, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _Header(
-                        person: person,
-                        tierName: catalog?.tiers
-                            .where((t) => t.id == person?.priceTierId)
-                            .firstOrNull
-                            ?.name,
-                        onOtherPerson: _otherPerson,
-                      ),
-                      if (catalog != null &&
-                          person != null &&
-                          quickDrinks.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 20),
-                          child: QuickBar(
-                            drinks: quickDrinks,
-                            priceOf: (d) => catalog.priceFor(d, person)!,
-                            colorOf: (d) => Color(
-                              catalog.groups
-                                  .firstWhere((g) => g.id == d.groupId)
-                                  .color,
-                            ),
-                            enabled:
-                                order.draft.isEmpty &&
-                                !order.committing &&
-                                sheetId == null,
-                            dimmed: !order.draft.isEmpty || sheetId != null,
-                            onTap: (drink, price) => unawaited(
-                              _controller.quickBook(drink.id, price),
-                            ),
-                          ),
+          child: _Backdrop(
+            design: design,
+            child: SafeArea(
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(33, 22, 33, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _Header(
+                          person: person,
+                          tierName: catalog?.tiers
+                              .where((t) => t.id == person?.priceTierId)
+                              .firstOrNull
+                              ?.name,
+                          onOtherPerson: _otherPerson,
                         ),
-                      if (catalog != null && person != null)
-                        Expanded(
-                          child: _Groups(
-                            catalog: catalog,
-                            person: person,
-                            quantities: {
-                              for (final l in draft.lines)
-                                l.drinkId: l.quantity,
+                        if (data != null)
+                          Expanded(
+                            child: switch (design) {
+                              AppDesign.kreidetafel => ChalkDrinkBoard(data),
+                              // Bierdeckel gets its own board in a later step.
+                              _ => _StandardBoard(data),
                             },
-                            onTap: (drink, price) =>
-                                _controller.tap(drink.id, price),
                           ),
+                      ],
+                    ),
+                  ),
+                  if (!order.draft.isEmpty && sheetId == null)
+                    Positioned(
+                      left: 33,
+                      right: 33,
+                      bottom: 24,
+                      child: OrderBar(
+                        summary: orderSummary(
+                          AppLocalizations.of(context),
+                          order.draft,
+                          catalog,
                         ),
-                    ],
-                  ),
-                ),
-                if (!order.draft.isEmpty && sheetId == null)
-                  Positioned(
-                    left: 33,
-                    right: 33,
-                    bottom: 24,
-                    child: OrderBar(
-                      summary: orderSummary(
-                        AppLocalizations.of(context),
-                        order.draft,
-                        catalog,
+                        totalCents: order.draft.totalCents,
+                        secondsLeft: order.secondsLeft,
+                        countdownRun: order.countdownRun,
+                        saveFailed: order.saveFailed,
+                        onDiscard: _controller.discard,
+                        onDone: () => unawaited(_controller.commit()),
                       ),
-                      totalCents: order.draft.totalCents,
-                      secondsLeft: order.secondsLeft,
-                      countdownRun: order.countdownRun,
-                      saveFailed: order.saveFailed,
-                      onDiscard: _controller.discard,
-                      onDone: () => unawaited(_controller.commit()),
                     ),
-                  ),
-                if (sheetId != null) ...[
-                  const Positioned.fill(
-                    child: AbsorbPointer(
-                      child: ColoredBox(color: Color(0x9916302A)),
+                  if (sheetId != null) ...[
+                    const Positioned.fill(
+                      child: AbsorbPointer(
+                        child: ColoredBox(color: Color(0x9916302A)),
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _sheet(catalog, order, sheetId),
-                  ),
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _sheet(catalog, order, sheetId),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -357,24 +355,58 @@ class _Header extends ConsumerWidget {
   }
 }
 
-/// One row per drink group: a rail with the group colour and name, then the
-/// tiles, [_tilesPerRow] equal-width tiles per row.
-class _Groups extends StatelessWidget {
-  const _Groups({
-    required this.catalog,
-    required this.person,
-    required this.quantities,
-    required this.onTap,
-  });
+/// The design's background behind the screen: the framed slate board for
+/// Kreidetafel, the theme's plain background otherwise.
+class _Backdrop extends StatelessWidget {
+  const _Backdrop({required this.design, required this.child});
 
-  final Catalog catalog;
-  final Person person;
-  final Map<String, int> quantities;
-  final void Function(Drink drink, int priceCents) onTap;
+  final AppDesign design;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      design == AppDesign.kreidetafel ? ChalkBoard(child: child) : child;
+}
+
+/// Standard: the quick bar row on top, then one row per group.
+class _StandardBoard extends StatelessWidget {
+  const _StandardBoard(this.data);
+
+  final DrinkBoardData data;
 
   @override
   Widget build(BuildContext context) {
-    final groups = catalog.drinksFor(person);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (data.favourites.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: QuickBar(
+              drinks: data.favourites,
+              priceOf: data.priceOf,
+              colorOf: data.colorOf,
+              enabled: data.favouritesEnabled,
+              dimmed: data.favouritesDimmed,
+              onTap: data.onFavouriteTap,
+            ),
+          ),
+        Expanded(child: _Groups(data)),
+      ],
+    );
+  }
+}
+
+/// One row per drink group: a rail with the group colour and name, then the
+/// tiles, [_tilesPerRow] equal-width tiles per row.
+class _Groups extends StatelessWidget {
+  const _Groups(this.data);
+
+  final DrinkBoardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = data.groups;
     return SingleChildScrollView(
       // Room for the order bar below the last group.
       padding: const EdgeInsets.only(top: 20, bottom: 120),
@@ -386,15 +418,14 @@ class _Groups extends StatelessWidget {
               group: groups[i].$1,
               drinks: groups[i].$2,
               tile: (d) {
-                // drinksFor only returns drinks priced for this person.
-                final price = catalog.priceFor(d, person)!;
+                final price = data.priceOf(d);
                 return DrinkTile(
                   key: ValueKey('drink-${d.id}'),
                   name: d.name,
                   priceCents: price,
                   color: Color(groups[i].$1.color),
-                  quantity: quantities[d.id] ?? 0,
-                  onTap: () => onTap(d, price),
+                  quantity: data.quantities[d.id] ?? 0,
+                  onTap: () => data.onTap(d, price),
                 );
               },
             ),
