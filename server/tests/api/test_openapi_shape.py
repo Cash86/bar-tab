@@ -11,6 +11,19 @@ OPERATION_IDS = {
     "getRankings",
     "listAdminBookings",
     "cancelBooking",
+    "createPerson",
+    "updatePerson",
+    "createDrink",
+    "updateDrink",
+    "createGroup",
+    "updateGroup",
+    "deleteGroup",
+    "createPriceTier",
+    "updatePriceTier",
+    "deletePriceTier",
+    "reorderGroups",
+    "reorderPriceTiers",
+    "reorderDrinks",
 }
 
 

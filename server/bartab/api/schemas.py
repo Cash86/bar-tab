@@ -121,3 +121,39 @@ class AdminBookingOut(BaseModel):
 
 class AdminBookingsResponse(BaseModel):
     bookings: list[AdminBookingOut]
+
+
+class PersonCreate(BaseModel):
+    name: str
+    price_tier_id: str
+    is_hidden: bool
+    is_collective: bool
+
+
+class PersonUpdate(PersonCreate):
+    is_active: bool
+
+
+class DrinkCreate(BaseModel):
+    name: str
+    group_id: str
+    crate_size: int = Field(ge=1)
+    is_hidden: bool
+    prices: dict[str, int]  # price_tier_id -> cents
+
+
+class DrinkUpdate(DrinkCreate):
+    is_active: bool
+
+
+class GroupWrite(BaseModel):
+    name: str
+    color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+class TierWrite(BaseModel):
+    name: str
+
+
+class OrderWrite(BaseModel):
+    ids: list[str]
