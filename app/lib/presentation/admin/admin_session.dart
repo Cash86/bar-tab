@@ -44,6 +44,7 @@ class AdminSessionNotifier extends Notifier<String?> {
           }
           _lastRequest = ref.read(clockProvider).now();
           state = token;
+          unawaited(_rememberPin(pin));
           return (AdminLoginResult.success, null);
         case AdminWrongPin():
           return (AdminLoginResult.wrongPin, null);
@@ -56,6 +57,15 @@ class AdminSessionNotifier extends Notifier<String?> {
     } on ApiException catch (e) {
       _log.warning('Admin login failed: ${e.message}');
       return (AdminLoginResult.unreachable, null);
+    }
+  }
+
+  /// Keeps a hash of the accepted PIN for offline re-pairing; best effort.
+  Future<void> _rememberPin(String pin) async {
+    try {
+      await ref.read(localPinStoreProvider).remember(pin);
+    } on Object catch (e) {
+      _log.warning('Local admin PIN not stored: $e');
     }
   }
 

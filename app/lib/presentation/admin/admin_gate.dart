@@ -5,13 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../design/design.dart';
-import '../drinks/keypad.dart';
 import 'admin_home.dart';
 import 'admin_idle.dart';
 import 'admin_session.dart';
-
-const _minPinLength = 4;
-const _maxPinLength = 8;
+import 'pin_pad.dart';
 
 /// Entry to the admin area: the PIN prompt without an admin session,
 /// otherwise the admin home. Shows the prompt again when the session ends.
@@ -69,7 +66,7 @@ class _PinPromptState extends ConsumerState<_PinPrompt> {
   String? _error;
 
   void _digit(int d) {
-    if (_busy || _pin.length >= _maxPinLength) return;
+    if (_busy || _pin.length >= kMaxPinLength) return;
     setState(() => _pin += '$d');
   }
 
@@ -115,46 +112,16 @@ class _PinPromptState extends ConsumerState<_PinPrompt> {
               style: TextStyle(color: tokens.text, fontSize: 24),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 40,
-              child: Text(
-                '•' * _pin.length,
-                key: const Key('admin-pin-digits'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: tokens.text,
-                  fontSize: 32,
-                  letterSpacing: 8,
-                ),
-              ),
-            ),
-            SizedBox(
-              height: 24,
-              child: error == null
-                  ? null
-                  : Text(
-                      error,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontSize: 16,
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 300,
-              child: Keypad(
-                crateLabel: null,
-                onDigit: _digit,
-                onCrate: () {},
-                onBackspace: _backspace,
-              ),
+            PinPad(
+              pin: _pin,
+              error: error,
+              onDigit: _digit,
+              onBackspace: _backspace,
             ),
             const SizedBox(height: 16),
             FilledButton(
               key: const Key('admin-pin-login'),
-              onPressed: _busy || _pin.length < _minPinLength ? null : _login,
+              onPressed: _busy || _pin.length < kMinPinLength ? null : _login,
               child: Text(l10n.adminPinLogin),
             ),
           ],

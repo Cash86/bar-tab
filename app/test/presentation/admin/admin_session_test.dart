@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:bar_tab/data/api/api_client.dart';
+import 'package:bar_tab/data/repositories/local_pin_store.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/presentation/admin/admin_session.dart';
 import 'package:bar_tab/presentation/kiosk.dart';
@@ -22,13 +23,18 @@ void main() {
   late FakeApiServer server;
   late FixedClock clock;
   late ProviderContainer container;
+  late FakeConfigStore config;
 
   setUp(() async {
     server = FakeApiServer();
     clock = FixedClock(DateTime.utc(2026, 11, 5, 12));
+    config = pairedStore();
     container = ProviderContainer(
       overrides: [
-        configStoreProvider.overrideWithValue(pairedStore()),
+        configStoreProvider.overrideWithValue(config),
+        localPinStoreProvider.overrideWithValue(
+          LocalPinStore(config, iterations: 2),
+        ),
         httpClientProvider.overrideWithValue(server.client),
         clockProvider.overrideWithValue(clock),
       ],
@@ -63,6 +69,31 @@ void main() {
     final result = await notifier().login('1234');
     expect(result, (AdminLoginResult.success, null));
     expect(token(), 't1');
+  });
+
+  test('login success remembers the pin hash locally', () async {
+    loginOk();
+    await notifier().login('1234');
+    await pumpEventQueue();
+    final local = container.read(localPinStoreProvider);
+    expect(await local.verify('1234'), isTrue);
+    expect(await local.verify('4321'), isFalse);
+  });
+
+  test('a failing local pin store never fails the login', () async {
+    loginOk();
+    config.writeError = StateError('disk full');
+    final result = await notifier().login('1234');
+    await pumpEventQueue();
+    expect(result, (AdminLoginResult.success, null));
+    expect(token(), 't1');
+  });
+
+  test('a wrong pin is not remembered', () async {
+    server.respond = (r) async => _json({'detail': 'wrong_pin'}, 401);
+    await notifier().login('0000');
+    await pumpEventQueue();
+    expect(await container.read(localPinStoreProvider).hasPin(), isFalse);
   });
 
   test('wrong pin and lockout keep no token', () async {

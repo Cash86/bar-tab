@@ -10,6 +10,7 @@ import '../data/db/database.dart';
 import '../data/repositories/booking_repository_impl.dart';
 import '../data/repositories/catalog_repository_impl.dart';
 import '../data/repositories/drift_config_store.dart';
+import '../data/repositories/local_pin_store.dart';
 import '../data/repositories/rankings_repository_impl.dart';
 import '../data/repositories/server_config_repository_impl.dart';
 import '../data/repositories/tabs_repository_impl.dart';
@@ -31,6 +32,11 @@ final databaseProvider = Provider<AppDatabase>(
 
 final configStoreProvider = Provider<ConfigStore>(
   (ref) => DriftConfigStore(ref.watch(databaseProvider)),
+);
+
+/// Hash of the admin PIN kept on the tablet for offline re-pairing.
+final localPinStoreProvider = Provider<LocalPinStore>(
+  (ref) => LocalPinStore(ref.watch(configStoreProvider)),
 );
 
 final httpClientProvider = Provider<http.Client>((ref) {

@@ -11,6 +11,7 @@ import 'drinks_screen.dart';
 import 'event_booking_screen.dart';
 import 'groups_screen.dart';
 import 'persons_screen.dart';
+import 'pin_change_screen.dart';
 import 'tiers_screen.dart';
 
 /// Pushes an admin [screen]. All admin tiles use this, so the idle guard's
@@ -81,6 +82,12 @@ final List<_TileSpec> _tiles = [
     label: (l) => l.eventTitle,
     subtitle: (l) => l.adminTileEventSubtitle,
     screen: () => const EventBookingScreen(),
+  ),
+  (
+    name: 'pin',
+    label: (l) => l.pinChangeTitle,
+    subtitle: null,
+    screen: () => const PinChangeScreen(),
   ),
 ];
 

@@ -226,5 +226,14 @@
   "designKreidetafel": "Kreidetafel",
   "designBierdeckel": "Bierdeckel",
   "favouritesChalk": "Für dich",
-  "favouritesTray": "Deine Favoriten"
+  "favouritesTray": "Deine Favoriten",
+  "pinChangeTitle": "Admin-PIN ändern",
+  "pinChangeCurrent": "Aktuelle PIN",
+  "pinChangeNew": "Neue PIN",
+  "pinChangeRepeat": "Neue PIN wiederholen",
+  "pinChangeNext": "Weiter",
+  "pinChangeSave": "PIN ändern",
+  "pinChangeMismatch": "PINs stimmen nicht überein",
+  "pinChangeDone": "PIN geändert",
+  "pinChangeFailed": "PIN-Änderung nicht möglich"
 }
