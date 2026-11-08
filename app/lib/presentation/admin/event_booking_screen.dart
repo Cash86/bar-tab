@@ -14,6 +14,7 @@ import '../format.dart';
 import '../providers.dart';
 import 'admin_idle.dart';
 import 'admin_session.dart';
+import 'master_data_save.dart';
 import 'quantity_list.dart';
 
 final _log = Logger('admin');
@@ -207,14 +208,8 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
       if (mounted) setState(() => _busy = false);
       return;
     }
-    final sync = ref.read(syncServiceProvider);
-    if (sync != null) {
-      unawaited(
-        sync.syncNow().catchError((Object e, StackTrace st) {
-          _log.warning('Sync after event booking failed', e, st);
-        }),
-      );
-    }
+    // In the background: the screen closes at once, the totals follow.
+    unawaited(syncAfterWrite(ref.read(syncServiceProvider)));
     messenger.showSnackBar(SnackBar(content: Text(l10n.eventDone)));
     if (mounted) navigator.pop();
   }

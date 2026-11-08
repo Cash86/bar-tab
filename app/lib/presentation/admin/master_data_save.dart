@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 
 import '../../data/api/api_client.dart';
+import '../../data/sync/sync_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers.dart';
 import 'admin_session.dart';
@@ -63,19 +64,28 @@ Future<SaveResult> saveMasterData(
   return const Saved();
 }
 
+/// Runs a sync that surely starts after a write: a sync already running may
+/// have fetched before the write, so it is awaited first, then one more runs.
+/// Failures are logged, never thrown.
+Future<void> syncAfterWrite(SyncService? sync) async {
+  if (sync == null) return;
+  if (sync.isSyncing) {
+    try {
+      await sync.syncNow();
+    } on Object catch (e, st) {
+      _log.warning('Running sync before the one after a write failed', e, st);
+    }
+  }
+  try {
+    await sync.syncNow();
+  } on Object catch (e, st) {
+    _log.warning('Sync after a write failed', e, st);
+  }
+}
+
 /// Syncs and waits until `catalogProvider` holds the fresh catalog.
 Future<void> refreshCatalog(WidgetRef ref) async {
-  final sync = ref.read(syncServiceProvider);
-  try {
-    if (sync != null) {
-      // A sync already running may have fetched the catalog before the
-      // write; wait for it, then run one that surely starts after the write.
-      if (sync.isSyncing) await sync.syncNow();
-      await sync.syncNow();
-    }
-  } on Object catch (e, st) {
-    _log.warning('Sync after master data save failed', e, st);
-  }
+  await syncAfterWrite(ref.read(syncServiceProvider));
   try {
     // The sync's own invalidation may not have landed yet: reload explicitly.
     ref.invalidate(catalogProvider);

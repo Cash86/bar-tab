@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bar_tab/data/sync/sync_service.dart';
@@ -52,8 +53,21 @@ class _SpySync extends SyncService {
 
   final List<String> calls;
 
+  /// A sync already in flight (e.g. the periodic one), finished by the test.
+  Completer<void>? running;
+
   @override
-  Future<void> syncNow() async => calls.add('syncNow');
+  bool get isSyncing => running != null;
+
+  @override
+  Future<void> syncNow() async {
+    calls.add('syncNow');
+    // Like the real service: a call while one runs joins it.
+    if (running case final r?) {
+      await r.future;
+      running = null;
+    }
+  }
 }
 
 Person _person(
@@ -341,6 +355,25 @@ void main() {
     await book(tester);
     expect(syncCalls, ['syncNow']);
     expect(queue.bookings, isEmpty);
+  });
+
+  testWidgets('a sync in flight is awaited, then one more runs', (
+    tester,
+  ) async {
+    await openEvent(tester);
+    await pick(tester, 'p2');
+    await enter(tester, 'd2', units: '3');
+    final running = Completer<void>();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(EventBookingScreen)),
+    );
+    (container.read(syncServiceProvider)! as _SpySync).running = running;
+    await book(tester);
+    // Joined the running sync, which may have fetched tabs before the write.
+    expect(syncCalls, ['syncNow']);
+    running.complete();
+    await tester.pumpAndSettle();
+    expect(syncCalls, ['syncNow', 'syncNow']);
   });
 
   testWidgets('a duplicate counts as success', (tester) async {

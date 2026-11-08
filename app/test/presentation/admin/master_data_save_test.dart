@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:bar_tab/data/api/dto.dart';
 import 'package:bar_tab/data/db/database.dart';
+import 'package:bar_tab/data/sync/sync_service.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/l10n/app_localizations_de.dart';
 import 'package:bar_tab/presentation/admin/admin_session.dart';
@@ -42,7 +43,78 @@ Map<String, dynamic> _catalogJson(int version) => {
   ],
 };
 
+/// A sync service whose running sync the test controls.
+class _InFlightSync implements SyncService {
+  final List<String> calls = [];
+
+  /// The sync in flight, if any; joined by `syncNow` like the real service.
+  Completer<void>? running;
+
+  /// Thrown by the next sync that is not joined.
+  Object? nextError;
+
+  @override
+  bool get isSyncing => running != null;
+
+  @override
+  Future<void> syncNow() async {
+    if (running case final r?) {
+      calls.add('join');
+      try {
+        await r.future;
+      } finally {
+        running = null;
+      }
+      return;
+    }
+    calls.add('run');
+    if (nextError case final e?) {
+      nextError = null;
+      throw e;
+    }
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
+  group('syncAfterWrite', () {
+    test('without a running sync it runs one', () async {
+      final sync = _InFlightSync();
+      await syncAfterWrite(sync);
+      expect(sync.calls, ['run']);
+    });
+
+    test('waits for a running sync, then runs one more', () async {
+      final sync = _InFlightSync()..running = Completer<void>();
+      final done = syncAfterWrite(sync);
+      await Future<void>.delayed(Duration.zero);
+      expect(sync.calls, ['join']);
+      sync.running!.complete();
+      await done;
+      expect(sync.calls, ['join', 'run']);
+    });
+
+    test('a failing running sync still gets one more', () async {
+      final sync = _InFlightSync()..running = Completer<void>();
+      final done = syncAfterWrite(sync);
+      sync.running!.completeError(StateError('periodic sync failed'));
+      await done;
+      expect(sync.calls, ['join', 'run']);
+    });
+
+    test('a failing sync is logged, not thrown', () async {
+      final sync = _InFlightSync()..nextError = StateError('offline');
+      await syncAfterWrite(sync);
+      expect(sync.calls, ['run']);
+    });
+
+    test('without a sync service nothing happens', () async {
+      await syncAfterWrite(null);
+    });
+  });
+
   late AppDatabase db;
   late FakeApiServer server;
   late ProviderContainer container;
