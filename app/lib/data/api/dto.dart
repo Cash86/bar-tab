@@ -245,3 +245,121 @@ abstract class AdminBookingsDto with _$AdminBookingsDto {
   factory AdminBookingsDto.fromJson(Map<String, dynamic> json) =>
       _$AdminBookingsDtoFromJson(json);
 }
+
+/// Body of createPerson (`PersonCreate`) and updatePerson (`PersonUpdate`);
+/// [isActive] is only sent on update.
+@freezed
+abstract class PersonWriteDto with _$PersonWriteDto {
+  const factory PersonWriteDto({
+    required String name,
+    required String priceTierId,
+    required bool isHidden,
+    required bool isCollective,
+    @JsonKey(includeIfNull: false) bool? isActive,
+  }) = _PersonWriteDto;
+
+  factory PersonWriteDto.fromJson(Map<String, dynamic> json) =>
+      _$PersonWriteDtoFromJson(json);
+}
+
+/// Body of createDrink (`DrinkCreate`) and updateDrink (`DrinkUpdate`);
+/// [isActive] is only sent on update.
+@freezed
+abstract class DrinkWriteDto with _$DrinkWriteDto {
+  const factory DrinkWriteDto({
+    required String name,
+    required String groupId,
+    required int crateSize,
+    required bool isHidden,
+    required Map<String, int> prices,
+    @JsonKey(includeIfNull: false) bool? isActive,
+  }) = _DrinkWriteDto;
+
+  factory DrinkWriteDto.fromJson(Map<String, dynamic> json) =>
+      _$DrinkWriteDtoFromJson(json);
+}
+
+@freezed
+abstract class GroupWriteDto with _$GroupWriteDto {
+  const factory GroupWriteDto({
+    required String name,
+
+    /// "#RRGGBB".
+    required String color,
+  }) = _GroupWriteDto;
+
+  factory GroupWriteDto.fromJson(Map<String, dynamic> json) =>
+      _$GroupWriteDtoFromJson(json);
+}
+
+@freezed
+abstract class TierWriteDto with _$TierWriteDto {
+  const factory TierWriteDto({required String name}) = _TierWriteDto;
+
+  factory TierWriteDto.fromJson(Map<String, dynamic> json) =>
+      _$TierWriteDtoFromJson(json);
+}
+
+@freezed
+abstract class OrderWriteDto with _$OrderWriteDto {
+  const factory OrderWriteDto({required List<String> ids}) = _OrderWriteDto;
+
+  factory OrderWriteDto.fromJson(Map<String, dynamic> json) =>
+      _$OrderWriteDtoFromJson(json);
+}
+
+@freezed
+abstract class DeliveryInDto with _$DeliveryInDto {
+  const factory DeliveryInDto({
+    required String id,
+    required String drinkId,
+    required int quantity,
+  }) = _DeliveryInDto;
+
+  factory DeliveryInDto.fromJson(Map<String, dynamic> json) =>
+      _$DeliveryInDtoFromJson(json);
+}
+
+@freezed
+abstract class DeliveryBatchRequestDto with _$DeliveryBatchRequestDto {
+  const factory DeliveryBatchRequestDto({
+    required List<DeliveryInDto> deliveries,
+  }) = _DeliveryBatchRequestDto;
+
+  factory DeliveryBatchRequestDto.fromJson(Map<String, dynamic> json) =>
+      _$DeliveryBatchRequestDtoFromJson(json);
+}
+
+@freezed
+abstract class DeliveryDto with _$DeliveryDto {
+  const factory DeliveryDto({
+    required String id,
+    required String drinkId,
+    required int quantity,
+    required DateTime createdAt,
+    DateTime? cancelledAt,
+  }) = _DeliveryDto;
+
+  factory DeliveryDto.fromJson(Map<String, dynamic> json) =>
+      _$DeliveryDtoFromJson(json);
+}
+
+@freezed
+abstract class DeliveriesDto with _$DeliveriesDto {
+  const factory DeliveriesDto({required List<DeliveryDto> deliveries}) =
+      _DeliveriesDto;
+
+  factory DeliveriesDto.fromJson(Map<String, dynamic> json) =>
+      _$DeliveriesDtoFromJson(json);
+}
+
+@freezed
+abstract class PinChangeRequestDto with _$PinChangeRequestDto {
+  const factory PinChangeRequestDto({
+    required String currentPin,
+    required String newPin,
+  }) = _PinChangeRequestDto;
+
+  factory PinChangeRequestDto.fromJson(Map<String, dynamic> json) =>
+      _$PinChangeRequestDtoFromJson(json);
+}

@@ -442,4 +442,392 @@ void main() {
       expect(seen.headers['X-Admin-Token'], 't');
     });
   });
+
+  group('admin master data, deliveries and PIN', () {
+    final personJson = {
+      'id': 'p1',
+      'name': 'Jörg',
+      'price_tier_id': 't1',
+      'is_hidden': false,
+      'is_collective': false,
+      'is_active': true,
+    };
+    final drinkJson = {
+      'id': 'd1',
+      'name': 'Faßbrause',
+      'group_id': 'g1',
+      'crate_size': 20,
+      'sort_order': 1,
+      'is_hidden': false,
+      'is_active': true,
+      'prices': {'t1': 150},
+    };
+    final groupJson = {
+      'id': 'g1',
+      'name': 'Alkoholfrei',
+      'sort_order': 1,
+      'color': '#112233',
+    };
+    final tierJson = {'id': 't1', 'name': 'Standard', 'sort_order': 1};
+    final deliveryJson = {
+      'id': 'dl1',
+      'drink_id': 'd1',
+      'quantity': 3,
+      'created_at': '2026-11-02T18:00:00Z',
+      'cancelled_at': null,
+    };
+
+    /// Runs [call] against a MockClient answering [body] and returns what the
+    /// client sent together with the result.
+    Future<(http.Request, T)> run<T>(
+      Future<T> Function(BarTabApi api) call, {
+      Object? body,
+      int status = 200,
+    }) async {
+      late http.Request seen;
+      final api = _api((r) async {
+        seen = r;
+        return body == null ? http.Response('', status) : _json(body, status);
+      });
+      final result = await call(api);
+      return (seen, result);
+    }
+
+    void expectAdmin(http.Request r, String method, String path) {
+      expect(r.method, method);
+      expect(r.url.path, '/api/v1/$path');
+      expect(r.headers['X-Admin-Token'], 't');
+    }
+
+    test('createPerson POSTs the body and parses the person', () async {
+      final (r, p) = await run(
+        (a) => a.createPerson(
+          't',
+          const PersonWriteDto(
+            name: 'Jörg',
+            priceTierId: 't1',
+            isHidden: false,
+            isCollective: false,
+          ),
+        ),
+        body: personJson,
+        status: 201,
+      );
+      expectAdmin(r, 'POST', 'admin/persons');
+      expect(jsonDecode(r.body), {
+        'name': 'Jörg',
+        'price_tier_id': 't1',
+        'is_hidden': false,
+        'is_collective': false,
+      });
+      expect(p.id, 'p1');
+    });
+
+    test('updatePerson PUTs the body including is_active', () async {
+      final (r, p) = await run(
+        (a) => a.updatePerson(
+          't',
+          'p1',
+          const PersonWriteDto(
+            name: 'Jörg',
+            priceTierId: 't1',
+            isHidden: false,
+            isCollective: false,
+            isActive: false,
+          ),
+        ),
+        body: personJson,
+      );
+      expectAdmin(r, 'PUT', 'admin/persons/p1');
+      expect((jsonDecode(r.body) as Map)['is_active'], false);
+      expect(p.name, 'Jörg');
+    });
+
+    test('createDrink POSTs the body and parses the drink', () async {
+      final (r, d) = await run(
+        (a) => a.createDrink(
+          't',
+          const DrinkWriteDto(
+            name: 'Faßbrause',
+            groupId: 'g1',
+            crateSize: 20,
+            isHidden: false,
+            prices: {'t1': 150},
+          ),
+        ),
+        body: drinkJson,
+        status: 201,
+      );
+      expectAdmin(r, 'POST', 'admin/drinks');
+      expect(jsonDecode(r.body), {
+        'name': 'Faßbrause',
+        'group_id': 'g1',
+        'crate_size': 20,
+        'is_hidden': false,
+        'prices': {'t1': 150},
+      });
+      expect(d.prices, {'t1': 150});
+    });
+
+    test('updateDrink PUTs the body including is_active', () async {
+      final (r, d) = await run(
+        (a) => a.updateDrink(
+          't',
+          'd1',
+          const DrinkWriteDto(
+            name: 'Faßbrause',
+            groupId: 'g1',
+            crateSize: 20,
+            isHidden: true,
+            prices: {'t1': 150},
+            isActive: true,
+          ),
+        ),
+        body: drinkJson,
+      );
+      expectAdmin(r, 'PUT', 'admin/drinks/d1');
+      expect((jsonDecode(r.body) as Map)['is_active'], true);
+      expect(d.id, 'd1');
+    });
+
+    test('createGroup POSTs name and colour', () async {
+      final (r, g) = await run(
+        (a) => a.createGroup(
+          't',
+          const GroupWriteDto(name: 'Alkoholfrei', color: '#112233'),
+        ),
+        body: groupJson,
+        status: 201,
+      );
+      expectAdmin(r, 'POST', 'admin/groups');
+      expect(jsonDecode(r.body), {'name': 'Alkoholfrei', 'color': '#112233'});
+      expect(g.color, '#112233');
+    });
+
+    test('updateGroup PUTs name and colour', () async {
+      final (r, g) = await run(
+        (a) => a.updateGroup(
+          't',
+          'g1',
+          const GroupWriteDto(name: 'Alkoholfrei', color: '#112233'),
+        ),
+        body: groupJson,
+      );
+      expectAdmin(r, 'PUT', 'admin/groups/g1');
+      expect(g.id, 'g1');
+    });
+
+    test('deleteGroup sends DELETE', () async {
+      final (r, _) = await run((a) => a.deleteGroup('t', 'g1'), status: 204);
+      expectAdmin(r, 'DELETE', 'admin/groups/g1');
+    });
+
+    test('createPriceTier POSTs the name', () async {
+      final (r, t) = await run(
+        (a) => a.createPriceTier('t', 'Standard'),
+        body: tierJson,
+        status: 201,
+      );
+      expectAdmin(r, 'POST', 'admin/price-tiers');
+      expect(jsonDecode(r.body), {'name': 'Standard'});
+      expect(t.name, 'Standard');
+    });
+
+    test('updatePriceTier PUTs the name', () async {
+      final (r, t) = await run(
+        (a) => a.updatePriceTier('t', 't1', 'Standard'),
+        body: tierJson,
+      );
+      expectAdmin(r, 'PUT', 'admin/price-tiers/t1');
+      expect(jsonDecode(r.body), {'name': 'Standard'});
+      expect(t.id, 't1');
+    });
+
+    test('deletePriceTier sends DELETE', () async {
+      final (r, _) = await run(
+        (a) => a.deletePriceTier('t', 't1'),
+        status: 204,
+      );
+      expectAdmin(r, 'DELETE', 'admin/price-tiers/t1');
+    });
+
+    test('reorderGroups PUTs the ids', () async {
+      final (r, _) = await run(
+        (a) => a.reorderGroups('t', ['g2', 'g1']),
+        status: 204,
+      );
+      expectAdmin(r, 'PUT', 'admin/order/groups');
+      expect(jsonDecode(r.body), {
+        'ids': ['g2', 'g1'],
+      });
+    });
+
+    test('reorderPriceTiers PUTs the ids', () async {
+      final (r, _) = await run(
+        (a) => a.reorderPriceTiers('t', ['t2', 't1']),
+        status: 204,
+      );
+      expectAdmin(r, 'PUT', 'admin/order/price-tiers');
+      expect(jsonDecode(r.body), {
+        'ids': ['t2', 't1'],
+      });
+    });
+
+    test('reorderDrinks PUTs the ids to the group path', () async {
+      final (r, _) = await run(
+        (a) => a.reorderDrinks('t', 'g1', ['d2', 'd1']),
+        status: 204,
+      );
+      expectAdmin(r, 'PUT', 'admin/order/drinks/g1');
+      expect(jsonDecode(r.body), {
+        'ids': ['d2', 'd1'],
+      });
+    });
+
+    test('createDeliveries POSTs the batch and parses the answer', () async {
+      final (r, list) = await run(
+        (a) => a.createDeliveries('t', [
+          const DeliveryInDto(id: 'dl1', drinkId: 'd1', quantity: 3),
+        ]),
+        body: {
+          'deliveries': [deliveryJson],
+        },
+        status: 201,
+      );
+      expectAdmin(r, 'POST', 'admin/deliveries');
+      expect(jsonDecode(r.body), {
+        'deliveries': [
+          {'id': 'dl1', 'drink_id': 'd1', 'quantity': 3},
+        ],
+      });
+      expect(list.single.quantity, 3);
+      expect(list.single.cancelledAt, isNull);
+    });
+
+    test('listDeliveries GETs the deliveries', () async {
+      final (r, list) = await run(
+        (a) => a.listDeliveries('t'),
+        body: {
+          'deliveries': [deliveryJson],
+        },
+      );
+      expectAdmin(r, 'GET', 'admin/deliveries');
+      expect(list.single.createdAt, DateTime.utc(2026, 11, 2, 18));
+    });
+
+    test('cancelDelivery POSTs and returns the delivery', () async {
+      final (r, d) = await run(
+        (a) => a.cancelDelivery('t', 'dl1'),
+        body: {...deliveryJson, 'cancelled_at': '2026-11-03T10:00:00Z'},
+      );
+      expectAdmin(r, 'POST', 'admin/deliveries/dl1/cancel');
+      expect(d.cancelledAt, DateTime.utc(2026, 11, 3, 10));
+    });
+
+    test('cancelDelivery 409 and 404 become RejectedException', () async {
+      for (final (status, detail) in [
+        (409, 'already_cancelled'),
+        (404, 'not_found'),
+      ]) {
+        final api = _api((r) async => _json({'detail': detail}, status));
+        await expectLater(
+          api.cancelDelivery('t', 'dl1'),
+          throwsA(
+            isA<RejectedException>().having((e) => e.detail, 'detail', detail),
+          ),
+        );
+      }
+    });
+
+    test('409 name_taken becomes RejectedException', () async {
+      final api = _api((r) async => _json({'detail': 'name_taken'}, 409));
+      await expectLater(
+        api.createPriceTier('t', 'Standard'),
+        throwsA(
+          isA<RejectedException>().having(
+            (e) => e.detail,
+            'detail',
+            'name_taken',
+          ),
+        ),
+      );
+    });
+
+    test('422 with a list detail becomes RejectedException unknown', () async {
+      final api = _api(
+        (r) async => _json({
+          'detail': [
+            {'msg': 'bad'},
+          ],
+        }, 422),
+      );
+      await expectLater(
+        api.reorderGroups('t', ['g1']),
+        throwsA(
+          isA<RejectedException>().having((e) => e.detail, 'detail', 'unknown'),
+        ),
+      );
+    });
+
+    test('422 invalid_name carries its detail', () async {
+      final api = _api((r) async => _json({'detail': 'invalid_name'}, 422));
+      await expectLater(
+        api.createGroup('t', const GroupWriteDto(name: '', color: '#000000')),
+        throwsA(
+          isA<RejectedException>().having(
+            (e) => e.detail,
+            'detail',
+            'invalid_name',
+          ),
+        ),
+      );
+    });
+
+    test('401 admin_session_required ends the admin session', () async {
+      final api = _api(
+        (r) async => _json({'detail': 'admin_session_required'}, 401),
+      );
+      await expectLater(
+        api.deleteGroup('t', 'g1'),
+        throwsA(isA<AdminSessionEndedException>()),
+      );
+    });
+
+    test('changeAdminPin 204 returns PinChanged and sends both pins', () async {
+      final (r, result) = await run(
+        (a) => a.changeAdminPin('t', '1234', '5678'),
+        status: 204,
+      );
+      expectAdmin(r, 'PUT', 'admin/pin');
+      expect(jsonDecode(r.body), {'current_pin': '1234', 'new_pin': '5678'});
+      expect(result, isA<PinChanged>());
+    });
+
+    test('changeAdminPin 403 wrong_pin returns PinWrong', () async {
+      final api = _api((r) async => _json({'detail': 'wrong_pin'}, 403));
+      expect(await api.changeAdminPin('t', '0', '5678'), isA<PinWrong>());
+    });
+
+    test('changeAdminPin 429 returns PinLocked with retry_after', () async {
+      final api = _api(
+        (r) async => _json({'detail': 'locked', 'retry_after': 30}, 429),
+      );
+      final result = await api.changeAdminPin('t', '0', '5678');
+      expect(result, isA<PinLocked>());
+      expect((result as PinLocked).retryAfter, 30);
+    });
+
+    test(
+      'changeAdminPin 401 admin_session_required ends the session',
+      () async {
+        final api = _api(
+          (r) async => _json({'detail': 'admin_session_required'}, 401),
+        );
+        await expectLater(
+          api.changeAdminPin('t', '1', '2'),
+          throwsA(isA<AdminSessionEndedException>()),
+        );
+      },
+    );
+  });
 }

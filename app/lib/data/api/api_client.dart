@@ -36,6 +36,14 @@ final class BookingNotCancellableException extends ApiException {
   final String reason;
 }
 
+/// An admin write was refused: 404, 409 or 422. [detail] is the server's
+/// `detail` string, `"unknown"` when the body has none (FastAPI's own
+/// validation errors carry a list).
+final class RejectedException extends ApiException {
+  RejectedException(this.detail) : super('Rejected: $detail');
+  final String detail;
+}
+
 /// The server could not be reached (socket, TLS, timeout).
 final class NetworkException extends ApiException {
   const NetworkException(super.message);
@@ -80,6 +88,23 @@ final class AdminWrongPin extends AdminLogin {
 
 final class AdminLockedOut extends AdminLogin {
   const AdminLockedOut(this.retryAfter);
+  final int retryAfter;
+}
+
+sealed class PinChange {
+  const PinChange();
+}
+
+final class PinChanged extends PinChange {
+  const PinChanged();
+}
+
+final class PinWrong extends PinChange {
+  const PinWrong();
+}
+
+final class PinLocked extends PinChange {
+  const PinLocked(this.retryAfter);
   final int retryAfter;
 }
 
@@ -185,6 +210,194 @@ class BarTabApi {
     }
     _checkStatus(response);
     return _parse(response, AdminBookingDto.fromJson);
+  }
+
+  Future<PersonDto> createPerson(String token, PersonWriteDto body) =>
+      _write('POST', 'admin/persons', token, body.toJson(), PersonDto.fromJson);
+
+  Future<PersonDto> updatePerson(
+    String token,
+    String id,
+    PersonWriteDto body,
+  ) => _write(
+    'PUT',
+    'admin/persons/${Uri.encodeComponent(id)}',
+    token,
+    body.toJson(),
+    PersonDto.fromJson,
+  );
+
+  Future<DrinkDto> createDrink(String token, DrinkWriteDto body) =>
+      _write('POST', 'admin/drinks', token, body.toJson(), DrinkDto.fromJson);
+
+  Future<DrinkDto> updateDrink(String token, String id, DrinkWriteDto body) =>
+      _write(
+        'PUT',
+        'admin/drinks/${Uri.encodeComponent(id)}',
+        token,
+        body.toJson(),
+        DrinkDto.fromJson,
+      );
+
+  Future<GroupDto> createGroup(String token, GroupWriteDto body) =>
+      _write('POST', 'admin/groups', token, body.toJson(), GroupDto.fromJson);
+
+  Future<GroupDto> updateGroup(String token, String id, GroupWriteDto body) =>
+      _write(
+        'PUT',
+        'admin/groups/${Uri.encodeComponent(id)}',
+        token,
+        body.toJson(),
+        GroupDto.fromJson,
+      );
+
+  Future<void> deleteGroup(String token, String id) => _writeNoContent(
+    'DELETE',
+    'admin/groups/${Uri.encodeComponent(id)}',
+    token,
+  );
+
+  Future<PriceTierDto> createPriceTier(String token, String name) => _write(
+    'POST',
+    'admin/price-tiers',
+    token,
+    TierWriteDto(name: name).toJson(),
+    PriceTierDto.fromJson,
+  );
+
+  Future<PriceTierDto> updatePriceTier(String token, String id, String name) =>
+      _write(
+        'PUT',
+        'admin/price-tiers/${Uri.encodeComponent(id)}',
+        token,
+        TierWriteDto(name: name).toJson(),
+        PriceTierDto.fromJson,
+      );
+
+  Future<void> deletePriceTier(String token, String id) => _writeNoContent(
+    'DELETE',
+    'admin/price-tiers/${Uri.encodeComponent(id)}',
+    token,
+  );
+
+  Future<void> reorderGroups(String token, List<String> ids) => _writeNoContent(
+    'PUT',
+    'admin/order/groups',
+    token,
+    OrderWriteDto(ids: ids).toJson(),
+  );
+
+  Future<void> reorderPriceTiers(String token, List<String> ids) =>
+      _writeNoContent(
+        'PUT',
+        'admin/order/price-tiers',
+        token,
+        OrderWriteDto(ids: ids).toJson(),
+      );
+
+  Future<void> reorderDrinks(String token, String groupId, List<String> ids) =>
+      _writeNoContent(
+        'PUT',
+        'admin/order/drinks/${Uri.encodeComponent(groupId)}',
+        token,
+        OrderWriteDto(ids: ids).toJson(),
+      );
+
+  Future<List<DeliveryDto>> createDeliveries(
+    String token,
+    List<DeliveryInDto> items,
+  ) async => (await _write(
+    'POST',
+    'admin/deliveries',
+    token,
+    DeliveryBatchRequestDto(deliveries: items).toJson(),
+    DeliveriesDto.fromJson,
+  )).deliveries;
+
+  Future<List<DeliveryDto>> listDeliveries(String token) async {
+    final response = await _send('GET', 'admin/deliveries', admin: token);
+    _checkStatus(response);
+    return _parse(response, DeliveriesDto.fromJson).deliveries;
+  }
+
+  Future<DeliveryDto> cancelDelivery(String token, String id) => _write(
+    'POST',
+    'admin/deliveries/${Uri.encodeComponent(id)}/cancel',
+    token,
+    null,
+    DeliveryDto.fromJson,
+  );
+
+  Future<PinChange> changeAdminPin(
+    String token,
+    String current,
+    String next,
+  ) async {
+    final response = await _send(
+      'PUT',
+      'admin/pin',
+      headers: {'Content-Type': 'application/json; charset=utf-8'},
+      body: utf8.encode(
+        jsonEncode(
+          PinChangeRequestDto(currentPin: current, newPin: next).toJson(),
+        ),
+      ),
+      admin: token,
+    );
+    if (response.statusCode == 403 && _detail(response) == 'wrong_pin') {
+      return const PinWrong();
+    }
+    if (response.statusCode == 429) {
+      return PinLocked(_parse(response, LockedDto.fromJson).retryAfter);
+    }
+    _checkStatus(response);
+    return const PinChanged();
+  }
+
+  /// An admin write with an optional JSON [json] body and a parsed answer.
+  Future<T> _write<T>(
+    String method,
+    String path,
+    String token,
+    Map<String, dynamic>? json,
+    T Function(Map<String, dynamic>) from,
+  ) async {
+    final response = await _sendWrite(method, path, token, json);
+    return _parse(response, from);
+  }
+
+  /// An admin write answered with 204.
+  Future<void> _writeNoContent(
+    String method,
+    String path,
+    String token, [
+    Map<String, dynamic>? json,
+  ]) async {
+    await _sendWrite(method, path, token, json);
+  }
+
+  /// Sends an admin write; 404, 409 and 422 become [RejectedException].
+  Future<http.Response> _sendWrite(
+    String method,
+    String path,
+    String token,
+    Map<String, dynamic>? json,
+  ) async {
+    final response = await _send(
+      method,
+      path,
+      headers: json == null
+          ? const {}
+          : {'Content-Type': 'application/json; charset=utf-8'},
+      body: json == null ? null : utf8.encode(jsonEncode(json)),
+      admin: token,
+    );
+    final status = response.statusCode;
+    if (status == 404 || status == 409 || status == 422) {
+      throw RejectedException(_detail(response) ?? 'unknown');
+    }
+    _checkStatus(response);
+    return response;
   }
 
   Uri _uri(String path, [Map<String, String> query = const {}]) {

@@ -102,7 +102,80 @@ final _cases = <_Case>[
   _Case('AdminBookingsDto', 'AdminBookingsResponse', [
     AdminBookingsDto(bookings: [_adminBooking()]).toJson(),
   ]),
+  _Case('PersonWriteDto', 'PersonCreate', [
+    const PersonWriteDto(
+      name: 'n',
+      priceTierId: 't',
+      isHidden: false,
+      isCollective: false,
+    ).toJson(),
+  ]),
+  _Case('PersonWriteDto', 'PersonUpdate', [
+    const PersonWriteDto(
+      name: 'n',
+      priceTierId: 't',
+      isHidden: false,
+      isCollective: false,
+      isActive: true,
+    ).toJson(),
+  ]),
+  _Case('DrinkWriteDto', 'DrinkCreate', [
+    const DrinkWriteDto(
+      name: 'n',
+      groupId: 'g',
+      crateSize: 20,
+      isHidden: false,
+      prices: {'t': 100},
+    ).toJson(),
+  ]),
+  _Case('DrinkWriteDto', 'DrinkUpdate', [
+    const DrinkWriteDto(
+      name: 'n',
+      groupId: 'g',
+      crateSize: 20,
+      isHidden: false,
+      prices: {'t': 100},
+      isActive: true,
+    ).toJson(),
+  ]),
+  _Case('GroupWriteDto', 'GroupWrite', [
+    const GroupWriteDto(name: 'n', color: '#000000').toJson(),
+  ]),
+  _Case('TierWriteDto', 'TierWrite', [const TierWriteDto(name: 'n').toJson()]),
+  _Case('OrderWriteDto', 'OrderWrite', [
+    const OrderWriteDto(ids: ['a', 'b']).toJson(),
+  ]),
+  _Case('DeliveryInDto', 'DeliveryIn', [
+    const DeliveryInDto(
+      id: '6f1c2a52-0b1e-4c53-9d63-3f1f6d2a8e10',
+      drinkId: 'd',
+      quantity: 3,
+    ).toJson(),
+  ]),
+  _Case('DeliveryBatchRequestDto', 'DeliveryBatchRequest', [
+    const DeliveryBatchRequestDto(
+      deliveries: [DeliveryInDto(id: 'i', drinkId: 'd', quantity: 3)],
+    ).toJson(),
+  ]),
+  _Case('DeliveryDto', 'DeliveryOut', [
+    _delivery().toJson(),
+    _delivery(cancelledAt: _date).toJson(),
+  ]),
+  _Case('DeliveriesDto', 'DeliveriesResponse', [
+    DeliveriesDto(deliveries: [_delivery()]).toJson(),
+  ]),
+  _Case('PinChangeRequestDto', 'PinChangeRequest', [
+    const PinChangeRequestDto(currentPin: '1234', newPin: '5678').toJson(),
+  ]),
 ];
+
+DeliveryDto _delivery({DateTime? cancelledAt}) => DeliveryDto(
+  id: 'dl',
+  drinkId: 'd',
+  quantity: 3,
+  createdAt: _date,
+  cancelledAt: cancelledAt,
+);
 
 BookingInDto _booking() => BookingInDto(
   id: '6f1c2a52-0b1e-4c53-9d63-3f1f6d2a8e10',

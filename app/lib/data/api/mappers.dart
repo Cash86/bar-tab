@@ -1,6 +1,7 @@
 import '../../domain/admin_booking.dart';
 import '../../domain/booking.dart';
 import '../../domain/catalog.dart';
+import '../../domain/delivery.dart';
 import '../../domain/rankings.dart';
 import 'dto.dart';
 
@@ -133,5 +134,13 @@ AdminBooking adminBookingFromDto(AdminBookingDto dto) => AdminBooking(
   unitPriceCents: dto.unitPriceCents,
   bookedAt: dto.bookedAt,
   isLate: dto.isLate,
+  cancelledAt: dto.cancelledAt,
+);
+
+Delivery deliveryFromDto(DeliveryDto dto) => Delivery(
+  id: dto.id,
+  drinkId: dto.drinkId,
+  quantity: dto.quantity,
+  createdAt: dto.createdAt,
   cancelledAt: dto.cancelledAt,
 );

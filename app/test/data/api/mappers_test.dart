@@ -7,6 +7,23 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../fixtures/catalog_fixture.dart';
 
 void main() {
+  test('deliveryFromDto maps all fields', () {
+    final delivery = deliveryFromDto(
+      DeliveryDto(
+        id: 'dl',
+        drinkId: 'd',
+        quantity: 3,
+        createdAt: DateTime.utc(2026, 11, 2, 18),
+        cancelledAt: DateTime.utc(2026, 11, 3),
+      ),
+    );
+    expect(delivery.id, 'dl');
+    expect(delivery.drinkId, 'd');
+    expect(delivery.quantity, 3);
+    expect(delivery.createdAt, DateTime.utc(2026, 11, 2, 18));
+    expect(delivery.cancelledAt, DateTime.utc(2026, 11, 3));
+  });
+
   test('adminBookingFromDto computes amountCents and isCancelled', () {
     final dto = AdminBookingDto(
       id: 'b',
