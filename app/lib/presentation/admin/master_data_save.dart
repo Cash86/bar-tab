@@ -22,8 +22,11 @@ final class Saved extends SaveResult {
 
 /// Not written; [message] is shown in the dialog.
 final class SaveFailed extends SaveResult {
-  const SaveFailed(this.message);
+  const SaveFailed(this.message, {this.detail});
   final String message;
+
+  /// The server's rejection detail (e.g. `prices_incomplete`), if any.
+  final String? detail;
 }
 
 /// The admin session ended; the gate shows the PIN prompt, the caller leaves
@@ -47,6 +50,7 @@ Future<SaveResult> saveMasterData(
     _log.info('Master data rejected: ${e.detail}');
     return SaveFailed(
       e.detail == 'name_taken' ? l10n.saveNameTaken : l10n.saveFailed,
+      detail: e.detail,
     );
   } on NetworkException catch (e) {
     _log.info('Master data save unreachable: ${e.message}');
@@ -55,6 +59,12 @@ Future<SaveResult> saveMasterData(
     _log.warning('Master data save failed: ${e.message}');
     return SaveFailed(l10n.saveFailed);
   }
+  await refreshCatalog(ref);
+  return const Saved();
+}
+
+/// Syncs and waits until `catalogProvider` holds the fresh catalog.
+Future<void> refreshCatalog(WidgetRef ref) async {
   final sync = ref.read(syncServiceProvider);
   try {
     if (sync != null) {
@@ -73,5 +83,4 @@ Future<SaveResult> saveMasterData(
   } on Object catch (e, st) {
     _log.warning('Catalog reload after save failed', e, st);
   }
-  return const Saved();
 }

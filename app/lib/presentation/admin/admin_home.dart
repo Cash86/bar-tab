@@ -5,6 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../design/design.dart';
 import 'admin_bookings_screen.dart';
 import 'design_screen.dart';
+import 'drinks_screen.dart';
 import 'persons_screen.dart';
 
 /// Pushes an admin [screen]. All admin tiles use this, so the idle guard's
@@ -39,6 +40,12 @@ final List<_TileSpec> _tiles = [
     label: (l) => l.personsTitle,
     subtitle: (l) => l.adminTilePersonsSubtitle,
     screen: () => const PersonsScreen(),
+  ),
+  (
+    name: 'drinks',
+    label: (l) => l.drinksTitle,
+    subtitle: (l) => l.adminTileDrinksSubtitle,
+    screen: () => const DrinksScreen(),
   ),
 ];
 

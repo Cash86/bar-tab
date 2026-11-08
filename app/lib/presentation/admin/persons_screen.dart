@@ -7,6 +7,7 @@ import '../../domain/master_data.dart';
 import '../../l10n/app_localizations.dart';
 import '../design/design.dart';
 import '../providers.dart';
+import 'active_segments_header.dart';
 import 'admin_idle.dart';
 import 'admin_session.dart';
 import 'master_data_save.dart';
@@ -58,39 +59,15 @@ class _PersonsScreenState extends ConsumerState<PersonsScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                    child: Row(
-                      children: [
-                        SegmentedButton<bool>(
-                          key: const Key('persons-segments'),
-                          showSelectedIcon: false,
-                          segments: [
-                            ButtonSegment(
-                              value: true,
-                              label: Text(
-                                l10n.personsSegmentActive(activeCount),
-                              ),
-                            ),
-                            ButtonSegment(
-                              value: false,
-                              label: Text(
-                                l10n.personsSegmentInactive(inactiveCount),
-                              ),
-                            ),
-                          ],
-                          selected: {_showActive},
-                          onSelectionChanged: (s) =>
-                              setState(() => _showActive = s.first),
-                        ),
-                        const Spacer(),
-                        FilledButton(
-                          key: const Key('person-new'),
-                          onPressed: () => _open(catalog, null),
-                          child: Text(l10n.personsNew),
-                        ),
-                      ],
-                    ),
+                  ActiveSegmentsHeader(
+                    segmentsKey: const Key('persons-segments'),
+                    newKey: const Key('person-new'),
+                    newLabel: l10n.personsNew,
+                    showActive: _showActive,
+                    activeCount: activeCount,
+                    inactiveCount: inactiveCount,
+                    onChanged: (v) => setState(() => _showActive = v),
+                    onNew: () => _open(catalog, null),
                   ),
                   Expanded(child: _list(l10n, catalog)),
                 ],

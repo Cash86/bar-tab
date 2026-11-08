@@ -16,6 +16,31 @@ void main() {
     });
   });
 
+  group('parseEuroCents', () {
+    test('accepts comma, dot and whole euros', () {
+      expect(parseEuroCents('1,40'), 140);
+      expect(parseEuroCents('1.4'), 140);
+      expect(parseEuroCents('2'), 200);
+      expect(parseEuroCents(' 0,05 '), 5);
+    });
+
+    test('rejects sub-cent, negative and empty input', () {
+      expect(parseEuroCents('1,405'), isNull);
+      expect(parseEuroCents('-1'), isNull);
+      expect(parseEuroCents(''), isNull);
+      expect(parseEuroCents('1,'), isNull);
+      expect(parseEuroCents('abc'), isNull);
+    });
+  });
+
+  group('formatCentsPlain', () {
+    test('writes cents as an editable amount', () {
+      expect(formatCentsPlain(140), '1,40');
+      expect(formatCentsPlain(5), '0,05');
+      expect(formatCentsPlain(200), '2,00');
+    });
+  });
+
   group('formatBookingTime', () {
     test('shows day, month and time in local time', () {
       final local = DateTime(2026, 11, 5, 21, 7);
