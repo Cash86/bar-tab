@@ -5,6 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../design/design.dart';
 import 'admin_bookings_screen.dart';
 import 'design_screen.dart';
+import 'persons_screen.dart';
 
 /// Pushes an admin [screen]. All admin tiles use this, so the idle guard's
 /// `didPopNext` re-arms when the screen is left.
@@ -32,6 +33,12 @@ final List<_TileSpec> _tiles = [
     label: (l) => l.designTitle,
     subtitle: (l) => l.adminTileDesignSubtitle,
     screen: () => const DesignScreen(),
+  ),
+  (
+    name: 'persons',
+    label: (l) => l.personsTitle,
+    subtitle: (l) => l.adminTilePersonsSubtitle,
+    screen: () => const PersonsScreen(),
   ),
 ];
 
