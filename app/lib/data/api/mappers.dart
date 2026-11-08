@@ -63,7 +63,7 @@ BookingInDto bookingToDto(Booking b) => BookingInDto(
   bookedAt: b.bookedAt.toUtc(),
 );
 
-String _hexFromColor(int argb) =>
+String hexFromColor(int argb) =>
     '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
 /// Inverse of [catalogFromDto]; used to serialise the catalog cache.
@@ -89,7 +89,7 @@ CatalogDto catalogToDto(Catalog c) => CatalogDto(
         id: g.id,
         name: g.name,
         sortOrder: g.sortOrder,
-        color: _hexFromColor(g.color),
+        color: hexFromColor(g.color),
       ),
   ],
   drinks: [

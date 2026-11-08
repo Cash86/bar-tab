@@ -30,5 +30,21 @@ int unitsOf({
   required int crateSize,
 }) => crates * crateSize + units;
 
-/// Colours offered for drink groups, as '#RRGGBB'. Task 10 fills it.
-const groupPalette = <String>[];
+/// Colours offered for drink groups, as '#RRGGBB'. Saturated mid-tones with a
+/// WCAG contrast of at least 3.0 against cream (#F3E7CF), the bottle green
+/// (#16302A) and the chalkboard (#232724), so the group colour stays readable
+/// on all three designs.
+const groupPalette = <String>[
+  '#EA1313', // red
+  '#B1600E', // amber
+  '#7B7B0A', // olive
+  '#47840B', // lime green
+  '#0B890B', // green
+  '#0B894A', // emerald
+  '#0B8484', // teal
+  '#1275D9', // blue
+  '#6363F2', // indigo
+  '#9C47F0', // violet
+  '#CD11CD', // magenta
+  '#E2127A', // pink
+];

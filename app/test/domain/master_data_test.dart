@@ -1,7 +1,61 @@
+import 'dart:math' as math;
+
 import 'package:bar_tab/domain/master_data.dart';
+import 'package:bar_tab/presentation/theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+double _luminance(String hex) {
+  double lin(int v) {
+    final c = v / 255;
+    return c <= 0.03928
+        ? c / 12.92
+        : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
+  }
+
+  final n = int.parse(hex.substring(1), radix: 16);
+  return 0.2126 * lin((n >> 16) & 0xFF) +
+      0.7152 * lin((n >> 8) & 0xFF) +
+      0.0722 * lin(n & 0xFF);
+}
+
+double _contrast(String a, String b) {
+  final la = _luminance(a), lb = _luminance(b);
+  return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+}
+
 void main() {
+  group('groupPalette', () {
+    test('has 12 distinct valid #RRGGBB values', () {
+      expect(groupPalette, hasLength(12));
+      expect(groupPalette.toSet(), hasLength(12));
+      for (final c in groupPalette) {
+        expect(c, matches(RegExp(r'^#[0-9A-F]{6}$')));
+      }
+    });
+
+    test('is readable (contrast >= 3.0) on cream, bottle and chalkboard', () {
+      const backgrounds = {
+        'cream': '#F3E7CF',
+        'bottle': '#16302A',
+        'chalkboard': '#232724',
+      };
+      // Guards the hard-coded bottle value against theme drift.
+      expect(
+        BarTabTheme.bottle.toARGB32() & 0xFFFFFF,
+        int.parse(backgrounds['bottle']!.substring(1), radix: 16),
+      );
+      for (final c in groupPalette) {
+        for (final MapEntry(:key, :value) in backgrounds.entries) {
+          expect(
+            _contrast(c, value),
+            greaterThanOrEqualTo(3.0),
+            reason: '$c on $key',
+          );
+        }
+      }
+    });
+  });
+
   group('cleanName', () {
     test('trims', () => expect(cleanName('  Jörg  ', maxPersonName), 'Jörg'));
 

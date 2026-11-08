@@ -6,7 +6,9 @@ import '../design/design.dart';
 import 'admin_bookings_screen.dart';
 import 'design_screen.dart';
 import 'drinks_screen.dart';
+import 'groups_screen.dart';
 import 'persons_screen.dart';
+import 'tiers_screen.dart';
 
 /// Pushes an admin [screen]. All admin tiles use this, so the idle guard's
 /// `didPopNext` re-arms when the screen is left.
@@ -46,6 +48,18 @@ final List<_TileSpec> _tiles = [
     label: (l) => l.drinksTitle,
     subtitle: (l) => l.adminTileDrinksSubtitle,
     screen: () => const DrinksScreen(),
+  ),
+  (
+    name: 'groups',
+    label: (l) => l.groupsTitle,
+    subtitle: (l) => l.adminTileGroupsSubtitle,
+    screen: () => const GroupsScreen(),
+  ),
+  (
+    name: 'tiers',
+    label: (l) => l.tiersTitle,
+    subtitle: (l) => l.adminTileTiersSubtitle,
+    screen: () => const TiersScreen(),
   ),
 ];
 
@@ -118,7 +132,7 @@ class _Tile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
