@@ -295,8 +295,8 @@ value is emitted when a booking moves from queued to synced.
   nicht mehr zu den Preisstufen – bitte prüfen", keeps the entered values and refreshes the
   catalog; reordering is optimistic and reverts on failure.
 - Deleting a group or tier asks for confirmation in a dialog, then calls the server; the palette
-  was also checked against the chalk background `#232724`; the visual check on Linux was done by
-  the controller.
+  was also checked against the chalk background `#232724`. The visual check of the palette on the
+  three designs is still pending (to be done on the Linux target / the tablet).
 - A delivery line keeps its UUID for retries only while its quantity is unchanged; an edited line
   gets a new id. A timeout followed by an edit can create two entries, which are visible in
   "Lieferungen" and can be cancelled.
@@ -312,3 +312,21 @@ value is emitted when a booking moves from queued to synced.
 - A sync of the old service that is still running during a re-pair may write old tabs after they
   were cleared; the next sync replaces them (same-data assumption, §8.3 of this spec).
 - A wrong local PIN shows the existing "PIN falsch" instead of "Falsche PIN".
+- "+ Neu" sits in each list's header (next to the Aktiv/Deaktiviert switch), not in the app bar,
+  the same on every master-data screen. Without a price tier (persons) or a group (drinks) it is
+  disabled with the hint "Zuerst eine Preisstufe anlegen" / "Zuerst eine Gruppe anlegen".
+- AC 7: the stock-query half moves to M4, since no stock query exists yet; the obligation is
+  recorded in the main spec §10 item 4. M3 covers storno twice / in a closed period (409).
+- AC 5: the order on the name list / drink selection is covered link by link: the server reorder
+  tests persist `sort_order`, and the name-list and drink-selection tests order by `sortOrder`.
+- A server 5xx on admin login is treated like unreachable and also opens the offline re-pair path
+  (reduced mode with only "Server neu koppeln", local PIN hash required).
+- Event booking: a retried line keeps its id and its `booked_at` (the server compares both), an
+  edited line gets a new id and the current time. An entered drink without a price for the
+  person's tier blocks booking (button disabled, hint "Kein Preis für <tier>: <drinks>").
+- After an event booking or a master-data save the app awaits a sync already running, then runs
+  one more, so the fetched tabs/catalog surely postdate the write.
+- A delivery line is capped at 99 999 units (server `MAX_DELIVERY_UNITS`); a drink price above
+  10 000 € is refused in the dialog ("Höchstens 10.000,00 €").
+- A rejected reorder (e.g. 409 `order_mismatch`) reverts and reloads the catalog, so the next try
+  starts from the server's data.

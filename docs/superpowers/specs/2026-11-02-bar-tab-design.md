@@ -354,9 +354,9 @@ data, enabling screen pinning.
    characters; decided with issue #4, see `2026-11-07-themes-design.md`).
 4. Inventory & settlement flow + PDF + mail; monthly interim report. Carry-over from the storno
    (§5): every stock, settlement and monthly-report query must exclude cancelled bookings
-   (`cancelled_at IS NULL`) and cancelled deliveries (`stock_entries.cancelled_at IS NULL`); the settlement PDF gets the storno section (booked at, cancelled at,
-   person, drink, quantity, amount; the cancelling device is available as
-   `cancelled_by_device_id`).
+   (`cancelled_at IS NULL`) and cancelled deliveries (`stock_entries.cancelled_at IS NULL`); the
+   settlement PDF gets the storno section (booked at, cancelled at, person, drink, quantity,
+   amount; the cancelling device is available as `cancelled_by_device_id`).
 5. Legacy import (reports values longer than the maximum lengths), deployment on netcup, README/operator docs; cut-over from the old script.
 6. **Later:** members book from their own phones — personal login, same Flutter app or a phone
    layout of it. Out of scope until 1–5 run in production.
