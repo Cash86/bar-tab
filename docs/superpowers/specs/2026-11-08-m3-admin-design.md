@@ -225,9 +225,10 @@ value is emitted when a booking moves from queued to synced.
 - PIN change: current + new PIN; lockout as login.
 - Event bookings reuse `POST /bookings` (device auth), no new endpoint.
 - Schema changes ship an Alembic migration with a test (`alembic upgrade head` on a fresh DB):
-  at least `cancelled_at` / `cancelled_by_device_id` on stock entries; the case-insensitive unique
-  names (persons and drinks are not unique today; the migration must handle existing duplicates by
-  failing loudly — demo data has none).
+  `cancelled_at` / `cancelled_by_device_id` on stock entries. Case-insensitive name uniqueness is
+  enforced in the repository (Unicode case folding is not available in SQLite; writes are already
+  serialised by `BEGIN IMMEDIATE` and the single worker), so it needs no migration; existing
+  duplicates (demo data has none) only block saving the duplicate under its name.
 - The OpenAPI export and the app's API client are updated together.
 
 ## 11. Calls made by Claude (please check)
@@ -252,7 +253,8 @@ value is emitted when a booking moves from queued to synced.
 - Local PIN hash: salted slow hash in Drift; offline re-pair also when the server rejects the
   device key; local lockout 5 failures / 60 s; online re-pair asks for the PIN again.
 - Case-insensitive uniqueness uses Unicode case folding (umlauts included); length limits count
-  characters (code points), not bytes; concurrent master-data edits from two tablets: last write
+  characters (code points), not bytes; uniqueness checked in the repository, not by a DB
+  constraint; concurrent master-data edits from two tablets: last write
   wins, a reorder list that does not match the current set of ids → 409.
 
 ## 12. Acceptance criteria (each gets a test)
