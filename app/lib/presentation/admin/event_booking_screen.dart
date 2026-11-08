@@ -23,7 +23,8 @@ const _uuid = Uuid();
 const int _maxLineUnits = 999;
 
 /// One line of the last attempt: its request id and what it was sent with.
-typedef _Sent = ({String id, int quantity, int price});
+/// The server compares `booked_at` too, so a retry must reuse it.
+typedef _Sent = ({String id, int quantity, int price, DateTime bookedAt});
 
 /// Book quantities of many drinks on one person: pick the person, then enter
 /// crates and units per drink. Goes online at once, without the undo hold and
@@ -98,12 +99,25 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
     };
   }
 
+  /// Names of entered drinks without a price for the person's tier; while
+  /// there are any, nothing can be booked.
+  List<String> _unpriced(Catalog catalog, Person person) {
+    final totals = _lines!.totals({
+      for (final d in catalog.drinks) d.id: d.crateSize,
+    });
+    return [
+      for (final d in catalog.drinks)
+        if (totals.containsKey(d.id) && d.prices[person.priceTierId] == null)
+          d.name,
+    ];
+  }
+
   int _sum(Map<String, ({int units, int price})> lines) =>
       lines.values.fold(0, (a, l) => a + l.units * l.price);
 
   Future<void> _book(Catalog catalog, Person person) async {
     final data = _lineData(catalog, person);
-    if (data.isEmpty || _busy) return;
+    if (data.isEmpty || _busy || _unpriced(catalog, person).isNotEmpty) return;
     final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -132,17 +146,23 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    // One id per line, reused while the line is unchanged since a failed try.
+    // One id and time per line, reused while the line is unchanged since a
+    // failed try; a changed line is a new booking, booked now.
     final previous = _attempt;
+    final now = ref.read(clockProvider).now();
     _attempt = {
       for (final e in data.entries)
         e.key:
             previous[e.key]?.quantity == e.value.units &&
                 previous[e.key]?.price == e.value.price
             ? previous[e.key]!
-            : (id: _uuid.v4(), quantity: e.value.units, price: e.value.price),
+            : (
+                id: _uuid.v4(),
+                quantity: e.value.units,
+                price: e.value.price,
+                bookedAt: now,
+              ),
     };
-    final bookedAt = ref.read(clockProvider).now();
     final bookings = [
       for (final e in _attempt.entries)
         BookingInDto(
@@ -151,7 +171,7 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
           drinkId: e.key,
           quantity: e.value.quantity,
           unitPriceCents: e.value.price,
-          bookedAt: bookedAt,
+          bookedAt: e.value.bookedAt,
         ),
     ];
     final messenger = ScaffoldMessenger.of(context);
@@ -243,11 +263,12 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
               listenable: lines,
               builder: (context, _) {
                 final data = _lineData(catalog, person);
+                final blocked = _unpriced(catalog, person).isNotEmpty;
                 return Padding(
                   padding: const EdgeInsets.only(left: 8, right: 16),
                   child: FilledButton(
                     key: const Key('event-submit'),
-                    onPressed: data.isEmpty || _busy
+                    onPressed: data.isEmpty || _busy || blocked
                         ? null
                         : () => _book(catalog, person),
                     child: Text(l10n.eventBook(formatCents(_sum(data)))),
@@ -257,12 +278,38 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
             ),
           ],
         ),
-        body: QuantityList(
-          drinks: catalog.drinks,
-          groups: catalog.groups,
-          lines: lines,
-          trailing: (drink, units) =>
-              formatCents(units * (prices[drink.id]?[person.priceTierId] ?? 0)),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListenableBuilder(
+              listenable: lines,
+              builder: (context, _) {
+                final unpriced = _unpriced(catalog, person);
+                if (unpriced.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  key: const Key('event-unpriced'),
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                  child: Text(
+                    l10n.eventUnpriced(tier ?? '', unpriced.join(', ')),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 18,
+                    ),
+                  ),
+                );
+              },
+            ),
+            Expanded(
+              child: QuantityList(
+                drinks: catalog.drinks,
+                groups: catalog.groups,
+                lines: lines,
+                trailing: (drink, units) => formatCents(
+                  units * (prices[drink.id]?[person.priceTierId] ?? 0),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

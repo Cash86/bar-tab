@@ -78,6 +78,7 @@ Drink _drink(
   int crate = 20,
   bool active = true,
   bool hidden = false,
+  Map<String, int> prices = const {'t1': 100, 't2': 150},
 }) => Drink(
   id: id,
   name: name,
@@ -86,7 +87,7 @@ Drink _drink(
   sortOrder: 1,
   isHidden: hidden,
   isActive: active,
-  prices: const {'t1': 100, 't2': 150},
+  prices: prices,
 );
 
 const _idle = Duration(seconds: 10);
@@ -119,6 +120,7 @@ void main() {
       _drink('d2', 'Wasser', crate: 1),
       _drink('d3', 'Alt Old', active: false),
       _drink('d4', 'Geheim', hidden: true),
+      _drink('d5', 'Nur Mitglieder', crate: 1, prices: const {'t1': 90}),
     ],
     etag: 'e',
   );
@@ -440,6 +442,7 @@ void main() {
     await tester.pump();
     await typeDigits(tester, '1');
     fail = false;
+    clock.advance(const Duration(minutes: 2));
     await tester.pump(const Duration(seconds: 5));
     await book(tester);
     final reqs = bookingRequests();
@@ -451,6 +454,68 @@ void main() {
     expect(second['d1']!['quantity'], 21);
     expect(second['d1']!['id'], isNot(first['d1']!['id']));
     expect(second['d2']!['id'], first['d2']!['id']);
+    // The unchanged line keeps its time too; the edited one is booked now.
+    expect(second['d2']!['booked_at'], first['d2']!['booked_at']);
+    expect(DateTime.parse(second['d1']!['booked_at'] as String), clock.now());
+  });
+
+  testWidgets('a retry after a lost answer is a duplicate, even later', (
+    tester,
+  ) async {
+    // Like the server: a known id with the same content is a duplicate,
+    // with other content (booked_at included) a conflict.
+    final stored = <String, String>{};
+    var loseAnswer = true;
+    onBookings = (r) async {
+      final results = [
+        for (final i in items(r))
+          {
+            'id': i['id'],
+            'status': switch (stored[i['id']]) {
+              null => 'accepted',
+              final s when s == jsonEncode(i) => 'duplicate',
+              _ => 'conflict',
+            },
+          },
+      ];
+      for (final i in items(r)) {
+        stored.putIfAbsent(i['id'] as String, () => jsonEncode(i));
+      }
+      if (loseAnswer) {
+        loseAnswer = false;
+        throw http.ClientException('answer lost');
+      }
+      return _json({'results': results});
+    };
+    await openEvent(tester);
+    await pick(tester, 'p2');
+    await enter(tester, 'd1', crates: '1');
+    await enter(tester, 'd2', units: '6');
+    await book(tester);
+    expect(find.text('Server nicht erreichbar'), findsOneWidget);
+    clock.advance(const Duration(minutes: 2));
+    await tester.pump(const Duration(seconds: 5));
+    await book(tester);
+    expect(find.text('Buchung nicht möglich'), findsNothing);
+    expect(find.text('Veranstaltung gebucht'), findsOneWidget);
+    expect(find.byType(EventBookingScreen), findsNothing);
+  });
+
+  testWidgets('a line without a price for the tier blocks booking', (
+    tester,
+  ) async {
+    await openEvent(tester);
+    await pick(tester, 'p4');
+    await enter(tester, 'd1', crates: '1');
+    expect(tester.widget<ButtonStyleButton>(submit()).enabled, isTrue);
+    expect(find.text('Kein Preis für AH: Nur Mitglieder'), findsNothing);
+    await enter(tester, 'd5', units: '2');
+    expect(tester.widget<ButtonStyleButton>(submit()).enabled, isFalse);
+    expect(find.text('Kein Preis für AH: Nur Mitglieder'), findsOneWidget);
+    await tester.tap(submit());
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(bookingRequests(), isEmpty);
   });
 
   testWidgets('"Person ändern" returns to the picker and clears the lines', (
