@@ -5,6 +5,7 @@ import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/domain/repositories.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/admin/admin_session.dart';
 import 'package:bar_tab/presentation/admin/delivery_screen.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/providers.dart';
@@ -280,5 +281,79 @@ void main() {
     expect(find.text('Lieferung nicht möglich'), findsOneWidget);
     expect(find.byType(DeliveryScreen), findsOneWidget);
     expect(find.text('= 20'), findsOneWidget);
+  });
+
+  testWidgets('a single unit reads "1 Einheit" in the confirmation', (
+    tester,
+  ) async {
+    await openDelivery(tester);
+    await enter(tester, 'd2', units: '1');
+    await tester.tap(submit());
+    await tester.pumpAndSettle();
+    expect(find.text('1 Getränk, 1 Einheit buchen?'), findsOneWidget);
+  });
+
+  testWidgets('an edited line gets a new id, an unchanged one keeps it', (
+    tester,
+  ) async {
+    await openDelivery(tester);
+    await enter(tester, 'd1', crates: '1');
+    await enter(tester, 'd2', units: '6');
+    var fail = true;
+    final ok = onDelivery;
+    onDelivery = (r) async => fail ? throw http.ClientException('down') : ok(r);
+    await book(tester);
+    // d2 stays at 6; d1 goes from 20 to 21 units.
+    await tester.tap(find.byKey(const Key('qty-row-d1')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('qty-chip-units')));
+    await tester.pump();
+    await typeDigits(tester, '1');
+    fail = false;
+    await tester.pump(const Duration(seconds: 5));
+    await book(tester);
+    final reqs = deliveryRequests();
+    expect(reqs.length, 2);
+    Map<String, Map<String, dynamic>> byDrink(http.Request r) => {
+      for (final i in items(r)) i['drink_id'] as String: i,
+    };
+    final first = byDrink(reqs[0]);
+    final second = byDrink(reqs[1]);
+    expect(second['d1']!['quantity'], 21);
+    expect(second['d1']!['id'], isNot(first['d1']!['id']));
+    expect(second['d2']!['id'], first['d2']!['id']);
+  });
+
+  testWidgets('an ended session while booking leaves to the PIN prompt', (
+    tester,
+  ) async {
+    await openDelivery(tester);
+    await enter(tester, 'd1', crates: '1');
+    onDelivery = (r) async => _json({'detail': 'admin_session_required'}, 401);
+    await book(tester);
+    expect(find.byType(DeliveryScreen), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byKey(const Key('admin-pin-login')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a session ending under the open confirmation leaves cleanly', (
+    tester,
+  ) async {
+    await openDelivery(tester);
+    await enter(tester, 'd1', crates: '1');
+    await tester.tap(submit());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('delivery-confirm')), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(DeliveryScreen)),
+    );
+    await container.read(adminSessionProvider.notifier).logout();
+    await tester.pumpAndSettle();
+    expect(find.byType(DeliveryScreen), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byKey(const Key('admin-pin-login')), findsOneWidget);
+    expect(deliveryRequests(), isEmpty);
+    expect(tester.takeException(), isNull);
   });
 }

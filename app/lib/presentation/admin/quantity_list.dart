@@ -25,10 +25,11 @@ class QuantityLines extends ChangeNotifier {
   int cratesOf(String drinkId) => _crates[drinkId] ?? 0;
   int unitsOf(String drinkId) => _units[drinkId] ?? 0;
 
-  /// Selects [drinkId]; the crates field is focused first.
-  void select(String drinkId) {
+  /// Selects [drinkId]; the crates field is focused first, the units field
+  /// when the drink has no crates.
+  void select(String drinkId, {bool hasCrates = true}) {
     _selected = drinkId;
-    _crateFocus = true;
+    _crateFocus = hasCrates;
     notifyListeners();
   }
 
@@ -163,10 +164,7 @@ class _Row extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          lines.select(drink.id);
-          if (!hasCrate) lines.focusCrates(false);
-        },
+        onTap: () => lines.select(drink.id, hasCrates: hasCrate),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
@@ -180,12 +178,11 @@ class _Row extends StatelessWidget {
               if (hasCrate) ...[
                 _Field(
                   key: Key('qty-crates-${drink.id}'),
-                  text: '${lines.cratesOf(drink.id)} K',
+                  text: AppLocalizations.of(
+                    context,
+                  ).quantityCratesField(lines.cratesOf(drink.id)),
                   focused: selected && lines.crateFocused,
-                  onTap: () {
-                    lines.select(drink.id);
-                    lines.focusCrates(true);
-                  },
+                  onTap: () => lines.select(drink.id),
                 ),
                 const SizedBox(width: 8),
               ],
@@ -193,10 +190,7 @@ class _Row extends StatelessWidget {
                 key: Key('qty-units-${drink.id}'),
                 text: '${lines.unitsOf(drink.id)}',
                 focused: selected && !(hasCrate && lines.crateFocused),
-                onTap: () {
-                  lines.select(drink.id);
-                  lines.focusCrates(false);
-                },
+                onTap: () => lines.select(drink.id, hasCrates: false),
               ),
               SizedBox(
                 width: 96,
@@ -208,11 +202,13 @@ class _Row extends StatelessWidget {
                 ),
               ),
               if (extra != null)
-                SizedBox(
-                  width: 110,
+                Container(
+                  constraints: const BoxConstraints(minWidth: 110),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(left: 8),
                   child: Text(
                     units > 0 ? extra(drink, units) : '',
-                    textAlign: TextAlign.end,
+                    softWrap: false,
                     style: TextStyle(color: tokens.muted, fontSize: 18),
                   ),
                 ),
@@ -267,9 +263,17 @@ class _Panel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final drink = this.drink;
-    if (drink == null) return const SizedBox.shrink();
     final l10n = AppLocalizations.of(context);
     final tokens = DesignTokens.of(context);
+    if (drink == null) {
+      return Center(
+        child: Text(
+          l10n.quantityHint,
+          key: const Key('qty-hint'),
+          style: TextStyle(color: tokens.muted, fontSize: 18),
+        ),
+      );
+    }
     final hasCrate = drink.crateSize > 1;
     final crateFocus = hasCrate && lines.crateFocused;
     Widget chip(Key key, String label, int n, bool focused, bool crates) {

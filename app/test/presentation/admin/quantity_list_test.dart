@@ -114,6 +114,7 @@ void main() {
     await tester.tap(find.byKey(const Key('qty-row-d4')));
     await tester.pump();
     expect(find.byKey(const Key('qty-chip-crates')), findsNothing);
+    expect(find.byKey(const Key('qty-crates-d4')), findsNothing);
     expect(find.byKey(const Key('qty-chip-units')), findsOneWidget);
     await keys(tester, '5');
     expect(lines.unitsOf('d4'), 5);
@@ -148,5 +149,44 @@ void main() {
     await tester.pump();
     await keys(tester, '1');
     expect(find.text('Pils:20'), findsOneWidget);
+  });
+
+  test('select focuses units for a drink without crates, notifying once', () {
+    var notified = 0;
+    lines.addListener(() => notified++);
+    lines.select('d4', hasCrates: false);
+    expect(lines.crateFocused, isFalse);
+    expect(notified, 1);
+    lines.select('d1');
+    expect(lines.crateFocused, isTrue);
+    expect(notified, 2);
+  });
+
+  testWidgets('the empty panel shows a hint until a row is tapped', (
+    tester,
+  ) async {
+    await pump(tester);
+    expect(find.text('Getränk antippen'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('qty-row-d1')));
+    await tester.pump();
+    expect(find.text('Getränk antippen'), findsNothing);
+  });
+
+  testWidgets('the crates field reads "n K"', (tester) async {
+    await pump(tester);
+    expect(find.text('0 K'), findsNWidgets(2));
+  });
+
+  testWidgets('a long trailing text neither wraps nor overflows', (
+    tester,
+  ) async {
+    await pump(tester, trailing: (d, units) => '1.234,50 € brutto');
+    await tester.tap(find.byKey(const Key('qty-row-d1')));
+    await tester.pump();
+    await keys(tester, '1');
+    final text = find.text('1.234,50 € brutto');
+    expect(text, findsOneWidget);
+    expect(tester.getSize(text).height, lessThan(30));
+    expect(tester.takeException(), isNull);
   });
 }
