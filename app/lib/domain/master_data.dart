@@ -3,6 +3,9 @@ const maxPersonName = 20,
     maxGroupName = 16,
     maxTierName = 16;
 
+/// Highest unit price in cents the server accepts (10 000 €).
+const maxPriceCents = 1000000;
+
 /// Trimmed name, or null when empty or longer than [max] (counted in runes).
 String? cleanName(String raw, int max) {
   final name = raw.trim();

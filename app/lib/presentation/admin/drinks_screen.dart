@@ -289,7 +289,7 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
     final result = <String, int>{};
     for (final t in tiers) {
       final cents = parseEuroCents(_priceField(t.id).text);
-      if (cents == null) return null;
+      if (cents == null || cents > maxPriceCents) return null;
       result[t.id] = cents;
     }
     return result;
@@ -425,6 +425,11 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
                   decoration: InputDecoration(
                     labelText: t.name,
                     suffixText: '€',
+                    errorText:
+                        (parseEuroCents(_priceField(t.id).text) ?? 0) >
+                            maxPriceCents
+                        ? l10n.drinkPriceTooHigh(formatCents(maxPriceCents))
+                        : null,
                   ),
                 ),
               CheckboxListTile(

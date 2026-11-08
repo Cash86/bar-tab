@@ -106,6 +106,8 @@
   "drinkHidden": "Versteckt (nur für Veranstaltungen, z. B. Fässer)",
   "drinkRow": "Kasten {crate} · {prices}",
   "@drinkRow": {"placeholders": {"crate": {"type": "int"}, "prices": {"type": "String"}}},
+  "drinkPriceTooHigh": "Höchstens {max}",
+  "@drinkPriceTooHigh": {"placeholders": {"max": {"type": "String"}}},
   "drinkPricesIncomplete": "Preise passen nicht mehr zu den Preisstufen – bitte prüfen",
   "adminTileGroupsSubtitle": "Name, Farbe, Reihenfolge",
   "groupsTitle": "Gruppen",

@@ -6,6 +6,7 @@ import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/domain/repositories.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/admin/drinks_screen.dart';
+import 'package:bar_tab/presentation/format.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
 import 'package:bar_tab/presentation/providers.dart';
 import 'package:bar_tab/presentation/theme.dart';
@@ -351,6 +352,23 @@ void main() {
     expect(tester.widget<FilledButton>(saveButton()).onPressed, isNull);
     await enter(tester, 'drink-price-t2', '1,505');
     expect(tester.widget<FilledButton>(saveButton()).onPressed, isNull);
+  });
+
+  testWidgets('a price above 10 000 euro cannot be saved', (tester) async {
+    await openDrinks(tester);
+    await fillNew(tester);
+    await enter(tester, 'drink-price-t2', '10000');
+    expect(tester.widget<FilledButton>(saveButton()).onPressed, isNotNull);
+    expect(find.text('Höchstens ${formatCents(1000000)}'), findsNothing);
+    await enter(tester, 'drink-price-t2', '10000,01');
+    expect(tester.widget<FilledButton>(saveButton()).onPressed, isNull);
+    expect(find.text('Höchstens ${formatCents(1000000)}'), findsOneWidget);
+    await tester.tap(saveButton());
+    await tester.pumpAndSettle();
+    expect(
+      server.requests.where((r) => r.url.path.contains('admin/drinks')),
+      isEmpty,
+    );
   });
 
   testWidgets('a crate size below 1 cannot be saved', (tester) async {
