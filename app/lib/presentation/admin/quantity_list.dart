@@ -1,0 +1,346 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../domain/catalog.dart';
+import '../../domain/master_data.dart' as md;
+import '../../l10n/app_localizations.dart';
+import '../design/design.dart';
+import '../drinks/keypad.dart';
+
+const int _maxDigits = 4;
+
+/// Crates and loose units per drink id, edited with one shared keypad.
+class QuantityLines extends ChangeNotifier {
+  final Map<String, int> _crates = {};
+  final Map<String, int> _units = {};
+  String? _selected;
+  bool _crateFocus = true;
+
+  /// The drink whose field the keypad edits, if any.
+  String? get selected => _selected;
+
+  /// Whether the keypad edits the crates field (else the units field).
+  bool get crateFocused => _crateFocus;
+
+  int cratesOf(String drinkId) => _crates[drinkId] ?? 0;
+  int unitsOf(String drinkId) => _units[drinkId] ?? 0;
+
+  /// Selects [drinkId]; the crates field is focused first.
+  void select(String drinkId) {
+    _selected = drinkId;
+    _crateFocus = true;
+    notifyListeners();
+  }
+
+  void focusCrates(bool on) {
+    _crateFocus = on;
+    notifyListeners();
+  }
+
+  void digit(int d) {
+    final id = _selected;
+    if (id == null) return;
+    final map = _crateFocus ? _crates : _units;
+    final current = map[id] ?? 0;
+    if ('$current'.length >= _maxDigits && current > 0) return;
+    map[id] = current * 10 + d;
+    notifyListeners();
+  }
+
+  void backspace() {
+    final id = _selected;
+    if (id == null) return;
+    final map = _crateFocus ? _crates : _units;
+    map[id] = (map[id] ?? 0) ~/ 10;
+    notifyListeners();
+  }
+
+  /// Drink id to single units, only where more than zero.
+  Map<String, int> totals(Map<String, int> crateSizes) {
+    final ids = {..._crates.keys, ..._units.keys};
+    final result = <String, int>{};
+    for (final id in ids) {
+      final size = crateSizes[id];
+      if (size == null) continue;
+      final total = md.unitsOf(
+        crates: cratesOf(id),
+        units: unitsOf(id),
+        crateSize: size,
+      );
+      if (total > 0) result[id] = total;
+    }
+    return result;
+  }
+}
+
+/// Active drinks (hidden ones included) by group with a crates and a units
+/// field each and a side panel with the keypad.
+class QuantityList extends StatelessWidget {
+  const QuantityList({
+    super.key,
+    required this.drinks,
+    required this.groups,
+    required this.lines,
+    this.trailing,
+  });
+
+  final List<Drink> drinks;
+  final List<DrinkGroup> groups;
+  final QuantityLines lines;
+
+  /// Extra text after a row's total, e.g. its amount; shown for units > 0.
+  final String Function(Drink drink, int units)? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedGroups = [...groups]
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final byId = {for (final d in drinks) d.id: d};
+    return ListenableBuilder(
+      listenable: lines,
+      builder: (context, _) => Row(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              children: [for (final g in sortedGroups) ..._section(context, g)],
+            ),
+          ),
+          SizedBox(
+            width: 300,
+            child: _Panel(lines: lines, drink: byId[lines.selected]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _section(BuildContext context, DrinkGroup group) {
+    final tokens = DesignTokens.of(context);
+    final shown = [
+      for (final d in drinks)
+        if (d.groupId == group.id && d.isActive) d,
+    ]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    if (shown.isEmpty) return const [];
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 4),
+        child: Text(
+          group.name,
+          style: TextStyle(color: tokens.muted, fontSize: 18),
+        ),
+      ),
+      for (final d in shown) _Row(drink: d, lines: lines, trailing: trailing),
+    ];
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({
+    required this.drink,
+    required this.lines,
+    required this.trailing,
+  });
+
+  final Drink drink;
+  final QuantityLines lines;
+  final String Function(Drink, int)? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DesignTokens.of(context);
+    final selected = lines.selected == drink.id;
+    final hasCrate = drink.crateSize > 1;
+    final units = md.unitsOf(
+      crates: lines.cratesOf(drink.id),
+      units: lines.unitsOf(drink.id),
+      crateSize: drink.crateSize,
+    );
+    final extra = trailing;
+    return Material(
+      key: Key('qty-row-${drink.id}'),
+      color: selected ? tokens.surface : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          lines.select(drink.id);
+          if (!hasCrate) lines.focusCrates(false);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  drink.name,
+                  style: TextStyle(color: tokens.text, fontSize: 22),
+                ),
+              ),
+              if (hasCrate) ...[
+                _Field(
+                  key: Key('qty-crates-${drink.id}'),
+                  text: '${lines.cratesOf(drink.id)} K',
+                  focused: selected && lines.crateFocused,
+                  onTap: () {
+                    lines.select(drink.id);
+                    lines.focusCrates(true);
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
+              _Field(
+                key: Key('qty-units-${drink.id}'),
+                text: '${lines.unitsOf(drink.id)}',
+                focused: selected && !(hasCrate && lines.crateFocused),
+                onTap: () {
+                  lines.select(drink.id);
+                  lines.focusCrates(false);
+                },
+              ),
+              SizedBox(
+                width: 96,
+                child: Text(
+                  '= $units',
+                  key: Key('qty-total-${drink.id}'),
+                  textAlign: TextAlign.end,
+                  style: TextStyle(color: tokens.text, fontSize: 22),
+                ),
+              ),
+              if (extra != null)
+                SizedBox(
+                  width: 110,
+                  child: Text(
+                    units > 0 ? extra(drink, units) : '',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(color: tokens.muted, fontSize: 18),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  const _Field({
+    super.key,
+    required this.text,
+    required this.focused,
+    required this.onTap,
+  });
+
+  final String text;
+  final bool focused;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DesignTokens.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 80,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        alignment: Alignment.centerRight,
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: focused ? tokens.accent : tokens.muted.withAlpha(90),
+            width: focused ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(text, style: TextStyle(color: tokens.text, fontSize: 22)),
+      ),
+    );
+  }
+}
+
+class _Panel extends ConsumerWidget {
+  const _Panel({required this.lines, required this.drink});
+
+  final QuantityLines lines;
+  final Drink? drink;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final drink = this.drink;
+    if (drink == null) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context);
+    final tokens = DesignTokens.of(context);
+    final hasCrate = drink.crateSize > 1;
+    final crateFocus = hasCrate && lines.crateFocused;
+    Widget chip(Key key, String label, int n, bool focused, bool crates) {
+      return Expanded(
+        child: InkWell(
+          key: key,
+          onTap: () => lines.focusCrates(crates),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: focused ? tokens.accent : tokens.muted.withAlpha(90),
+                width: focused ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '$label: $n',
+              style: TextStyle(color: tokens.text, fontSize: 18),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(drink.name, style: TextStyle(color: tokens.text, fontSize: 24)),
+          if (hasCrate)
+            Text(
+              l10n.quantityCrateSize(drink.crateSize),
+              style: TextStyle(color: tokens.muted, fontSize: 16),
+            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              if (hasCrate) ...[
+                chip(
+                  const Key('qty-chip-crates'),
+                  l10n.quantityCrates,
+                  lines.cratesOf(drink.id),
+                  crateFocus,
+                  true,
+                ),
+                const SizedBox(width: 8),
+              ],
+              chip(
+                const Key('qty-chip-units'),
+                l10n.quantitySingles,
+                lines.unitsOf(drink.id),
+                !crateFocus,
+                false,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Keypad(
+              crateLabel: null,
+              design: ref.watch(appDesignProvider),
+              onDigit: lines.digit,
+              onCrate: () {},
+              onBackspace: lines.backspace,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
