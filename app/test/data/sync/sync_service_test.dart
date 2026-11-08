@@ -368,6 +368,17 @@ void main() {
     },
   );
 
+  test('isSyncing is true exactly while a sync runs', () async {
+    expect(service.isSyncing, isFalse);
+    server.tabsGate = Completer<void>();
+    final run = service.syncNow();
+    await server.tabsRequested.future;
+    expect(service.isSyncing, isTrue);
+    server.tabsGate!.complete();
+    await run;
+    expect(service.isSyncing, isFalse);
+  });
+
   test('catalog 304 keeps the cache', () async {
     final original = catalogFromDto(CatalogDto.fromJson(catalogFixtureJson));
     await catalog.save(original);

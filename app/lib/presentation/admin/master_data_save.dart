@@ -10,9 +10,31 @@ import 'admin_session.dart';
 
 final _log = Logger('admin');
 
-/// Runs [request] through the admin session; on success triggers syncNow() and waits for the
-/// catalog to reload. Returns null on success or the error text to show in the dialog.
-Future<String?> saveMasterData(
+/// Outcome of [saveMasterData].
+sealed class SaveResult {
+  const SaveResult();
+}
+
+/// Written, and the catalog now contains the change.
+final class Saved extends SaveResult {
+  const Saved();
+}
+
+/// Not written; [message] is shown in the dialog.
+final class SaveFailed extends SaveResult {
+  const SaveFailed(this.message);
+  final String message;
+}
+
+/// The admin session ended; the gate shows the PIN prompt, the caller leaves
+/// everything as it is.
+final class SaveSessionEnded extends SaveResult {
+  const SaveSessionEnded();
+}
+
+/// Runs [request] through the admin session; on success syncs and waits until
+/// `catalogProvider` holds the fresh catalog.
+Future<SaveResult> saveMasterData(
   WidgetRef ref,
   AppLocalizations l10n,
   Future<void> Function(BarTabApi api, String token) request,
@@ -20,27 +42,36 @@ Future<String?> saveMasterData(
   try {
     await ref.read(adminSessionProvider.notifier).run(request);
   } on AdminSessionEndedException {
-    // The gate shows the PIN prompt.
-    return null;
+    return const SaveSessionEnded();
   } on RejectedException catch (e) {
     _log.info('Master data rejected: ${e.detail}');
-    return e.detail == 'name_taken' ? l10n.saveNameTaken : l10n.saveFailed;
+    return SaveFailed(
+      e.detail == 'name_taken' ? l10n.saveNameTaken : l10n.saveFailed,
+    );
   } on NetworkException catch (e) {
     _log.info('Master data save unreachable: ${e.message}');
-    return l10n.adminUnreachable;
+    return SaveFailed(l10n.adminUnreachable);
   } on ApiException catch (e) {
     _log.warning('Master data save failed: ${e.message}');
-    return l10n.saveFailed;
+    return SaveFailed(l10n.saveFailed);
   }
+  final sync = ref.read(syncServiceProvider);
   try {
-    await ref.read(syncServiceProvider)?.syncNow();
+    if (sync != null) {
+      // A sync already running may have fetched the catalog before the
+      // write; wait for it, then run one that surely starts after the write.
+      if (sync.isSyncing) await sync.syncNow();
+      await sync.syncNow();
+    }
   } on Object catch (e, st) {
     _log.warning('Sync after master data save failed', e, st);
   }
   try {
+    // The sync's own invalidation may not have landed yet: reload explicitly.
+    ref.invalidate(catalogProvider);
     await ref.read(catalogProvider.future);
   } on Object catch (e, st) {
     _log.warning('Catalog reload after save failed', e, st);
   }
-  return null;
+  return const Saved();
 }

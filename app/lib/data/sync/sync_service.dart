@@ -86,6 +86,9 @@ class SyncService {
     return _running ??= _run().whenComplete(() => _running = null);
   }
 
+  /// Whether a sync is running right now.
+  bool get isSyncing => _running != null;
+
   /// Syncs now and then every [interval] until [stop].
   void start({Duration interval = defaultInterval}) {
     stop();

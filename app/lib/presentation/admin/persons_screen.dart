@@ -221,7 +221,7 @@ class _PersonDialogState extends ConsumerState<PersonDialog> {
       _busy = true;
       _error = null;
     });
-    final error = await saveMasterData(ref, l10n, (api, token) async {
+    final result = await saveMasterData(ref, l10n, (api, token) async {
       if (existing == null) {
         await api.createPerson(token, dto);
       } else {
@@ -229,13 +229,17 @@ class _PersonDialogState extends ConsumerState<PersonDialog> {
       }
     });
     if (!mounted) return;
-    if (error == null) {
-      Navigator.of(context).pop();
-    } else {
-      setState(() {
-        _busy = false;
-        _error = error;
-      });
+    switch (result) {
+      case Saved():
+        Navigator.of(context).pop();
+      case SaveFailed(:final message):
+        setState(() {
+          _busy = false;
+          _error = message;
+        });
+      case SaveSessionEnded():
+        // The screen's session listener leaves the admin area.
+        break;
     }
   }
 

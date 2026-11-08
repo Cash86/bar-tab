@@ -109,6 +109,20 @@ void main() {
       if (path.contains('admin/persons') && r is http.Request) {
         return onWrite(r);
       }
+      // The sync after a write finds nothing to do.
+      if (path.endsWith('/tabs')) {
+        return _json({
+          'period_started_at': '2026-11-01T00:00:00Z',
+          'tabs': <String, int>{},
+        });
+      }
+      if (path.endsWith('/catalog')) return catalogResponse();
+      if (path.endsWith('/rankings')) {
+        return _json({
+          'overall': <String, int>{},
+          'persons': <String, Object>{},
+        });
+      }
       return _json({});
     };
   });
@@ -305,6 +319,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(inDialog(find.text('Name ist schon vergeben')), findsOneWidget);
+  });
+
+  testWidgets('an ended session leaves to the PIN prompt without popping', (
+    tester,
+  ) async {
+    onWrite = (r) async => _json({'detail': 'admin_session_required'}, 401);
+    await openPersons(tester);
+    await tester.tap(find.text('+ Neue Person'));
+    await tester.pumpAndSettle();
+    await enterName(tester, 'Lena New');
+    await tester.tap(saveButton());
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(PersonsScreen), findsNothing);
+    expect(find.byKey(const Key('admin-pin-login')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('another rejection says saving is not possible', (tester) async {
