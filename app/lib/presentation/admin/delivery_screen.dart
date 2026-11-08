@@ -15,6 +15,9 @@ import 'quantity_list.dart';
 final _log = Logger('admin');
 const _uuid = Uuid();
 
+/// Server limit for the quantity of one delivery line (`MAX_DELIVERY_UNITS`).
+const int _maxLineUnits = 99999;
+
 /// Record a delivery: crates and units per drink, booked in one batch.
 class DeliveryScreen extends ConsumerStatefulWidget {
   const DeliveryScreen({super.key});
@@ -24,7 +27,18 @@ class DeliveryScreen extends ConsumerStatefulWidget {
 }
 
 class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
-  final QuantityLines _lines = QuantityLines();
+  late final QuantityLines _lines = QuantityLines(
+    maxLineUnits: _maxLineUnits,
+    crateSizeOf: (id) =>
+        ref
+            .read(catalogProvider)
+            .value
+            ?.drinks
+            .where((d) => d.id == id)
+            .firstOrNull
+            ?.crateSize ??
+        1,
+  );
 
   /// Request ids of the last attempt by drink id, kept so a retry after a
   /// lost answer is recognised by the server instead of booked twice.

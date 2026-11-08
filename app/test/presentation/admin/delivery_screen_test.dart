@@ -237,6 +237,18 @@ void main() {
     expect(find.byType(DeliveryScreen), findsNothing);
   });
 
+  testWidgets('a line cannot exceed the server limit of 99999 units', (
+    tester,
+  ) async {
+    await openDelivery(tester);
+    // 5000 crates of 20 would be 100000: the last digit is ignored.
+    await enter(tester, 'd1', crates: '5000');
+    expect(find.text('= 10000'), findsOneWidget);
+    // 4999 crates = 99980; 20 more units would pass 99999, so the 0 is ignored.
+    await enter(tester, 'd4', crates: '4999', units: '20');
+    expect(find.text('= 99982'), findsOneWidget);
+  });
+
   testWidgets('cancelling the confirmation sends nothing', (tester) async {
     await openDelivery(tester);
     await enter(tester, 'd1', crates: '1');
