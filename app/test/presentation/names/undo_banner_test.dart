@@ -123,7 +123,7 @@ void _bannerTests(AppDesign design) {
             FakeRankingsRepository(),
           ),
           tabsRepositoryProvider.overrideWithValue(
-            FakeTabsRepository({'p1': 4435, 'p2': 0}),
+            FakeTabsRepository({'p1': 4435, 'p2': 0}, bookings),
           ),
           syncServiceProvider.overrideWithValue(sync),
           clockProvider.overrideWithValue(clock),

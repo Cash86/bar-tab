@@ -7,6 +7,7 @@ import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/domain/rankings.dart';
 import 'package:bar_tab/domain/repositories.dart';
+import 'package:bar_tab/domain/running_total.dart';
 import 'package:bar_tab/domain/sync_state.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -170,9 +171,13 @@ class FakeBookingRepository implements BookingRepository {
 
 /// Server tabs held in memory.
 class FakeTabsRepository implements TabsRepository {
-  FakeTabsRepository([Map<String, int>? tabs]) : tabs = {...?tabs};
+  FakeTabsRepository([Map<String, int>? tabs, this.bookings])
+    : tabs = {...?tabs};
 
   final Map<String, int> tabs;
+
+  /// When set, the running total also counts its not-included bookings.
+  final FakeBookingRepository? bookings;
 
   @override
   Future<void> save(Map<String, int> tabs) async => this.tabs
@@ -181,6 +186,20 @@ class FakeTabsRepository implements TabsRepository {
 
   @override
   Stream<int> watchTab(String personId) => Stream.value(tabs[personId] ?? 0);
+
+  @override
+  Stream<int> watchRunningTotal(String personId) {
+    final local = bookings;
+    if (local == null) return Stream.value(tabs[personId] ?? 0);
+    return local
+        .watchNotIncluded(personId)
+        .map(
+          (list) => runningTotalCents(
+            serverTabCents: tabs[personId] ?? 0,
+            localBookings: list,
+          ),
+        );
+  }
 
   @override
   Future<void> clear() async => tabs.clear();

@@ -15,12 +15,10 @@ import '../data/repositories/rankings_repository_impl.dart';
 import '../data/repositories/server_config_repository_impl.dart';
 import '../data/repositories/tabs_repository_impl.dart';
 import '../data/sync/sync_service.dart';
-import '../domain/booking.dart';
 import '../domain/catalog.dart';
 import '../domain/clock.dart';
 import '../domain/rankings.dart';
 import '../domain/repositories.dart';
-import '../domain/running_total.dart';
 import '../domain/sync_state.dart';
 
 final clockProvider = Provider<Clock>((ref) => SystemClock());
@@ -149,32 +147,12 @@ final rankingsProvider = StreamProvider<DrinkRankings?>(
   (ref) => ref.watch(rankingsRepositoryProvider).watch(),
 );
 
-final _tabProvider = StreamProvider.family<int, String>(
-  (ref, personId) => ref.watch(tabsRepositoryProvider).watchTab(personId),
-);
-
-final _localBookingsProvider = StreamProvider.family<List<Booking>, String>(
+/// Server tab plus not-yet-included local bookings of [personId], in cents,
+/// from one query (never an intermediate value during a sync).
+final runningTotalProvider = StreamProvider.family<int, String>(
   (ref, personId) =>
-      ref.watch(bookingRepositoryProvider).watchNotIncluded(personId),
+      ref.watch(tabsRepositoryProvider).watchRunningTotal(personId),
 );
-
-/// Server tab plus not-yet-included local bookings of [personId], in cents.
-/// Loading until both sources have emitted.
-final runningTotalProvider = Provider.family<AsyncValue<int>, String>((
-  ref,
-  personId,
-) {
-  final tab = ref.watch(_tabProvider(personId));
-  final local = ref.watch(_localBookingsProvider(personId));
-  if (tab.hasError) return AsyncError(tab.error!, tab.stackTrace!);
-  if (local.hasError) return AsyncError(local.error!, local.stackTrace!);
-  final tabCents = tab.value;
-  final bookings = local.value;
-  if (tabCents == null || bookings == null) return const AsyncLoading();
-  return AsyncData(
-    runningTotalCents(serverTabCents: tabCents, localBookings: bookings),
-  );
-});
 
 enum PairingResult { success, unauthorised, unreachable }
 

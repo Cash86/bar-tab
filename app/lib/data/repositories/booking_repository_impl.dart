@@ -29,7 +29,7 @@ class BookingRepositoryImpl implements BookingRepository {
       t.holdUntil.isBiggerThanValue(now) &
       t.holdUntil.isSmallerOrEqualValue(now.add(kUndoWindow));
 
-  static Booking _toDomain(BookingRow r) => Booking(
+  static Booking toDomain(BookingRow r) => Booking(
     id: r.id,
     personId: r.personId,
     drinkId: r.drinkId,
@@ -77,7 +77,7 @@ class BookingRepositoryImpl implements BookingRepository {
       )
       ..orderBy([(t) => OrderingTerm.asc(t.bookedAt)])
       ..limit(limit);
-    return (await q.get()).map(_toDomain).toList();
+    return (await q.get()).map(toDomain).toList();
   }
 
   @override
@@ -142,7 +142,7 @@ class BookingRepositoryImpl implements BookingRepository {
         (t) => t.personId.equals(personId) & t.includedInTabs.equals(false),
       )
       ..orderBy([(t) => OrderingTerm.asc(t.bookedAt)]);
-    return q.watch().map((rows) => rows.map(_toDomain).toList());
+    return q.watch().map((rows) => rows.map(toDomain).toList());
   }
 
   /// Held bookings are not counted as queued (they are not waiting for the

@@ -42,6 +42,10 @@ abstract interface class TabsRepository {
   Future<void> save(Map<String, int> tabs);
   Stream<int> watchTab(String personId);
 
+  /// Server tab plus the person's not-yet-included local bookings, in cents,
+  /// from one query: every emission is one consistent snapshot.
+  Stream<int> watchRunningTotal(String personId);
+
   /// Drops every cached tab (re-pairing: they belong to the old server).
   Future<void> clear();
 }

@@ -1,5 +1,7 @@
 import 'package:bar_tab/data/db/database.dart';
+import 'package:bar_tab/data/repositories/booking_repository_impl.dart';
 import 'package:bar_tab/data/repositories/tabs_repository_impl.dart';
+import 'package:bar_tab/domain/booking.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,5 +55,48 @@ void main() {
     await pumpEventQueue();
     expect(values, [500, 0]);
     expect(await db.select(db.tabs).get(), isEmpty);
+  });
+
+  group('watchRunningTotal', () {
+    Booking booking(
+      String id,
+      BookingStatus status, {
+      String person = 'p1',
+      bool included = false,
+    }) => Booking(
+      id: id,
+      personId: person,
+      drinkId: 'd1',
+      quantity: 2,
+      unitPriceCents: 150,
+      bookedAt: DateTime.utc(2026, 11, 2, 18),
+      status: status,
+      includedInTabs: included,
+    );
+
+    test('is 0 without tab or bookings', () async {
+      expect(await repo.watchRunningTotal('p1').first, 0);
+    });
+
+    test('without a tab only the local bookings count', () async {
+      await BookingRepositoryImpl(
+        db,
+        clock,
+      ).addAll([booking('a', BookingStatus.queued)]);
+      expect(await repo.watchRunningTotal('p1').first, 300);
+    });
+
+    test('counts queued and accepted-not-included on top of the tab', () async {
+      await repo.save({'p1': 1000, 'p2': 5000});
+      await BookingRepositoryImpl(db, clock).addAll([
+        booking('q', BookingStatus.queued),
+        booking('a', BookingStatus.accepted),
+        booking('rej', BookingStatus.rejected),
+        booking('con', BookingStatus.conflict),
+        booking('inc', BookingStatus.accepted, included: true),
+        booking('other', BookingStatus.queued, person: 'p2'),
+      ]);
+      expect(await repo.watchRunningTotal('p1').first, 1600);
+    });
   });
 }

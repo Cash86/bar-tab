@@ -306,30 +306,21 @@ void main() {
     Future<void> pump() =>
         Future<void>.delayed(const Duration(milliseconds: 20));
 
-    test('loading until both sources emitted, then tab plus local', () async {
-      final tabs = StreamController<int>();
-      final bookings = StreamController<List<Booking>>();
+    test('loading until the first emission, then tab plus local', () async {
+      final total = StreamController<int>();
       final c = ProviderContainer(
         overrides: [
-          tabsRepositoryProvider.overrideWithValue(_FakeTabs(tabs.stream)),
-          bookingRepositoryProvider.overrideWithValue(
-            _FakeBookings(bookings.stream),
-          ),
+          tabsRepositoryProvider.overrideWithValue(_FakeTabs(total.stream)),
         ],
       );
       addTearDown(c.dispose);
       c.listen(runningTotalProvider('p1'), (_, _) {});
       expect(c.read(runningTotalProvider('p1')).isLoading, isTrue);
 
-      tabs.add(500);
-      await pump();
-      expect(c.read(runningTotalProvider('p1')).isLoading, isTrue);
-
-      bookings.add([booking('a', BookingStatus.queued)]);
+      total.add(800);
       await pump();
       expect(c.read(runningTotalProvider('p1')).value, 800);
-      await tabs.close();
-      await bookings.close();
+      await total.close();
     });
 
     test(
@@ -358,19 +349,51 @@ void main() {
       },
     );
 
-    test('dropping the last listener cancels both source streams', () async {
-      var tabsCancelled = false;
-      var bookingsCancelled = false;
-      final tabs = StreamController<int>(onCancel: () => tabsCancelled = true);
-      final bookings = StreamController<List<Booking>>(
-        onCancel: () => bookingsCancelled = true,
+    test('running total never shows an intermediate value when a booking moves '
+        'into the tab', () async {
+      final tabs = TabsRepositoryImpl(db, FixedClock(DateTime.utc(2026)));
+      final bookings = BookingRepositoryImpl(
+        db,
+        FixedClock(DateTime.utc(2026)),
       );
+      await tabs.save({'p1': 300});
+      await bookings.addAll([
+        Booking(
+          id: 'a',
+          personId: 'p1',
+          drinkId: 'd1',
+          quantity: 1,
+          unitPriceCents: 150,
+          bookedAt: DateTime.utc(2026, 11, 2, 18),
+          status: BookingStatus.accepted,
+          includedInTabs: false,
+        ),
+      ]);
+      final seen = <int>[];
+      container.listen(runningTotalProvider('p1'), (_, next) {
+        final v = next.value;
+        if (v != null) seen.add(v);
+      }, fireImmediately: true);
+      await pump();
+      expect(seen.last, 450);
+
+      // The same transaction the sync runs when the server tab absorbs it.
+      await db.transaction(() async {
+        await tabs.save({'p1': 450});
+        await bookings.markIncludedInTabs({'a'});
+      });
+      await pump();
+
+      expect(seen, isNotEmpty);
+      expect(seen.toSet(), {450});
+    });
+
+    test('dropping the last listener cancels the source stream', () async {
+      var cancelled = false;
+      final total = StreamController<int>(onCancel: () => cancelled = true);
       final c = ProviderContainer(
         overrides: [
-          tabsRepositoryProvider.overrideWithValue(_FakeTabs(tabs.stream)),
-          bookingRepositoryProvider.overrideWithValue(
-            _FakeBookings(bookings.stream),
-          ),
+          tabsRepositoryProvider.overrideWithValue(_FakeTabs(total.stream)),
         ],
       );
       addTearDown(c.dispose);
@@ -379,8 +402,7 @@ void main() {
       sub.close();
       c.dispose();
       await pump();
-      expect(tabsCancelled, isTrue);
-      expect(bookingsCancelled, isTrue);
+      expect(cancelled, isTrue);
     });
   });
 }
@@ -389,18 +411,11 @@ class _FakeTabs implements TabsRepository {
   _FakeTabs(this._stream);
   final Stream<int> _stream;
   @override
-  Stream<int> watchTab(String personId) => _stream;
+  Stream<int> watchTab(String personId) => throw UnimplementedError();
+  @override
+  Stream<int> watchRunningTotal(String personId) => _stream;
   @override
   Future<void> save(Map<String, int> tabs) => throw UnimplementedError();
   @override
   Future<void> clear() => throw UnimplementedError();
-}
-
-class _FakeBookings implements BookingRepository {
-  _FakeBookings(this._stream);
-  final Stream<List<Booking>> _stream;
-  @override
-  Stream<List<Booking>> watchNotIncluded(String personId) => _stream;
-  @override
-  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
