@@ -4,6 +4,7 @@ OPERATION_IDS = {
     "getHealth",
     "openAdminSession",
     "pingAdmin",
+    "changeAdminPin",
     "closeAdminSession",
     "getCatalog",
     "postBookings",

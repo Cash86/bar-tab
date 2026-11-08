@@ -15,14 +15,16 @@ from bartab.api.schemas import (
     AdminSessionResponse,
     ErrorResponse,
     LockedResponse,
+    PinChangeRequest,
 )
-from bartab.persistence.repos import get_setting
+from bartab.persistence.repos import get_setting, set_setting
 from bartab.security import (
     ADMIN_PIN_HASH_KEY,
     ADMIN_SESSION_IDLE_SECONDS,
     AdminSessions,
     LockedOut,
     PinLockout,
+    hash_pin,
     verify_pin,
 )
 
@@ -54,6 +56,38 @@ def open_admin_session(
     lockout.reset(device_id)
     token = sessions.open(device_id)
     return AdminSessionResponse(token=token, expires_in=ADMIN_SESSION_IDLE_SECONDS)
+
+
+@router.put(
+    "/admin/pin",
+    name="changeAdminPin",
+    status_code=204,
+    responses={
+        401: {"model": ErrorResponse},
+        403: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
+        429: {"model": LockedResponse},
+    },
+)
+def change_admin_pin(
+    body: PinChangeRequest,
+    device_id: str = Depends(require_admin),
+    lockout: PinLockout = Depends(get_lockout),
+    session: Session = Depends(get_session),
+) -> Response:
+    try:
+        lockout.begin_attempt(device_id)
+    except LockedOut as locked:
+        return JSONResponse(
+            status_code=429, content={"detail": "locked", "retry_after": locked.retry_after}
+        )
+    pin_hash = get_setting(session, ADMIN_PIN_HASH_KEY)
+    if pin_hash is None or not verify_pin(body.current_pin, pin_hash):
+        # 403, not 401: the app treats an admin 401 as "session ended".
+        raise HTTPException(status_code=403, detail="wrong_pin")
+    lockout.reset(device_id)
+    set_setting(session, ADMIN_PIN_HASH_KEY, hash_pin(body.new_pin))
+    return Response(status_code=204)
 
 
 @router.get(

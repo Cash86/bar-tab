@@ -709,6 +709,25 @@
         "title": "PersonUpdate",
         "type": "object"
       },
+      "PinChangeRequest": {
+        "properties": {
+          "current_pin": {
+            "title": "Current Pin",
+            "type": "string"
+          },
+          "new_pin": {
+            "pattern": "^\\d{4,8}$",
+            "title": "New Pin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_pin",
+          "new_pin"
+        ],
+        "title": "PinChangeRequest",
+        "type": "object"
+      },
       "PriceTierOut": {
         "properties": {
           "id": {
@@ -1907,6 +1926,73 @@
           }
         ],
         "summary": "Updateperson"
+      }
+    },
+    "/api/v1/admin/pin": {
+      "put": {
+        "operationId": "changeAdminPin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockedResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Changeadminpin"
       }
     },
     "/api/v1/admin/ping": {

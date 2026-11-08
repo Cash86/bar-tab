@@ -18,6 +18,11 @@ class AdminSessionRequest(BaseModel):
     pin: str = Field(pattern=r"^\d{4,8}$")
 
 
+class PinChangeRequest(BaseModel):
+    current_pin: str
+    new_pin: str = Field(pattern=r"^\d{4,8}$")
+
+
 class AdminSessionResponse(BaseModel):
     token: str
     expires_in: int

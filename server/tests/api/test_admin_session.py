@@ -199,3 +199,55 @@ def test_malformed_pins_do_not_consume_lockout_attempts(client, device_headers):
     for _ in range(5):
         assert _login(client, device_headers, pin="12ab").status_code == 422
     assert _login(client, device_headers).status_code == 200
+
+
+PIN = "/api/v1/admin/pin"
+
+
+def _admin_headers(client, device_headers, pin="1234"):
+    token = _login(client, device_headers, pin).json()["token"]
+    return {**device_headers, "X-Admin-Token": token}
+
+
+def _change(client, headers, current="1234", new="5678"):
+    return client.put(PIN, json={"current_pin": current, "new_pin": new}, headers=headers)
+
+
+def test_change_pin_then_new_pin_logs_in_old_does_not(client, device_headers):
+    headers = _admin_headers(client, device_headers)
+    assert _change(client, headers).status_code == 204
+    assert _login(client, device_headers, "5678").status_code == 200
+    r = _login(client, device_headers, "1234")
+    assert r.status_code == 401
+    assert r.json() == {"detail": "wrong_pin"}
+
+
+def test_wrong_current_pin_is_403_and_counts_for_lockout(client, device_headers):
+    headers = _admin_headers(client, device_headers)
+    for _ in range(5):
+        r = _change(client, headers, current="0000")
+        assert r.status_code == 403
+        assert r.json() == {"detail": "wrong_pin"}
+    r = _change(client, headers)
+    assert r.status_code == 429
+    assert r.json() == {"detail": "locked", "retry_after": 60}
+    assert _login(client, device_headers).status_code == 429
+
+
+def test_change_pin_requires_admin_session(client, device_headers):
+    r = _change(client, device_headers)
+    assert r.status_code == 401
+    assert r.json() == {"detail": "admin_session_required"}
+
+
+def test_new_pin_must_be_4_to_8_digits(client, device_headers):
+    headers = _admin_headers(client, device_headers)
+    for bad in ("123", "123456789", "12a4"):
+        assert _change(client, headers, new=bad).status_code == 422
+    assert _login(client, device_headers).status_code == 200
+
+
+def test_session_survives_pin_change(client, device_headers):
+    headers = _admin_headers(client, device_headers)
+    assert _change(client, headers).status_code == 204
+    assert client.get(PING, headers=headers).status_code == 204
