@@ -38,10 +38,11 @@ cleanup() {
 trap cleanup EXIT
 
 device_key="$(openssl rand -hex 32)"
+device_key2="$(openssl rand -hex 32)"
 
 cat > "$tmp/.env" <<ENV
 BARTAB_SECRET_KEY=$(openssl rand -hex 32)
-BARTAB_DEVICE_KEYS=${device_key}
+BARTAB_DEVICE_KEYS=${device_key},${device_key2}
 BARTAB_INITIAL_ADMIN_PIN=4711
 BARTAB_PUBLIC_URL=${base_url}
 ENV
@@ -81,7 +82,9 @@ echo "== seeding demo data"
 
 echo "== running e2e test"
 cd "$app_dir"
-flutter test test_e2e \
+# One file at a time: the PIN test briefly changes the shared admin PIN.
+flutter test test_e2e --concurrency=1 \
   --dart-define=E2E_BASE_URL="$base_url" \
   --dart-define=E2E_DEVICE_KEY="$device_key" \
+  --dart-define=E2E_DEVICE_KEY2="$device_key2" \
   --dart-define=E2E_ADMIN_PIN=4711
