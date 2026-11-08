@@ -172,6 +172,9 @@ After booking, the latest order can be undone on the name list for 15 seconds (�
 wrong bookings are corrected by an admin storno (§4.3).
 
 ### 4.3 Admin area
+Milestone 3 details (master data, deliveries, event bookings, PIN change, re-pairing):
+`2026-11-08-m3-admin-design.md`.
+
 Entered with the shared admin PIN. The admin stays logged in until they log out or 2 minutes pass
 without interaction (the same idle that starts the screensaver); both end the session on the server
 too. While the admin is active the app keeps the server session alive (§5). Admin
