@@ -5,6 +5,7 @@ import 'package:bar_tab/domain/app_design.dart';
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
+import 'package:bar_tab/presentation/admin/admin_bookings_screen.dart';
 import 'package:bar_tab/presentation/admin/admin_session.dart';
 import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/kiosk.dart';
@@ -122,7 +123,7 @@ void main() {
     await pump(tester);
     await openGate(tester);
     await login(tester);
-    expect(find.byKey(const Key('admin-bookings')), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-bookings')), findsOneWidget);
     server.requests.clear();
   }
 
@@ -237,13 +238,21 @@ void main() {
     expect(server.requests.last.headers['X-Admin-Token'], 't1');
   });
 
+  testWidgets('the bookings tile opens the bookings screen', (tester) async {
+    await loggedIn(tester);
+    server.respond = (r) async => _json(<Object>[]);
+    await tester.tap(find.byKey(const Key('admin-tile-bookings')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AdminBookingsScreen), findsOneWidget);
+  });
+
   testWidgets('back is blocked while logged in', (tester) async {
     await loggedIn(tester);
     expect(find.byType(BackButton), findsNothing);
     final popped = await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(popped, isTrue);
-    expect(find.byKey(const Key('admin-bookings')), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-bookings')), findsOneWidget);
   });
 
   testWidgets('idle on the admin home logs out and returns to the name list', (
@@ -275,7 +284,7 @@ void main() {
       await tester.tapAt(const Offset(640, 700));
     }
     await tester.pump(_idle * 0.6);
-    expect(find.byKey(const Key('admin-bookings')), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-bookings')), findsOneWidget);
     expect(calls(), isEmpty);
     await tester.pump(_idle * 0.5);
     await tester.pumpAndSettle();
@@ -318,7 +327,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls(), ['GET /api/v1/admin/ping']);
     expect(find.text('Admin-PIN'), findsOneWidget);
-    expect(find.byKey(const Key('admin-bookings')), findsNothing);
+    expect(find.byKey(const Key('admin-tile-bookings')), findsNothing);
   });
 
   group('design choice', () {
@@ -362,6 +371,15 @@ void main() {
       await tester.pumpAndSettle();
       await openGate(tester);
       await login(tester);
+      await tester.tap(find.byKey(const Key('admin-tile-design')));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> logoutFromDesign(WidgetTester tester) async {
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('admin-logout')));
+      await tester.pumpAndSettle();
     }
 
     Set<AppDesign> selected(WidgetTester tester) => tester
@@ -374,24 +392,18 @@ void main() {
       tester.element(find.text('Wer trinkt?')),
     ).scaffoldBackgroundColor;
 
-    testWidgets('the admin home offers the three designs above Buchungen', (
-      tester,
-    ) async {
+    testWidgets('the design screen offers the three designs', (tester) async {
       await pumpDesigned(tester, AppDesign.standard);
-      expect(find.text('Design'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(AppBar), matching: find.text('Design')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('design-standard')), findsOneWidget);
       expect(find.byKey(const Key('design-kreidetafel')), findsOneWidget);
       expect(find.byKey(const Key('design-bierdeckel')), findsOneWidget);
       expect(find.text('Standard'), findsOneWidget);
       expect(find.text('Kreidetafel'), findsOneWidget);
       expect(find.text('Bierdeckel'), findsOneWidget);
-      final choiceY = tester
-          .getCenter(find.byKey(const Key('design-kreidetafel')))
-          .dy;
-      final bookingsY = tester
-          .getCenter(find.byKey(const Key('admin-bookings')))
-          .dy;
-      expect(choiceY, lessThan(bookingsY));
     });
 
     forEachDesign((design) {
@@ -410,8 +422,7 @@ void main() {
       expect(store.values[kDesignConfigKey], 'kreidetafel');
       expect(selected(tester), {AppDesign.kreidetafel});
 
-      await tester.tap(find.byKey(const Key('admin-logout')));
-      await tester.pumpAndSettle();
+      await logoutFromDesign(tester);
       expect(
         nameListBackground(tester),
         tokensFor(AppDesign.kreidetafel).background,
@@ -436,15 +447,13 @@ void main() {
       await pumpDesigned(tester, AppDesign.standard);
       await tester.tap(find.byKey(const Key('design-bierdeckel')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('admin-logout')));
-      await tester.pumpAndSettle();
+      await logoutFromDesign(tester);
 
       // A new app start reads the design before building the scope.
       await tester.pumpWidget(const SizedBox());
       await pumpDesigned(tester, await loadDesign(store));
       expect(selected(tester), {AppDesign.bierdeckel});
-      await tester.tap(find.byKey(const Key('admin-logout')));
-      await tester.pumpAndSettle();
+      await logoutFromDesign(tester);
       expect(
         nameListBackground(tester),
         tokensFor(AppDesign.bierdeckel).background,

@@ -2,17 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logging/logging.dart';
 
-import '../../domain/app_design.dart';
 import '../../l10n/app_localizations.dart';
 import '../design/design.dart';
 import '../drinks/keypad.dart';
-import 'admin_bookings_screen.dart';
+import 'admin_home.dart';
 import 'admin_idle.dart';
 import 'admin_session.dart';
-
-final _log = Logger('admin');
 
 const _minPinLength = 4;
 const _maxPinLength = 8;
@@ -41,8 +37,19 @@ class AdminGate extends ConsumerWidget {
           appBar: AppBar(
             title: Text(AppLocalizations.of(context).adminTitle),
             automaticallyImplyLeading: !loggedIn,
+            actions: [
+              if (loggedIn)
+                TextButton(
+                  key: const Key('admin-logout'),
+                  onPressed: () {
+                    unawaited(ref.read(adminSessionProvider.notifier).logout());
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  child: Text(AppLocalizations.of(context).adminLogout),
+                ),
+            ],
           ),
-          body: loggedIn ? const _AdminHome() : const _PinPrompt(),
+          body: loggedIn ? const AdminHome() : const _PinPrompt(),
         ),
       ),
     );
@@ -154,93 +161,5 @@ class _PinPromptState extends ConsumerState<_PinPrompt> {
         ),
       ),
     );
-  }
-}
-
-class _AdminHome extends ConsumerWidget {
-  const _AdminHome();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const _DesignChoice(),
-            const SizedBox(height: 32),
-            FilledButton(
-              key: const Key('admin-bookings'),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const AdminBookingsScreen(),
-                ),
-              ),
-              child: Text(l10n.adminBookings),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              key: const Key('admin-logout'),
-              onPressed: () {
-                unawaited(ref.read(adminSessionProvider.notifier).logout());
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              child: Text(l10n.adminLogout),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Choice of the tablet's design; applies at once.
-class _DesignChoice extends ConsumerWidget {
-  const _DesignChoice();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
-    final tokens = DesignTokens.of(context);
-    final labels = {
-      AppDesign.standard: l10n.designStandard,
-      AppDesign.kreidetafel: l10n.designKreidetafel,
-      AppDesign.bierdeckel: l10n.designBierdeckel,
-    };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          l10n.designTitle,
-          style: TextStyle(color: tokens.muted, fontSize: 16),
-        ),
-        const SizedBox(height: 8),
-        SegmentedButton<AppDesign>(
-          showSelectedIcon: false,
-          segments: [
-            for (final MapEntry(key: design, value: label) in labels.entries)
-              ButtonSegment(
-                value: design,
-                label: Text(label, key: Key('design-${design.storageKey}')),
-              ),
-          ],
-          selected: {ref.watch(appDesignProvider)},
-          onSelectionChanged: (choice) =>
-              unawaited(_select(ref, choice.single)),
-        ),
-      ],
-    );
-  }
-
-  /// A failed write keeps the old design; the choice can be tapped again.
-  Future<void> _select(WidgetRef ref, AppDesign design) async {
-    try {
-      await ref.read(appDesignProvider.notifier).select(design);
-    } on Object catch (e, st) {
-      _log.severe('Storing the design failed', e, st);
-    }
   }
 }

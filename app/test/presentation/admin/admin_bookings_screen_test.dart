@@ -221,7 +221,7 @@ void main() {
     }
     await tester.tap(find.byKey(const Key('admin-pin-login')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('admin-bookings')));
+    await tester.tap(find.byKey(const Key('admin-tile-bookings')));
     await tester.pumpAndSettle();
     expect(find.byType(AdminBookingsScreen), findsOneWidget);
   }
@@ -297,7 +297,7 @@ void main() {
     }
     await tester.tap(find.byKey(const Key('admin-pin-login')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('admin-bookings')));
+    await tester.tap(find.byKey(const Key('admin-tile-bookings')));
     await tester.pumpAndSettle();
     expect(find.text('Server nicht erreichbar'), findsOneWidget);
   });
@@ -485,7 +485,7 @@ void main() {
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(find.byType(AdminBookingsScreen), findsNothing);
-    expect(find.byKey(const Key('admin-bookings')), findsOneWidget);
+    expect(find.byKey(const Key('admin-tile-bookings')), findsOneWidget);
   });
 
   testWidgets('idle on the bookings list logs out to the name list', (
