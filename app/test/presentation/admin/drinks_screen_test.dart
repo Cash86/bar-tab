@@ -567,5 +567,21 @@ void main() {
       expect(find.text('Speichern nicht möglich'), findsOneWidget);
       expect(y(tester, 'Pils'), lessThan(y(tester, 'Weizen')));
     });
+
+    testWidgets('a rejected reorder reloads the catalog for the next try', (
+      tester,
+    ) async {
+      onOrder = (r) async {
+        // Another tablet changed the group meanwhile: the order no longer
+        // matches. No revision bump, so only a reload shows the new drink.
+        drinks = [...drinks, _drink('d9', 'Radler', order: 4)];
+        return _json({'detail': 'order_mismatch'}, 409);
+      };
+      await openDrinks(tester);
+      await dragDown(tester, 'd1', 90);
+      await tester.pumpAndSettle();
+      expect(find.text('Speichern nicht möglich'), findsOneWidget);
+      expect(find.text('Radler'), findsOneWidget);
+    });
   });
 }

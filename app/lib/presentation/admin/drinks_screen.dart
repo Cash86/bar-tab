@@ -98,8 +98,11 @@ class _DrinksScreenState extends ConsumerState<DrinksScreen> {
     );
     if (!mounted) return;
     if (_pending[groupId] == ids) setState(() => _pending.remove(groupId));
-    if (result case SaveFailed(:final message)) {
+    if (result case SaveFailed(:final message, :final detail)) {
       messenger.showSnackBar(SnackBar(content: Text(message)));
+      // Refused (e.g. order_mismatch): the list was stale, so the next
+      // attempt must start from the server's current data.
+      if (detail != null) await refreshCatalog(ref);
     }
   }
 

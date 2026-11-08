@@ -428,5 +428,24 @@ void main() {
       expect(find.text('Speichern nicht möglich'), findsOneWidget);
       expect(y(tester, 'Aktive'), lessThan(y(tester, 'AH')));
     });
+
+    testWidgets('a rejected reorder reloads the catalog for the next try', (
+      tester,
+    ) async {
+      onOrder = (r) async {
+        // Another tablet added a tier meanwhile: the order no longer
+        // matches. No revision bump, so only a reload shows it.
+        tiers = [
+          ...tiers,
+          const PriceTier(id: 't9', name: 'Ehrengast', sortOrder: 9),
+        ];
+        return _json({'detail': 'order_mismatch'}, 409);
+      };
+      await openTiers(tester);
+      await dragDown(tester, 't1', 90);
+      await tester.pumpAndSettle();
+      expect(find.text('Speichern nicht möglich'), findsOneWidget);
+      expect(find.text('Ehrengast'), findsOneWidget);
+    });
   });
 }
