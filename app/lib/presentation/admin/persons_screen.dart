@@ -298,7 +298,7 @@ class _PersonDialogState extends ConsumerState<PersonDialog> {
                 ? null
                 : () => _save(isActive: !existing.isActive),
             child: Text(
-              existing.isActive ? l10n.personDeactivate : l10n.personActivate,
+              existing.isActive ? l10n.masterDeactivate : l10n.masterActivate,
             ),
           ),
         TextButton(

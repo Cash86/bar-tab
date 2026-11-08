@@ -449,8 +449,8 @@ void main() {
     final accept = onWrite;
     onWrite = (r) async {
       onWrite = accept;
+      // No revision bump: only the dialog's own refresh may surface the tier.
       tiers = [...tiers, const PriceTier(id: 't3', name: 'VIPs', sortOrder: 3)];
-      container.read(_revision.notifier).state++;
       return _json({'detail': 'prices_incomplete'}, 422);
     };
     await openDrinks(tester);

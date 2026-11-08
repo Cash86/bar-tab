@@ -97,7 +97,7 @@ class _DrinksScreenState extends ConsumerState<DrinksScreen> {
       (api, token) => api.reorderDrinks(token, groupId, ids),
     );
     if (!mounted) return;
-    setState(() => _pending.remove(groupId));
+    if (_pending[groupId] == ids) setState(() => _pending.remove(groupId));
     if (result case SaveFailed(:final message)) {
       messenger.showSnackBar(SnackBar(content: Text(message)));
     }
@@ -237,7 +237,9 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
   bool _busy = false;
 
   /// The live catalog; the dialog's own catalog until it has loaded.
-  Catalog get _catalog => ref.watch(catalogProvider).value ?? widget.catalog;
+  Catalog _catalogOf(WidgetRef ref, {bool watch = true}) =>
+      (watch ? ref.watch(catalogProvider) : ref.read(catalogProvider)).value ??
+      widget.catalog;
 
   @override
   void initState() {
@@ -296,7 +298,7 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
   }
 
   Future<void> _save({bool? isActive}) async {
-    final catalog = _catalog;
+    final catalog = _catalogOf(ref, watch: false);
     final name = _clean;
     final crate = _crateSize;
     final prices = _pricesOrNull(_sortedTiers(catalog));
@@ -350,7 +352,7 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final existing = widget.drink;
-    final catalog = _catalog;
+    final catalog = _catalogOf(ref);
     final tiers = _sortedTiers(catalog);
     final groups = [...catalog.groups]
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
@@ -450,7 +452,7 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
                 ? () => _save(isActive: !existing.isActive)
                 : null,
             child: Text(
-              existing.isActive ? l10n.personDeactivate : l10n.personActivate,
+              existing.isActive ? l10n.masterDeactivate : l10n.masterActivate,
             ),
           ),
         TextButton(
