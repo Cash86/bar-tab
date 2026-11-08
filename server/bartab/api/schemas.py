@@ -157,3 +157,27 @@ class TierWrite(BaseModel):
 
 class OrderWrite(BaseModel):
     ids: list[str]
+
+
+class DeliveryIn(BaseModel):
+    """Range checks (quantity) and drink existence happen in the repository."""
+
+    id: UUID
+    drink_id: str
+    quantity: int
+
+
+class DeliveryBatchRequest(BaseModel):
+    deliveries: list[DeliveryIn] = Field(min_length=1, max_length=200)
+
+
+class DeliveryOut(BaseModel):
+    id: str
+    drink_id: str
+    quantity: int
+    created_at: datetime
+    cancelled_at: datetime | None
+
+
+class DeliveriesResponse(BaseModel):
+    deliveries: list[DeliveryOut]
