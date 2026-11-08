@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../design/design.dart';
 import 'admin_bookings_screen.dart';
+import 'deliveries_screen.dart';
 import 'delivery_screen.dart';
 import 'design_screen.dart';
 import 'drinks_screen.dart';
@@ -67,6 +68,12 @@ final List<_TileSpec> _tiles = [
     label: (l) => l.deliveryTitle,
     subtitle: (l) => l.adminTileDeliverySubtitle,
     screen: () => const DeliveryScreen(),
+  ),
+  (
+    name: 'deliveries',
+    label: (l) => l.deliveriesTitle,
+    subtitle: (l) => l.adminTileDeliveriesSubtitle,
+    screen: () => const DeliveriesScreen(),
   ),
 ];
 

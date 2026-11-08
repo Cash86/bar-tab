@@ -184,6 +184,26 @@
   "@quantityCratesField": {"placeholders": {"count": {"type": "int"}}},
   "quantityHint": "Getränk antippen",
   "quantitySingles": "Einzeln",
+  "deliveriesTitle": "Lieferungen",
+  "adminTileDeliveriesSubtitle": "ansehen & stornieren",
+  "deliveriesEmpty": "Keine Lieferungen in dieser Periode",
+  "deliveriesStornoConfirm": "Lieferung stornieren?",
+  "deliveriesStornoDone": "Lieferung storniert",
+  "deliveriesStornoSummary": "{time} · {drink} · {units}",
+  "@deliveriesStornoSummary": {
+    "description": "Delivery summary in the storno dialog; units is a deliveryUnits value.",
+    "placeholders": {"time": {"type": "String"}, "drink": {"type": "String"}, "units": {"type": "String"}}
+  },
+  "deliveryUnits": "{units} ({crates})",
+  "@deliveryUnits": {
+    "description": "Units of a delivery with whole crates, e.g. '40 (2 K)'; crates is a quantityCratesField value.",
+    "placeholders": {"units": {"type": "int"}, "crates": {"type": "String"}}
+  },
+  "deliveryUnitsWithRest": "{units} ({crates} + {rest})",
+  "@deliveryUnitsWithRest": {
+    "description": "Units of a delivery with crates and single units, e.g. '45 (2 K + 5)'.",
+    "placeholders": {"units": {"type": "int"}, "crates": {"type": "String"}, "rest": {"type": "int"}}
+  },
   "adminCancel": "Abbrechen",
   "adminStornoDone": "Storniert",
   "adminCancelled": "storniert",

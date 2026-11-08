@@ -54,7 +54,14 @@ void main() {
     expect(find.byKey(const Key('admin-tile-bookings')), findsOneWidget);
     expect(find.byKey(const Key('admin-tile-design')), findsOneWidget);
     expect(find.text('Buchungen'), findsOneWidget);
-    expect(find.text('ansehen & stornieren'), findsOneWidget);
+    // The deliveries tile carries the same subtitle, so look inside the tile.
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('admin-tile-bookings')),
+        matching: find.text('ansehen & stornieren'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Standard · Kreidetafel · Bierdeckel'), findsOneWidget);
   });
 

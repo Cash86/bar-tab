@@ -14,6 +14,7 @@ import '../providers.dart';
 import '../design/design.dart';
 import 'admin_idle.dart';
 import 'admin_session.dart';
+import 'storno_confirm.dart';
 
 final _log = Logger('admin');
 
@@ -86,7 +87,12 @@ class _AdminBookingsScreenState extends ConsumerState<AdminBookingsScreen> {
     if (_busy.contains(booking.id)) return;
     setState(() => _busy.add(booking.id));
     try {
-      if (!await _confirm(summary) || !mounted) return;
+      final confirmed = await confirmStorno(
+        context,
+        title: AppLocalizations.of(context).adminStornoConfirm,
+        summary: summary,
+      );
+      if (!confirmed || !mounted) return;
       final dto = await ref
           .read(adminSessionProvider.notifier)
           .run((api, token) => api.cancelBooking(token, booking.id));
@@ -126,40 +132,6 @@ class _AdminBookingsScreenState extends ConsumerState<AdminBookingsScreen> {
     } finally {
       if (mounted) setState(() => _busy.remove(booking.id));
     }
-  }
-
-  Future<bool> _confirm(String summary) async {
-    final l10n = AppLocalizations.of(context);
-    // A second tap during the closing animation must not pop this screen.
-    var answered = false;
-    void answer(BuildContext dialogContext, bool value) {
-      if (answered) return;
-      answered = true;
-      Navigator.of(dialogContext).pop(value);
-    }
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AdminIdleGuard(
-        child: AlertDialog(
-          title: Text(l10n.adminStornoConfirm),
-          content: Text(summary),
-          actions: [
-            TextButton(
-              key: const Key('storno-dialog-cancel'),
-              onPressed: () => answer(dialogContext, false),
-              child: Text(l10n.adminCancel),
-            ),
-            FilledButton(
-              key: const Key('storno-dialog-confirm'),
-              onPressed: () => answer(dialogContext, true),
-              child: Text(l10n.adminStorno),
-            ),
-          ],
-        ),
-      ),
-    );
-    return result ?? false;
   }
 
   /// The session ended (server restart, expiry): back to the gate, which
