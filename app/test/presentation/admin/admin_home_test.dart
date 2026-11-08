@@ -37,7 +37,10 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: Scaffold(body: AdminHome(onRepair: onRepair)),
+          home: Scaffold(
+            appBar: AppBar(title: const Text('Admin')),
+            body: AdminHome(onRepair: onRepair),
+          ),
         ),
       ),
     );
@@ -82,13 +85,32 @@ void main() {
     testWidgets('fits 1280x720 without overflow', (tester) async {
       await pump(tester, design: design);
       expect(tester.takeException(), isNull);
-      expect(
-        tester.getRect(find.byKey(const Key('admin-tile-design'))).right,
-        lessThanOrEqualTo(1280),
+      // The home sits below the app bar: every tile and the link must lie
+      // inside the visible body, not just inside the window.
+      final body = tester.getRect(find.byType(AdminHome));
+      final tiles = find.byWidgetPredicate(
+        (w) =>
+            w.key is ValueKey<String> &&
+            (w.key! as ValueKey<String>).value.startsWith('admin-tile-'),
       );
+      expect(tiles, findsWidgets);
+      // All tiles fit without scrolling.
+      expect(
+        tester
+            .state<ScrollableState>(find.byType(Scrollable))
+            .position
+            .maxScrollExtent,
+        0,
+      );
+      for (final tile in tiles.evaluate()) {
+        final rect = tester.getRect(find.byWidget(tile.widget));
+        expect(body.contains(rect.topLeft), isTrue);
+        expect(rect.bottom, lessThanOrEqualTo(body.bottom));
+        expect(rect.right, lessThanOrEqualTo(body.right));
+      }
       expect(
         tester.getRect(find.byKey(const Key('admin-repair'))).bottom,
-        lessThanOrEqualTo(720),
+        lessThanOrEqualTo(body.bottom),
       );
     });
   });

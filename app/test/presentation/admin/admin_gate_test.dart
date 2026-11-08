@@ -7,6 +7,7 @@ import 'package:bar_tab/domain/clock.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/admin/admin_bookings_screen.dart';
 import 'package:bar_tab/presentation/admin/admin_session.dart';
+import 'package:bar_tab/presentation/admin/design_screen.dart';
 import 'package:bar_tab/presentation/design/design.dart';
 import 'package:bar_tab/presentation/kiosk.dart';
 import 'package:bar_tab/presentation/names/name_list_screen.dart';
@@ -404,6 +405,18 @@ void main() {
       expect(find.text('Standard'), findsOneWidget);
       expect(find.text('Kreidetafel'), findsOneWidget);
       expect(find.text('Bierdeckel'), findsOneWidget);
+    });
+
+    testWidgets('idle on the design screen logs out to the name list', (
+      tester,
+    ) async {
+      await pumpDesigned(tester, AppDesign.standard);
+      server.requests.clear();
+      await tester.pump(_idle);
+      await tester.pumpAndSettle();
+      expect(find.text('Wer trinkt?'), findsOneWidget);
+      expect(find.byType(DesignScreen), findsNothing);
+      expect(calls(), ['DELETE /api/v1/admin/session']);
     });
 
     forEachDesign((design) {
