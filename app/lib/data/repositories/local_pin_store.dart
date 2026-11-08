@@ -16,6 +16,10 @@ class LocalPinStore {
   static const _saltLength = 16;
   static const _hashBits = 256;
 
+  /// A stored count above this is treated as garbled: it would block the
+  /// tablet for minutes.
+  static const maxIterations = 1000000;
+
   final ConfigStore _store;
   final int iterations;
   final Random _random;
@@ -45,7 +49,8 @@ class LocalPinStore {
 
   Future<bool> hasPin() async => (await _store.read(key)) != null;
 
-  /// False for a wrong PIN, no stored PIN and an unreadable stored value.
+  /// False for a wrong PIN, no stored PIN, an unreadable stored value and any
+  /// failure while reading or hashing; never throws.
   Future<bool> verify(String pin) async {
     try {
       final stored = await _store.read(key);
@@ -53,12 +58,12 @@ class LocalPinStore {
       final parts = stored.split(r'$');
       if (parts.length != 4 || parts[0] != _version) return false;
       final count = int.parse(parts[1]);
-      if (count < 1) return false;
+      if (count < 1 || count > maxIterations) return false;
       final salt = base64Decode(parts[2]);
       final expected = base64Decode(parts[3]);
       final actual = await _derive(pin, salt, count);
       return _constantTimeEquals(actual, expected);
-    } on FormatException {
+    } on Object {
       return false;
     }
   }

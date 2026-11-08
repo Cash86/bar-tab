@@ -8,7 +8,8 @@ import 'admin_session.dart';
 
 /// Wraps an admin route: every touch, drag or scroll counts as activity (and
 /// keeps the server session alive); after [idleTimeoutProvider] without any,
-/// the admin is logged out and the app returns to the name list.
+/// the admin is logged out (and a local unlock ends) and the app returns to
+/// the name list.
 class AdminIdleGuard extends ConsumerStatefulWidget {
   const AdminIdleGuard({required this.child, super.key});
 
@@ -58,6 +59,7 @@ class _AdminIdleGuardState extends ConsumerState<AdminIdleGuard>
       return;
     }
     unawaited(ref.read(adminSessionProvider.notifier).logout());
+    ref.read(localAdminProvider.notifier).lock();
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 

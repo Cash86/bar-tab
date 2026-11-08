@@ -14,6 +14,9 @@ abstract interface class RankingsRepository {
 
   /// Emits `null` while no rankings have been cached.
   Stream<DrinkRankings?> watch();
+
+  /// Drops the cached rankings (re-pairing: they belong to the old server).
+  Future<void> clear();
 }
 
 abstract interface class BookingRepository {
@@ -38,6 +41,9 @@ abstract interface class BookingRepository {
 abstract interface class TabsRepository {
   Future<void> save(Map<String, int> tabs);
   Stream<int> watchTab(String personId);
+
+  /// Drops every cached tab (re-pairing: they belong to the old server).
+  Future<void> clear();
 }
 
 abstract interface class ServerConfigRepository {

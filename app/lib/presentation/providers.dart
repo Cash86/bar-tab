@@ -92,9 +92,15 @@ class ServerConfigNotifier extends AsyncNotifier<ServerConfig?> {
       ref.watch(serverConfigRepositoryProvider).load();
 
   /// Persists [config]; dependants (api, sync) rebuild with the stored value.
-  Future<void> save(ServerConfig config) async {
+  /// [onStored] runs after the write and before the rebuild, so the new sync
+  /// service never races it.
+  Future<void> save(
+    ServerConfig config, {
+    Future<void> Function()? onStored,
+  }) async {
     final repository = ref.read(serverConfigRepositoryProvider);
     await repository.save(config);
+    await onStored?.call();
     state = AsyncData(await repository.load());
   }
 }
@@ -180,8 +186,10 @@ class Pairing {
   final Ref _ref;
 
   /// Checks [config] against the server, then stores catalog and config.
-  /// Never throws; on any failure neither is left changed.
-  Future<PairingResult> pair(ServerConfig config) async {
+  /// Never throws; on any failure neither is left changed. With [repair] the
+  /// tabs and rankings cached from the old server are dropped once the new
+  /// config is stored; bookings are never touched.
+  Future<PairingResult> pair(ServerConfig config, {bool repair = false}) async {
     final catalogs = _ref.read(catalogRepositoryProvider);
     final api = BarTabApi(
       client: _ref.read(httpClientProvider),
@@ -194,7 +202,9 @@ class Pairing {
       final previous = await catalogs.cached();
       await catalogs.save(catalog);
       try {
-        await _ref.read(serverConfigProvider.notifier).save(config);
+        await _ref
+            .read(serverConfigProvider.notifier)
+            .save(config, onStored: repair ? _clearServerCaches : null);
       } on Object {
         // Config is saved last, so only the catalog needs undoing.
         if (previous == null) {
@@ -210,6 +220,16 @@ class Pairing {
     } on Object catch (e, st) {
       _pairingLog.warning('Pairing failed', e, st);
       return PairingResult.unreachable;
+    }
+  }
+
+  /// Best effort: the next sync replaces both caches anyway.
+  Future<void> _clearServerCaches() async {
+    try {
+      await _ref.read(tabsRepositoryProvider).clear();
+      await _ref.read(rankingsRepositoryProvider).clear();
+    } on Object catch (e, st) {
+      _pairingLog.warning('Old server caches not cleared', e, st);
     }
   }
 }

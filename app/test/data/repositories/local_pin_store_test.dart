@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:bar_tab/data/repositories/local_pin_store.dart';
+import 'package:bar_tab/data/repositories/server_config_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../fixtures/fakes.dart';
@@ -54,9 +55,25 @@ void main() {
       r'v1$2$!!!$!!!',
       r'v1$0$AA==$AA==',
       r'v1$2$AA==',
+      // An absurd iteration count would block the tablet for hours.
+      r'v1$99999999999$AA==$AA==',
+      r'v1$1000001$AA==$AA==',
     ]) {
       config.values['admin_pin_local'] = bad;
       expect(await store.verify('1234'), isFalse, reason: bad);
     }
   });
+
+  test('verify is false when reading the store fails', () async {
+    final broken = LocalPinStore(_ThrowingStore(), iterations: 2);
+    expect(await broken.verify('1234'), isFalse);
+  });
+}
+
+class _ThrowingStore implements ConfigStore {
+  @override
+  Future<String?> read(String key) async => throw StateError('disk gone');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }

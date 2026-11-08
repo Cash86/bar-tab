@@ -181,6 +181,9 @@ class FakeTabsRepository implements TabsRepository {
 
   @override
   Stream<int> watchTab(String personId) => Stream.value(tabs[personId] ?? 0);
+
+  @override
+  Future<void> clear() async => tabs.clear();
 }
 
 /// Drink rankings held in memory; `watch` emits the current value on listen
@@ -194,6 +197,12 @@ class FakeRankingsRepository implements RankingsRepository {
   @override
   Future<void> save(DrinkRankings rankings) async {
     this.rankings = rankings;
+    _changed.add(null);
+  }
+
+  @override
+  Future<void> clear() async {
+    rankings = null;
     _changed.add(null);
   }
 

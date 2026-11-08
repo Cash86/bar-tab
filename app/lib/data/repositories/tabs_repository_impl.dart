@@ -27,6 +27,9 @@ class TabsRepositoryImpl implements TabsRepository {
   }
 
   @override
+  Future<void> clear() => _db.delete(_db.tabs).go();
+
+  @override
   Stream<int> watchTab(String personId) {
     final q = _db.select(_db.tabs)..where((t) => t.personId.equals(personId));
     return q.watchSingleOrNull().map((r) => r?.cents ?? 0);

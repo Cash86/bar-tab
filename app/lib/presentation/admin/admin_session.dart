@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 
 import '../../data/api/api_client.dart';
+import '../../data/repositories/local_pin_store.dart';
 import '../providers.dart';
 
 final _log = Logger('admin');
@@ -43,7 +44,12 @@ class AdminSessionNotifier extends Notifier<String?> {
             return (AdminLoginResult.unreachable, null);
           }
           _lastRequest = ref.read(clockProvider).now();
+          // A fresh login (PIN asked again) replaces the running session.
+          final previous = state;
           state = token;
+          if (previous != null && previous != token) {
+            unawaited(_revoke(api, previous));
+          }
           unawaited(_rememberPin(pin));
           return (AdminLoginResult.success, null);
         case AdminWrongPin():
@@ -69,13 +75,14 @@ class AdminSessionNotifier extends Notifier<String?> {
     }
   }
 
-  /// Drops the token at once; the server is told on a best-effort basis.
-  Future<void> logout() async {
+  /// Drops the token at once; the server is told on a best-effort basis,
+  /// through [via] when given (the old server after a re-pairing).
+  Future<void> logout({BarTabApi? via}) async {
     final token = state;
     _generation++;
     state = null;
     _lastRequest = null;
-    final api = ref.read(apiProvider);
+    final api = via ?? ref.read(apiProvider);
     if (token == null || api == null) return;
     await _revoke(api, token);
   }
@@ -130,5 +137,74 @@ class AdminSessionNotifier extends Notifier<String?> {
     if (state != token) return;
     state = null;
     _lastRequest = null;
+  }
+}
+
+/// Local PIN lockout, as on the server: the fifth failure locks for 60 s.
+const kLocalPinMaxFailures = 5;
+const kLocalPinLockout = Duration(seconds: 60);
+
+/// `true` while the repair-only admin area is unlocked with the local PIN
+/// hash (the server could not verify the PIN).
+final localAdminProvider = NotifierProvider<LocalAdminNotifier, bool>(
+  LocalAdminNotifier.new,
+);
+
+class LocalAdminNotifier extends Notifier<bool> {
+  int _failures = 0;
+  DateTime? _lockedUntil;
+
+  /// Bumped by [lock]: an unlock still in flight then must not unlock.
+  int _generation = 0;
+
+  @override
+  bool build() => false;
+
+  /// Checks [pin] against the local hash. `unreachable` when no hash is
+  /// stored (the offline path is not available); when locked, the seconds
+  /// until the next try.
+  Future<(AdminLoginResult, int?)> unlock(String pin) async {
+    final store = ref.read(localPinStoreProvider);
+    final generation = _generation;
+    if (!await _hasPin(store)) return (AdminLoginResult.unreachable, null);
+    final now = ref.read(clockProvider).now();
+    final until = _lockedUntil;
+    if (until != null) {
+      final remaining = until.difference(now);
+      if (remaining > Duration.zero) {
+        return (
+          AdminLoginResult.locked,
+          (remaining.inMilliseconds / 1000).ceil(),
+        );
+      }
+      _lockedUntil = null;
+      _failures = 0;
+    }
+    // Counted before the slow check, like the server does.
+    _failures++;
+    if (_failures >= kLocalPinMaxFailures) {
+      _lockedUntil = now.add(kLocalPinLockout);
+    }
+    if (!await store.verify(pin)) return (AdminLoginResult.wrongPin, null);
+    _failures = 0;
+    _lockedUntil = null;
+    if (generation != _generation) return (AdminLoginResult.unreachable, null);
+    state = true;
+    return (AdminLoginResult.success, null);
+  }
+
+  Future<bool> _hasPin(LocalPinStore store) async {
+    try {
+      return await store.hasPin();
+    } on Object catch (e) {
+      _log.warning('Local admin PIN not readable: $e');
+      return false;
+    }
+  }
+
+  /// Ends the local unlock; the failure count and lockout stay.
+  void lock() {
+    _generation++;
+    state = false;
   }
 }

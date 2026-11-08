@@ -29,6 +29,9 @@ class RankingsRepositoryImpl implements RankingsRepository {
   }
 
   @override
+  Future<void> clear() => _db.delete(_db.rankingsCache).go();
+
+  @override
   Stream<DrinkRankings?> watch() {
     return _db.select(_db.rankingsCache).watchSingleOrNull().map((row) {
       if (row == null) return null;

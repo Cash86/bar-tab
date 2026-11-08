@@ -235,5 +235,11 @@
   "pinChangeSave": "PIN ändern",
   "pinChangeMismatch": "PINs stimmen nicht überein",
   "pinChangeDone": "PIN geändert",
-  "pinChangeFailed": "PIN-Änderung nicht möglich"
+  "pinChangeFailed": "PIN-Änderung nicht möglich",
+  "adminOfflineTitle": "Admin (offline)",
+  "@adminOfflineTitle": {
+    "description": "Title of the reduced admin area opened with the local PIN hash while the server cannot verify the PIN; it offers only re-pairing."
+  },
+  "repairWarning": "Das Tablet wird mit einem anderen Server verbunden. Wartende Buchungen bleiben erhalten.",
+  "repairContinue": "Weiter"
 }

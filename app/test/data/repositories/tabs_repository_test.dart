@@ -42,4 +42,16 @@ void main() {
       DateTime.utc(2026, 11, 2, 12),
     );
   });
+
+  test('clear removes every cached tab and re-emits', () async {
+    await repo.save({'p1': 500, 'p2': 700});
+    final values = <int>[];
+    final sub = repo.watchTab('p1').listen(values.add);
+    addTearDown(sub.cancel);
+    await pumpEventQueue();
+    await repo.clear();
+    await pumpEventQueue();
+    expect(values, [500, 0]);
+    expect(await db.select(db.tabs).get(), isEmpty);
+  });
 }

@@ -43,4 +43,16 @@ void main() {
     expect(await repo.watch().first, second);
     expect(await db.select(db.rankingsCache).get(), hasLength(1));
   });
+
+  test('clear drops the cached rankings and watch emits null', () async {
+    await repo.save(first);
+    final seen = <DrinkRankings?>[];
+    final sub = repo.watch().listen(seen.add);
+    addTearDown(sub.cancel);
+    await pumpEventQueue();
+    await repo.clear();
+    await pumpEventQueue();
+    expect(seen, [first, null]);
+    expect(await db.select(db.rankingsCache).get(), isEmpty);
+  });
 }
