@@ -445,6 +445,46 @@ void main() {
       ]);
     });
 
+    testWidgets('idle on the online PIN re-ask returns to the name list', (
+      tester,
+    ) async {
+      await onlineLoggedIn(tester);
+      await openWarning(tester);
+      expect(find.text('Admin-PIN'), findsOneWidget);
+      await tester.pump(const Duration(minutes: 2));
+      await tester.pumpAndSettle();
+      expect(find.text('Wer trinkt?'), findsOneWidget);
+      expect(find.text('Admin-PIN'), findsNothing);
+      expect(container(tester).read(adminSessionProvider), isNull);
+    });
+
+    testWidgets('idle on the online warning returns to the name list', (
+      tester,
+    ) async {
+      await onlineLoggedIn(tester);
+      await openWarning(tester);
+      await login(tester);
+      expect(find.text(_warning), findsOneWidget);
+      await tester.pump(const Duration(minutes: 2));
+      await tester.pumpAndSettle();
+      expect(find.text('Wer trinkt?'), findsOneWidget);
+      expect(find.text(_warning), findsNothing);
+      expect(container(tester).read(adminSessionProvider), isNull);
+    });
+
+    testWidgets('idle on the offline warning returns to the name list', (
+      tester,
+    ) async {
+      await offlineUnlocked(tester);
+      await openWarning(tester);
+      expect(find.text(_warning), findsOneWidget);
+      await tester.pump(const Duration(minutes: 2));
+      await tester.pumpAndSettle();
+      expect(find.text('Wer trinkt?'), findsOneWidget);
+      expect(find.text(_warning), findsNothing);
+      expect(container(tester).read(localAdminProvider), isFalse);
+    });
+
     testWidgets('online: back from the PIN step returns to the admin home', (
       tester,
     ) async {

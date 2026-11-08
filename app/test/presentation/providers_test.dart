@@ -20,6 +20,29 @@ import 'package:http/http.dart' as http;
 
 import '../fixtures/fakes.dart';
 
+/// Delegates to [_inner]; `clear` takes a while before it runs.
+class _SlowClearTabs implements TabsRepository {
+  _SlowClearTabs(this._inner);
+
+  final TabsRepository _inner;
+
+  @override
+  Future<void> clear() async {
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await _inner.clear();
+  }
+
+  @override
+  Future<void> save(Map<String, int> tabs) => _inner.save(tabs);
+
+  @override
+  Stream<int> watchTab(String personId) => _inner.watchTab(personId);
+
+  @override
+  Stream<int> watchRunningTotal(String personId) =>
+      _inner.watchRunningTotal(personId);
+}
+
 void main() {
   late AppDatabase db;
   late FakeApiServer server;
@@ -263,6 +286,37 @@ void main() {
       expect(result, PairingResult.unauthorised);
       expect(container.read(serverConfigProvider).value, oldConfig);
       expect((await db.select(db.tabs).getSingle()).cents, 500);
+    });
+
+    test('the clear runs before the new service starts, so its first '
+        'fetch survives', () async {
+      // A slow clear: were it run after the new config is published, the
+      // new service's first sync would land first and then be wiped.
+      final slow = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          configStoreProvider.overrideWithValue(store),
+          httpClientProvider.overrideWithValue(server.client),
+          clockProvider.overrideWithValue(clock),
+          syncIntervalProvider.overrideWithValue(const Duration(hours: 1)),
+          tabsRepositoryProvider.overrideWith(
+            (ref) => _SlowClearTabs(TabsRepositoryImpl(db, clock)),
+          ),
+        ],
+      );
+      addTearDown(slow.dispose);
+      expect(await slow.read(serverConfigProvider.future), oldConfig);
+      slow.listen(syncServiceProvider, (_, _) {});
+
+      await slow.read(pairingProvider).pair(newConfig, repair: true);
+      await settle();
+
+      // No explicit syncNow: these come from the new service's first sync.
+      expect((await db.select(db.tabs).getSingle()).cents, 900);
+      expect(
+        await RankingsRepositoryImpl(db, clock).watch().first,
+        const DrinkRankings(overall: {}, persons: {}),
+      );
     });
 
     test(
