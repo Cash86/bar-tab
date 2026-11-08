@@ -8,6 +8,7 @@ import 'deliveries_screen.dart';
 import 'delivery_screen.dart';
 import 'design_screen.dart';
 import 'drinks_screen.dart';
+import 'event_booking_screen.dart';
 import 'groups_screen.dart';
 import 'persons_screen.dart';
 import 'tiers_screen.dart';
@@ -74,6 +75,12 @@ final List<_TileSpec> _tiles = [
     label: (l) => l.deliveriesTitle,
     subtitle: (l) => l.adminTileDeliveriesSubtitle,
     screen: () => const DeliveriesScreen(),
+  ),
+  (
+    name: 'event',
+    label: (l) => l.eventTitle,
+    subtitle: (l) => l.adminTileEventSubtitle,
+    screen: () => const EventBookingScreen(),
   ),
 ];
 

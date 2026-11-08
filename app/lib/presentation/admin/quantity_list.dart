@@ -11,6 +11,14 @@ const int _maxDigits = 4;
 
 /// Crates and loose units per drink id, edited with one shared keypad.
 class QuantityLines extends ChangeNotifier {
+  /// With [maxLineUnits] and [crateSizeOf], a digit that would take a line's
+  /// total above [maxLineUnits] single units is ignored; without them only
+  /// the digit count of a field is limited.
+  QuantityLines({this.maxLineUnits, this.crateSizeOf});
+
+  final int? maxLineUnits;
+  final int Function(String drinkId)? crateSizeOf;
+
   final Map<String, int> _crates = {};
   final Map<String, int> _units = {};
   String? _selected;
@@ -44,7 +52,18 @@ class QuantityLines extends ChangeNotifier {
     final map = _crateFocus ? _crates : _units;
     final current = map[id] ?? 0;
     if ('$current'.length >= _maxDigits && current > 0) return;
-    map[id] = current * 10 + d;
+    final next = current * 10 + d;
+    final cap = maxLineUnits;
+    final sizeOf = crateSizeOf;
+    if (cap != null && sizeOf != null) {
+      final total = md.unitsOf(
+        crates: _crateFocus ? next : cratesOf(id),
+        units: _crateFocus ? unitsOf(id) : next,
+        crateSize: sizeOf(id),
+      );
+      if (total > cap) return;
+    }
+    map[id] = next;
     notifyListeners();
   }
 
