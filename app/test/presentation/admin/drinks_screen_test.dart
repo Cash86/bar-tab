@@ -74,6 +74,7 @@ void main() {
   late FixedClock clock;
   late List<Drink> drinks;
   late List<PriceTier> tiers;
+  late List<DrinkGroup> groups;
   late ProviderContainer container;
 
   /// Answers drink writes; default: stores the body and answers 200.
@@ -88,6 +89,10 @@ void main() {
     tiers = const [
       PriceTier(id: 't2', name: 'Guests', sortOrder: 2),
       PriceTier(id: 't1', name: 'Members', sortOrder: 1),
+    ];
+    groups = const [
+      DrinkGroup(id: 'g2', name: 'Softdrinks', sortOrder: 2, color: 0xFF2196F3),
+      DrinkGroup(id: 'g1', name: 'Bier', sortOrder: 1, color: 0xFFFFC107),
     ];
     drinks = [
       _drink('d1', 'Pils'),
@@ -161,10 +166,7 @@ void main() {
   Catalog catalog() => Catalog(
     tiers: tiers,
     persons: const [],
-    groups: const [
-      DrinkGroup(id: 'g2', name: 'Softdrinks', sortOrder: 2, color: 0xFF2196F3),
-      DrinkGroup(id: 'g1', name: 'Bier', sortOrder: 1, color: 0xFFFFC107),
-    ],
+    groups: groups,
     drinks: drinks,
     etag: 'e',
   );
@@ -270,6 +272,26 @@ void main() {
     final order = ['Bier', 'Pils', 'Weizen', 'Softdrinks', 'Cola'];
     final ys = [for (final t in order) y(tester, t)];
     expect(ys, [...ys]..sort());
+  });
+
+  testWidgets('without groups "+ Neu" is disabled with a hint', (tester) async {
+    groups = const [];
+    drinks = [];
+    await openDrinks(tester);
+    final button = tester.widget<ButtonStyleButton>(
+      find.byKey(const Key('drink-new')),
+    );
+    expect(button.enabled, isFalse);
+    expect(find.text('Zuerst eine Gruppe anlegen'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('drink-new')));
+    await tester.pumpAndSettle();
+    expect(find.byType(DrinkDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('with groups "+ Neu" has no hint', (tester) async {
+    await openDrinks(tester);
+    expect(find.text('Zuerst eine Gruppe anlegen'), findsNothing);
   });
 
   testWidgets('the deactivated segment lists deactivated drinks', (

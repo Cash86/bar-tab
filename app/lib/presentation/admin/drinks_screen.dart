@@ -128,7 +128,13 @@ class _DrinksScreenState extends ConsumerState<DrinksScreen> {
                     activeCount: activeCount,
                     inactiveCount: inactiveCount,
                     onChanged: (v) => setState(() => _showActive = v),
-                    onNew: () => _open(catalog, null),
+                    // A drink needs a group.
+                    onNew: catalog.groups.isEmpty
+                        ? null
+                        : () => _open(catalog, null),
+                    newHint: catalog.groups.isEmpty
+                        ? l10n.drinksNeedGroup
+                        : null,
                   ),
                   Expanded(child: _list(l10n, catalog)),
                 ],

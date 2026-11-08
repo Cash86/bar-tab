@@ -67,7 +67,13 @@ class _PersonsScreenState extends ConsumerState<PersonsScreen> {
                     activeCount: activeCount,
                     inactiveCount: inactiveCount,
                     onChanged: (v) => setState(() => _showActive = v),
-                    onNew: () => _open(catalog, null),
+                    // A person needs a price tier.
+                    onNew: catalog.tiers.isEmpty
+                        ? null
+                        : () => _open(catalog, null),
+                    newHint: catalog.tiers.isEmpty
+                        ? l10n.personsNeedTier
+                        : null,
                   ),
                   Expanded(child: _list(l10n, catalog)),
                 ],

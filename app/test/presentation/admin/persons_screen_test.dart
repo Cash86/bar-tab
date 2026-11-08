@@ -67,6 +67,7 @@ void main() {
   late FakeApiServer server;
   late FixedClock clock;
   late List<Person> persons;
+  late List<PriceTier> tiers;
 
   /// Answers person writes; default: stores the body and answers 200.
   late Future<http.Response> Function(http.Request r) onWrite;
@@ -75,6 +76,10 @@ void main() {
   setUp(() {
     server = FakeApiServer();
     clock = FixedClock(DateTime.utc(2026, 11, 5, 21));
+    tiers = const [
+      PriceTier(id: 't2', name: 'Guests', sortOrder: 2),
+      PriceTier(id: 't1', name: 'Members', sortOrder: 1),
+    ];
     persons = [
       _person('p1', 'Kim Example'),
       _person('p2', 'Bo Sample', tier: 't2'),
@@ -128,10 +133,7 @@ void main() {
   });
 
   Catalog catalog() => Catalog(
-    tiers: const [
-      PriceTier(id: 't2', name: 'Guests', sortOrder: 2),
-      PriceTier(id: 't1', name: 'Members', sortOrder: 1),
-    ],
+    tiers: tiers,
     persons: persons,
     groups: const [],
     drinks: const [],
@@ -235,6 +237,28 @@ void main() {
     ];
     final ys = [for (final t in order) y(tester, t)];
     expect(ys, [...ys]..sort());
+  });
+
+  testWidgets('without price tiers "+ Neu" is disabled with a hint', (
+    tester,
+  ) async {
+    tiers = const [];
+    persons = [];
+    await openPersons(tester);
+    final button = tester.widget<ButtonStyleButton>(
+      find.byKey(const Key('person-new')),
+    );
+    expect(button.enabled, isFalse);
+    expect(find.text('Zuerst eine Preisstufe anlegen'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('person-new')));
+    await tester.pumpAndSettle();
+    expect(find.byType(PersonDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('with price tiers "+ Neu" has no hint', (tester) async {
+    await openPersons(tester);
+    expect(find.text('Zuerst eine Preisstufe anlegen'), findsNothing);
   });
 
   testWidgets('the deactivated segment lists deactivated persons', (
