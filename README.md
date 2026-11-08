@@ -96,8 +96,9 @@ there is no Android lock screen). The first touch only wakes it and is not passe
 the tablet's local database until they are synced. Never "clear app data" and never uninstall the
 app while bookings are queued (the sync indicator on the name list shows the count): they would be
 lost for good. If the server rejects the device key (key revoked or changed), fix the key on the
-server side (`BARTAB_DEVICE_KEYS`); do not reinstall the app. Re-pairing the tablet with a new
-server URL or key from inside the app will follow with the admin area.
+server side (`BARTAB_DEVICE_KEYS`); do not reinstall the app. The tablet can also be re-paired with
+a new server URL or key from inside the app (admin area, "Server neu koppeln"); queued
+bookings are kept.
 
 ### Hands-on test (debug build)
 

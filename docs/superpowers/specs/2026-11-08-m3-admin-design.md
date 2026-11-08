@@ -284,3 +284,31 @@ value is emitted when a booking moves from queued to synced.
 12. The header total emits no intermediate wrong value when bookings move from queued to synced.
 13. e2e (`app/tool/e2e.sh`): master data edit → catalog on the tablet; delivery + storno; event
     booking; re-pair against the real server.
+
+## 13. Decisions made during implementation (Claude's calls, please check)
+
+- The existing migration test `test_downgrade_removes_storno_columns` now downgrades to `0001`
+  instead of `-1` (with `0003` present `-1` no longer reaches `0001`); assertions unchanged.
+- The admin-home link to re-pairing stayed disabled until the re-pair flow was wired in.
+- "Deaktivieren"/"Aktivieren" in the person dialog saves immediately, without a separate confirm.
+- A price set that no longer matches the price tiers (`prices_incomplete`) shows "Preise passen
+  nicht mehr zu den Preisstufen – bitte prüfen", keeps the entered values and refreshes the
+  catalog; reordering is optimistic and reverts on failure.
+- Deleting a group or tier asks for confirmation in a dialog, then calls the server; the palette
+  was also checked against the chalk background `#232724`; the visual check on Linux was done by
+  the controller.
+- A delivery line keeps its UUID for retries only while its quantity is unchanged; an edited line
+  gets a new id. A timeout followed by an edit can create two entries, which are visible in
+  "Lieferungen" and can be cancelled.
+- The deliveries tile shares the subtitle "ansehen & stornieren" with the bookings tile.
+- A delivery smaller than one crate is listed as plain units.
+- "Person ändern" in the event booking returns to the picker and resets the lines; each line is
+  capped at 999 units.
+- PBKDF2 stays at 20 000 iterations (about 89/74 ms on desktop, estimated 0.5-1 s on the tablet);
+  to be checked on the tablet on 2026-11-09.
+- The re-pair form keeps the first-start button label "Verbinden".
+- The local PIN lockout survives leaving the gate; the online PIN prompt has no local fallback
+  when the server is unreachable.
+- A sync of the old service that is still running during a re-pair may write old tabs after they
+  were cleared; the next sync replaces them (same-data assumption, §8.3 of this spec).
+- A wrong local PIN shows the existing "PIN falsch" instead of "Falsche PIN".

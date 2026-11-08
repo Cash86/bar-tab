@@ -206,7 +206,7 @@ functions require a server connection (only bookings work offline).
   drinks (group, prices per tier, crate size, hidden, order). Nothing referenced by bookings is
   hard-deleted.
 - **Settings:** recipients of the monthly report and of the settlement (email addresses), change
-  admin PIN, re-send last settlement PDF.
+  admin PIN (shipped in M3; recipients and PDF re-send stay M4), re-send last settlement PDF.
 
 ### 4.4 First start
 The APK is generic. On first launch it asks for the server URL and a device key, validates both
@@ -354,7 +354,7 @@ data, enabling screen pinning.
    characters; decided with issue #4, see `2026-11-07-themes-design.md`).
 4. Inventory & settlement flow + PDF + mail; monthly interim report. Carry-over from the storno
    (§5): every stock, settlement and monthly-report query must exclude cancelled bookings
-   (`cancelled_at IS NULL`); the settlement PDF gets the storno section (booked at, cancelled at,
+   (`cancelled_at IS NULL`) and cancelled deliveries (`stock_entries.cancelled_at IS NULL`); the settlement PDF gets the storno section (booked at, cancelled at,
    person, drink, quantity, amount; the cancelling device is available as
    `cancelled_by_device_id`).
 5. Legacy import (reports values longer than the maximum lengths), deployment on netcup, README/operator docs; cut-over from the old script.
