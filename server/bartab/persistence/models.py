@@ -105,6 +105,8 @@ class StockEntry(_Timestamps, Base):
     drink_id: Mapped[str] = mapped_column(ForeignKey("drinks.id"))
     kind: Mapped[str]
     quantity: Mapped[int]
+    cancelled_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
+    cancelled_by_device_id: Mapped[str | None]
 
 
 class Booking(_Timestamps, Base):

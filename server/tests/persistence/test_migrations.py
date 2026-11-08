@@ -109,8 +109,26 @@ def test_negative_price_is_rejected(db_path: Path) -> None:
 def test_downgrade_removes_storno_columns(db_path: Path) -> None:
     config = Config(str(SERVER_DIR / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0001")
     engine = create_engine(f"sqlite:///{db_path}")
     columns = {column["name"] for column in inspect(engine).get_columns("bookings")}
+    assert "cancelled_at" not in columns
+    assert "cancelled_by_device_id" not in columns
+
+
+def test_upgrade_adds_stock_entry_storno_columns(db_path: Path) -> None:
+    engine = create_engine(f"sqlite:///{db_path}")
+    columns = {column["name"]: column for column in inspect(engine).get_columns("stock_entries")}
+    assert columns["cancelled_at"]["nullable"]
+    assert columns["cancelled_by_device_id"]["nullable"]
+
+
+@pytest.mark.filterwarnings("ignore:Skipped unsupported reflection of expression-based index")
+def test_downgrade_removes_stock_entry_storno_columns(db_path: Path) -> None:
+    config = Config(str(SERVER_DIR / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    command.downgrade(config, "0002")
+    engine = create_engine(f"sqlite:///{db_path}")
+    columns = {column["name"] for column in inspect(engine).get_columns("stock_entries")}
     assert "cancelled_at" not in columns
     assert "cancelled_by_device_id" not in columns
