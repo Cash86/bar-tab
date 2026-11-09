@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../design/design.dart';
 import 'admin_bookings_screen.dart';
+import 'admin_route.dart';
 import 'deliveries_screen.dart';
 import 'delivery_screen.dart';
 import 'design_screen.dart';
@@ -17,7 +18,7 @@ import 'tiers_screen.dart';
 /// Pushes an admin [screen]. All admin tiles use this, so the idle guard's
 /// `didPopNext` re-arms when the screen is left.
 void openAdminScreen(BuildContext context, Widget screen) {
-  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+  Navigator.of(context).push(adminRoute<void>((_) => screen));
 }
 
 typedef _TileSpec = ({

@@ -9,6 +9,7 @@ import '../../domain/booking.dart';
 import '../../domain/catalog.dart';
 import '../../l10n/app_localizations.dart';
 import '../admin/admin_gate.dart';
+import '../admin/admin_route.dart';
 import '../common/sync_indicator.dart';
 import '../design/chalk/chalk_board.dart';
 import '../design/chalk/chalk_name_board.dart';
@@ -169,9 +170,7 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
   }
 
   void _openAdmin() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const AdminGate()));
+    Navigator.of(context).push(adminRoute<void>((_) => const AdminGate()));
   }
 
   /// Time until [holdUntil], within 0..[kUndoWindow] (the clock may step).
@@ -424,7 +423,8 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
                       Positioned(
                         // The till receipt hangs from the top edge.
                         top: design == AppDesign.bierdeckel ? 0 : 8,
-                        right: 28,
+                        // Left of the admin gear, which must stay tappable.
+                        right: 28 + _gearSlot,
                         child: offer != null
                             ? UndoBanner(
                                 design: design,
@@ -444,6 +444,9 @@ class _NameListScreenState extends ConsumerState<NameListScreen> {
     );
   }
 }
+
+/// Width kept free for the admin gear (48 tap target plus a gap).
+const double _gearSlot = 64;
 
 TextStyle _titleStyle(AppDesign design, DesignTokens tokens) =>
     switch (design) {

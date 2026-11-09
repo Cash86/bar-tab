@@ -287,6 +287,31 @@ void _bannerTests(AppDesign design) {
     await tester.pump(kUndoWindow + const Duration(seconds: 1));
   });
 
+  testWidgets('the banner leaves the admin gear free', (tester) async {
+    await pumpApp(tester);
+    await book(tester, 'Kim Example', 2);
+    final gear = find.byKey(const Key('admin-gear'));
+    expect(gear.hitTestable(), findsOneWidget);
+    final banner = tester.getRect(find.byType(UndoBanner));
+    expect(banner.overlaps(tester.getRect(gear)), isFalse);
+    await tester.pump(kUndoWindow);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('the undo info leaves the admin gear free', (tester) async {
+    await pumpApp(tester);
+    await book(tester, 'Kim Example');
+    await tester.tap(undo);
+    await tester.pump();
+    await tester.pump();
+    final gear = find.byKey(const Key('admin-gear'));
+    expect(find.byType(UndoInfo), findsOneWidget);
+    expect(gear.hitTestable(), findsOneWidget);
+    final info = tester.getRect(find.byType(UndoInfo));
+    expect(info.overlaps(tester.getRect(gear)), isFalse);
+    await tester.pump(const Duration(seconds: 10));
+  });
+
   testWidgets('the screensaver waits while the banner is up', (tester) async {
     await pumpApp(
       tester,

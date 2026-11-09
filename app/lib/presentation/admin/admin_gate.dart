@@ -7,6 +7,7 @@ import '../../l10n/app_localizations.dart';
 import '../design/design.dart';
 import 'admin_home.dart';
 import 'admin_idle.dart';
+import 'admin_route.dart';
 import 'admin_session.dart';
 import 'pin_pad.dart';
 import 'repair_screen.dart';
@@ -43,7 +44,7 @@ class AdminGate extends ConsumerWidget {
   Future<void> _repairOnline(BuildContext context) async {
     final confirmed = await Navigator.of(
       context,
-    ).push<bool>(MaterialPageRoute(builder: (_) => const _RepairPinScreen()));
+    ).push<bool>(adminRoute((_) => const _RepairPinScreen()));
     if (confirmed == true && context.mounted) await confirmRepair(context);
   }
 

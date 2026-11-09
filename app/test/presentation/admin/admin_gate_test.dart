@@ -337,7 +337,11 @@ void main() {
     setUp(() => store = pairedStore());
 
     // Like BarTabApp: the theme follows the chosen design.
-    Future<void> pumpDesigned(WidgetTester tester, AppDesign initial) async {
+    Future<void> pumpDesigned(
+      WidgetTester tester,
+      AppDesign initial, {
+      bool enter = true,
+    }) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -371,6 +375,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await openGate(tester);
+      if (!enter) return;
       await login(tester);
       await tester.tap(find.byKey(const Key('admin-tile-design')));
       await tester.pumpAndSettle();
@@ -424,6 +429,46 @@ void main() {
         await pumpDesigned(tester, design);
         expect(selected(tester), {design});
       });
+    });
+
+    // The chosen design styles only the booking screens; admin stays readable.
+    void expectStandardLook(WidgetTester tester, Finder inside) {
+      final element = tester.element(inside);
+      expect(
+        Theme.of(element).scaffoldBackgroundColor,
+        BarTabTheme.data.scaffoldBackgroundColor,
+      );
+      expect(DesignTokens.of(element), tokensFor(AppDesign.standard));
+    }
+
+    forEachDesign((design) {
+      testWidgets('the PIN prompt keeps the standard look', (tester) async {
+        await pumpDesigned(tester, design, enter: false);
+        expectStandardLook(tester, find.text('Admin-PIN'));
+      });
+
+      testWidgets('admin screens keep the standard look', (tester) async {
+        await pumpDesigned(tester, design);
+        expectStandardLook(
+          tester,
+          find.descendant(
+            of: find.byType(AppBar),
+            matching: find.text('Design'),
+          ),
+        );
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expectStandardLook(tester, find.byKey(const Key('admin-logout')));
+      });
+    });
+
+    testWidgets('choosing a design keeps the admin area standard', (
+      tester,
+    ) async {
+      await pumpDesigned(tester, AppDesign.standard);
+      await tester.tap(find.byKey(const Key('design-bierdeckel')));
+      await tester.pumpAndSettle();
+      expectStandardLook(tester, find.byType(SegmentedButton<AppDesign>));
     });
 
     testWidgets('choosing a design stores it and restyles the name list', (
