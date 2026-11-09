@@ -58,7 +58,6 @@ def make_settings(tmp_path, **kw) -> Settings:
         public_url="http://localhost:8000",
         db_path=tmp_path / "b.db",
         data_dir=tmp_path,
-        secret_key="s" * 32,
         device_keys=["k" * 32],
         smtp_host="smtp.example.test",
         smtp_from="bar@example.test",

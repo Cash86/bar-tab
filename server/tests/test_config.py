@@ -9,7 +9,6 @@ def _base_env(monkeypatch, tmp_path, **overrides):
         "BARTAB_PUBLIC_URL": "http://localhost:8000",
         "BARTAB_DB_PATH": str(tmp_path / "db.sqlite"),
         "BARTAB_DATA_DIR": str(tmp_path),
-        "BARTAB_SECRET_KEY": "s" * 32,
         "BARTAB_DEVICE_KEYS": "a" * 32,
     }
     env.update(overrides)
@@ -37,10 +36,25 @@ def test_short_device_key_is_rejected(monkeypatch, tmp_path):
         Settings()
 
 
-def test_short_secret_key_is_rejected(monkeypatch, tmp_path):
-    _base_env(monkeypatch, tmp_path, BARTAB_SECRET_KEY="short")
-    with pytest.raises(ValidationError):
-        Settings()
+def test_old_env_with_secret_key_still_loads(monkeypatch, tmp_path):
+    """BARTAB_SECRET_KEY was removed; an existing .env that still sets it must keep working."""
+    _base_env(monkeypatch, tmp_path, BARTAB_SECRET_KEY="s" * 32)
+    assert not hasattr(Settings(), "secret_key")
+
+
+def test_old_dotenv_with_secret_key_still_loads(monkeypatch, tmp_path):
+    for key in list(__import__("os").environ):
+        if key.startswith("BARTAB_"):
+            monkeypatch.delenv(key)
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "BARTAB_PUBLIC_URL=http://localhost:8000\n"
+        f"BARTAB_DB_PATH={tmp_path}/db.sqlite\n"
+        f"BARTAB_DATA_DIR={tmp_path}\n"
+        f"BARTAB_SECRET_KEY={'s' * 32}\n"
+        f"BARTAB_DEVICE_KEYS={'a' * 32}\n"
+    )
+    assert Settings(_env_file=env_file).device_keys == ["a" * 32]
 
 
 @pytest.mark.parametrize("pin", ["123", "123456789", "12ab"])
@@ -59,7 +73,6 @@ def test_dotenv_file_comma_separated_device_keys(monkeypatch, tmp_path):
         "BARTAB_PUBLIC_URL=http://localhost:8000\n"
         f"BARTAB_DB_PATH={tmp_path}/db.sqlite\n"
         f"BARTAB_DATA_DIR={tmp_path}\n"
-        f"BARTAB_SECRET_KEY={'s' * 32}\n"
         f"BARTAB_DEVICE_KEYS={'a' * 32},{'b' * 32}\n"
     )
     assert Settings(_env_file=env_file).device_keys == ["a" * 32, "b" * 32]
@@ -75,7 +88,7 @@ def test_env_example_placeholders_fail_validation(monkeypatch):
     with pytest.raises(ValidationError) as exc:
         Settings(_env_file=example)
     failed = {err["loc"][0] for err in exc.value.errors()}
-    assert {"secret_key", "device_keys", "initial_admin_pin"} <= failed
+    assert {"device_keys", "initial_admin_pin"} <= failed
 
 
 def test_env_example_with_valid_keys_loads(monkeypatch, tmp_path):

@@ -26,7 +26,6 @@ def build_openapi_json() -> str:
             public_url="http://localhost:8000",
             db_path=Path(tmp) / "openapi.db",
             data_dir=Path(tmp),
-            secret_key="x" * 32,
             device_keys=["d" * 32],
             _env_file=None,  # type: ignore[call-arg]
         )

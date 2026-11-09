@@ -39,7 +39,6 @@ class Settings(BaseSettings):
     public_url: str
     db_path: Path
     data_dir: Path
-    secret_key: str = Field(min_length=MIN_KEY_LENGTH)
     device_keys: list[str] = Field(min_length=1)
     initial_admin_pin: str | None = Field(default=None, pattern=r"^\d{4,8}$")
     tz: str = "Europe/Berlin"

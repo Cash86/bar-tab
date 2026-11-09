@@ -81,7 +81,6 @@ def test_cli_seed_demo_exit_codes(settings, monkeypatch, capsys):
         "BARTAB_PUBLIC_URL": settings.public_url,
         "BARTAB_DB_PATH": str(settings.db_path),
         "BARTAB_DATA_DIR": str(settings.data_dir),
-        "BARTAB_SECRET_KEY": settings.secret_key,
         "BARTAB_DEVICE_KEYS": ",".join(settings.device_keys),
     }.items():
         monkeypatch.setenv(name, value)
@@ -106,7 +105,6 @@ def _cli_env(settings, monkeypatch):
         "BARTAB_PUBLIC_URL": settings.public_url,
         "BARTAB_DB_PATH": str(settings.db_path),
         "BARTAB_DATA_DIR": str(settings.data_dir),
-        "BARTAB_SECRET_KEY": settings.secret_key,
         "BARTAB_DEVICE_KEYS": ",".join(settings.device_keys),
     }.items():
         monkeypatch.setenv(name, value)

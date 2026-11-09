@@ -14,6 +14,7 @@ services:
     #   - traefik.http.routers.bartab.rule=Host(`bar.example.org`)
     #   - traefik.http.routers.bartab.entrypoints=websecure
     #   - traefik.http.routers.bartab.tls.certresolver=<your-certresolver>
+    #   - traefik.http.routers.bartab.middlewares=<your-middlewares>   # optional, else delete
     #   - traefik.http.services.bartab.loadbalancer.server.port=8000
 
 # Variant (b) also needs this top-level block:

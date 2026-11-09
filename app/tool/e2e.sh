@@ -41,7 +41,6 @@ device_key="$(openssl rand -hex 32)"
 device_key2="$(openssl rand -hex 32)"
 
 cat > "$tmp/.env" <<ENV
-BARTAB_SECRET_KEY=$(openssl rand -hex 32)
 BARTAB_DEVICE_KEYS=${device_key},${device_key2}
 BARTAB_INITIAL_ADMIN_PIN=4711
 BARTAB_PUBLIC_URL=${base_url}

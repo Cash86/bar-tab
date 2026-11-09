@@ -23,7 +23,6 @@ def settings(tmp_path, monkeypatch):
         public_url="http://localhost:8000",
         db_path=tmp_path / "bartab.db",
         data_dir=tmp_path,
-        secret_key="s" * 32,
         device_keys=DEVICE_KEYS,
         initial_admin_pin="1234",
     )
