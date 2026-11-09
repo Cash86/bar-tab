@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from bartab.domain.settlement import DrinkLine, PersonLine, Settlement
@@ -66,3 +67,15 @@ def test_monthly_mail_without_overdue_line():
     _, body = monthly_mail(make_settlement(True), None, "November 2026")
     assert "überfällig" not in body
     assert body.splitlines()[0] == "Zwischenstand, keine Abrechnung"
+
+
+def test_monthly_mail_names_sold_out_inactive_drink():
+    s = make_settlement(True)
+    s = replace(
+        s,
+        person_drink={"p1": {"d1": 7, "d9": 1}, "p3": {"d1": 1}},
+        drink_names={"d1": "Pils", "d9": "Winterbock"},
+    )
+    _, body = monthly_mail(s, None, "November 2026")
+    assert "1 × Winterbock" in body
+    assert "d9" not in body

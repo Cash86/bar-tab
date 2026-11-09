@@ -220,3 +220,25 @@ def test_expected_stock_ignores_cancelled_entries():
     ]
     bookings = [booking(qty=3), booking(qty=2, cancelled=True)]
     assert expected_stock([BEER, COLA], stocks, bookings) == {"d1": 12, "d2": 0}
+
+
+def test_names_cover_every_referenced_person_drink_and_group():
+    sold_out = DrinkIn("d3", "Bock", "g3", "Saisonal", 20, False)
+    unused = DrinkIn("d4", "Leer", "g4", "Alt", 20, False)
+    s = settle(
+        [booking("p1"), booking("p3", cancelled=True), booking("p1", drink="d3", qty=2)],
+        [stock("d3", qty=2)],
+        drinks=(BEER, COLA, sold_out, unused),
+    )
+    assert "d3" not in {d.drink_id for d in s.drinks}
+    assert s.person_names == {"p1": "Anna", "p3": "Fass"}
+    assert s.drink_names == {"d1": "Pils", "d2": "Cola", "d3": "Bock"}
+    assert s.group_names == {"g1": "Bier", "g2": "Softdrinks", "g3": "Saisonal"}
+
+
+def test_snapshot_without_name_maps_loads_with_empty_maps():
+    data = settlement_to_json(settle([booking()], [stock()], {"d1": 3, "d2": 0}))
+    for key in ("person_names", "drink_names", "group_names"):
+        del data[key]
+    s = settlement_from_json(data)
+    assert (s.person_names, s.drink_names, s.group_names) == ({}, {}, {})

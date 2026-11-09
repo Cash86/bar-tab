@@ -9,6 +9,13 @@ from fpdf.enums import XPos, YPos
 
 from bartab.domain.settlement import DrinkLine, PersonLine, Settlement
 from bartab.reports.money import format_cents
+from bartab.reports.names import (
+    booked_drink_ids,
+    booked_group_ids,
+    drink_names_of,
+    group_name,
+    person_names_of,
+)
 
 FONT_DIR = Path(__file__).parent / "fonts"
 FAMILY = "DejaVu"
@@ -108,10 +115,11 @@ def _person_rows(people: list[PersonLine], group_ids: list[str]) -> list[list[st
 
 def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
     pdf = _Pdf()
-    group_ids = list(s.group_totals)
-    group_names = [s.group_totals[g].name for g in group_ids]
-    drink_names = {d.drink_id: d.name for d in s.drinks}
-    person_names = {p.person_id: p.name for p in [*s.persons, *s.hidden]}
+    shrink_group_ids = list(s.group_totals)
+    group_ids = booked_group_ids(s)
+    group_names = [group_name(s, g) for g in group_ids]
+    drink_names = drink_names_of(s)
+    person_names = person_names_of(s)
     person_header = ["Person", *group_names, "Betrag"]
 
     pdf.set_font(FAMILY, "B", 16)
@@ -185,7 +193,7 @@ def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
         ]
 
     rows: list[list[str]] = []
-    for gid in group_ids:
+    for gid in shrink_group_ids:
         for d in (d for d in s.drinks if d.group_id == gid):
             rows.append(shrink_row(d.name, d))
         g = s.group_totals[gid]
@@ -245,7 +253,7 @@ def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
 
     pdf.add_page()
     pdf.heading("Anhang: Person × Getränk")
-    drink_ids = [d.drink_id for d in s.drinks]
+    drink_ids = booked_drink_ids(s)
     rows = []
     for p in [*s.persons, *s.hidden]:
         per = s.person_drink.get(p.person_id, {})
@@ -255,7 +263,7 @@ def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
             pdf.ln(3)
         each = min(appendix_col_width(block, pdf.epw), 40.0)
         pdf.table(
-            ["Person", *[drink_names[drink_ids[i]] for i in block]],
+            ["Person", *[drink_names.get(drink_ids[i], drink_ids[i]) for i in block]],
             [[r[0], *[r[1 + i] for i in block]] for r in rows],
             widths=[APPENDIX_FIRST_COL] + [each] * len(block),
         )

@@ -109,3 +109,65 @@ def test_pdf_appendix_with_25_drinks_fits_the_page():
     assert sorted(i for b in blocks for i in b) == list(range(25))
     for block in blocks:
         assert APPENDIX_FIRST_COL + len(block) * appendix_col_width(block, epw) <= epw + 1e-6
+
+
+def _computed(bookings, stocks, counts):
+    from bartab.domain.settlement import DrinkIn, PersonIn, TierIn, compute_settlement
+
+    tier = TierIn("t1", "Aktive", 1, True)
+    return compute_settlement(
+        period_id="per1",
+        started_at=datetime(2026, 10, 1, tzinfo=UTC),
+        ended_at=datetime(2026, 11, 1, tzinfo=UTC),
+        persons=[
+            PersonIn("p1", "Anna Beispiel", "t1", False, False),
+            PersonIn("p2", "Bert Storno", "t1", False, False),
+        ],
+        tiers=[tier],
+        drinks=[
+            DrinkIn("d1", "Pils", "g1", "Bier", 20, True),
+            DrinkIn("d9", "Winterbock", "g9", "Saisonal", 20, False),
+        ],
+        bookings=bookings,
+        stocks=stocks,
+        prices={("t1", "d1"): 100, ("t1", "d9"): 200},
+        counts=counts,
+        valuation_tier=tier,
+    )
+
+
+def test_pdf_names_person_whose_only_booking_was_cancelled():
+    s = _computed(
+        [
+            BookingIn("p1", "d1", 1, 100, T, None, False),
+            BookingIn("p2", "d1", 1, 100, T, T, False),
+        ],
+        [StockIn("d1", "opening", 10, T, None)],
+        {"d1": 9},
+    )
+    text = text_of(render_settlement_pdf(s, "Europe/Berlin"))
+    assert "Bert Storno" in text
+    assert "p2" not in text
+
+
+def test_pdf_lists_sold_out_inactive_drink_and_its_group():
+    # Winterbock: inactive, opening 2, both sold -> expected 0, not counted
+    s = _computed(
+        [
+            BookingIn("p1", "d1", 1, 100, T, None, False),
+            BookingIn("p1", "d9", 2, 200, T, None, False),
+            BookingIn("p1", "d9", 1, 200, T, T, False),
+        ],
+        [StockIn("d1", "opening", 10, T, None), StockIn("d9", "opening", 2, T, None)],
+        {"d1": 9},
+    )
+    assert [d.drink_id for d in s.drinks] == ["d1"]
+    text = text_of(render_settlement_pdf(s, "Europe/Berlin"))
+    assert "d9" not in text
+    appendix = text[text.index("Anhang") :]
+    assert "Winterbock" in appendix
+    person_table = text[text.index("Mitglieder je Preisstufe") : text.index("Versteckte Konten")]
+    assert "Saisonal" in person_table
+    assert "Anna Beispiel 1 2 5,00 €" in person_table
+    # appendix row: Pils 1, Winterbock 2 -> 1*100 + 2*200 = 5,00 €
+    assert "Anna Beispiel 1 2" in appendix

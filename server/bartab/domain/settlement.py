@@ -3,7 +3,7 @@
 import hashlib
 import json
 from collections.abc import Iterable
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import Any
 
@@ -101,6 +101,11 @@ class Settlement:
     cancelled_bookings: list[BookingIn]
     person_drink: dict[str, dict[str, int]]
     tier_names: dict[str, str]
+    # names of every person, drink and group the figures reference (bookings, cancelled ones
+    # included, stock entries and counted drinks); drinks and groups in sort order
+    person_names: dict[str, str] = field(default_factory=dict)
+    drink_names: dict[str, str] = field(default_factory=dict)
+    group_names: dict[str, str] = field(default_factory=dict)
 
 
 def effective_valuation_tier(tiers: Iterable[TierIn], chosen_id: str | None) -> TierIn:
@@ -284,6 +289,10 @@ def compute_settlement(
     persons_total = sum(p.amount_cents for p in visible)
     hidden_total = sum(p.amount_cents for p in hidden)
     stocks = list(stocks)
+    referenced_persons = {b.person_id for b in bookings}
+    referenced_drinks = {d.id for d in to_count} | {b.drink_id for b in bookings}
+    referenced_drinks |= {x.drink_id for x in stocks}
+    named_drinks = [d for d in drinks if d.id in referenced_drinks]
     return Settlement(
         period_id=period_id,
         started_at=started_at,
@@ -311,6 +320,9 @@ def compute_settlement(
         ),
         person_drink=person_drink,
         tier_names={t.id: t.name for t in tiers},
+        person_names={p.id: p.name for p in persons if p.id in referenced_persons},
+        drink_names={d.id: d.name for d in named_drinks},
+        group_names={d.group_id: d.group_name for d in named_drinks},
     )
 
 
@@ -395,6 +407,9 @@ def settlement_to_json(s: Settlement) -> dict[str, Any]:
         "cancelled_bookings": [_booking_to_json(b) for b in s.cancelled_bookings],
         "person_drink": s.person_drink,
         "tier_names": s.tier_names,
+        "person_names": s.person_names,
+        "drink_names": s.drink_names,
+        "group_names": s.group_names,
     }
 
 
@@ -418,4 +433,7 @@ def settlement_from_json(d: dict[str, Any]) -> Settlement:
         cancelled_bookings=[_booking_from_json(b) for b in d["cancelled_bookings"]],
         person_drink=d["person_drink"],
         tier_names=d["tier_names"],
+        person_names=d.get("person_names", {}),
+        drink_names=d.get("drink_names", {}),
+        group_names=d.get("group_names", {}),
     )

@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from bartab.domain.settlement import Settlement
 from bartab.reports.money import format_cents
+from bartab.reports.names import drink_names_of
 
 _MONTHS = (
     "Januar",
@@ -53,7 +54,7 @@ def monthly_mail(preview: Settlement, overdue: int | None, month_label: str) -> 
     if overdue is not None:
         lines += [f"Inventur überfällig seit {overdue} Tagen", ""]
     lines += ["Zwischenstand, keine Abrechnung", ""]
-    drink_names = {d.drink_id: d.name for d in preview.drinks}
+    drink_names = drink_names_of(preview)
     lines.append("Verbrauch je Person:")
     for p in [*preview.persons, *preview.hidden]:
         lines.append(f"{p.name}: {format_cents(p.amount_cents)}")
