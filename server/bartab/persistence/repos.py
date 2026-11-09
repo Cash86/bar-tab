@@ -53,6 +53,7 @@ class DrinkItem:
     sort_order: int
     is_hidden: bool
     is_active: bool
+    is_keg: bool
     prices: dict[str, int]  # price_tier_id -> cents
 
 
@@ -106,6 +107,7 @@ def get_catalog(session: Session) -> Catalog:
                 d.sort_order,
                 d.is_hidden,
                 d.is_active,
+                d.is_keg,
                 prices.get(d.id, {}),
             )
             for d in drinks

@@ -103,6 +103,26 @@ def test_create_drink(client, admin, seeded):
     assert body["sort_order"] == 2
 
 
+def test_create_drink_without_is_keg_defaults_to_false(client, admin, seeded):
+    response = client.post(f"{BASE}/drinks", json=drink_body(), headers=admin)
+    assert response.json()["is_keg"] is False
+
+
+def test_keg_flag_round_trips_through_admin_api_and_catalog(client, admin, seeded):
+    created = client.post(f"{BASE}/drinks", json=drink_body(is_keg=True), headers=admin).json()
+    assert created["is_keg"] is True
+    catalog = client.get("/api/v1/catalog", headers=admin).json()["drinks"]
+    assert {d["id"]: d["is_keg"] for d in catalog}[created["id"]] is True
+    assert all(d["is_keg"] is False for d in catalog if d["id"] != created["id"])
+
+
+def test_update_drink_toggles_is_keg(client, admin, seeded):
+    body = drink_body(is_active=True, is_keg=True)
+    assert client.put(f"{BASE}/drinks/d-1", json=body, headers=admin).json()["is_keg"] is True
+    body["is_keg"] = False
+    assert client.put(f"{BASE}/drinks/d-1", json=body, headers=admin).json()["is_keg"] is False
+
+
 def test_update_drink(client, admin, seeded):
     body = drink_body(name="Lager 0.5", group_id="g-2", is_active=False)
     response = client.put(f"{BASE}/drinks/d-1", json=body, headers=admin)

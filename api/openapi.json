@@ -440,6 +440,11 @@
             "title": "Is Hidden",
             "type": "boolean"
           },
+          "is_keg": {
+            "default": false,
+            "title": "Is Keg",
+            "type": "boolean"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -547,6 +552,10 @@
             "title": "Is Hidden",
             "type": "boolean"
           },
+          "is_keg": {
+            "title": "Is Keg",
+            "type": "boolean"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -571,6 +580,7 @@
           "sort_order",
           "is_hidden",
           "is_active",
+          "is_keg",
           "prices"
         ],
         "title": "DrinkOut",
@@ -593,6 +603,11 @@
           },
           "is_hidden": {
             "title": "Is Hidden",
+            "type": "boolean"
+          },
+          "is_keg": {
+            "default": false,
+            "title": "Is Keg",
             "type": "boolean"
           },
           "name": {

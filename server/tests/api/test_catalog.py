@@ -60,6 +60,7 @@ def test_returns_seeded_catalog(client, device_headers, seeded):
             "sort_order": 1,
             "is_hidden": False,
             "is_active": True,
+            "is_keg": False,
             "prices": {"tier-a": 150, "tier-b": 120},
         }
     ]

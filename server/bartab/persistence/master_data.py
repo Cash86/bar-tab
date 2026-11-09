@@ -145,6 +145,7 @@ def create_drink(
     crate_size: int,
     is_hidden: bool,
     prices: dict[str, int],
+    is_keg: bool = False,
 ) -> Drink:
     name = clean_name(name, MAX_DRINK)
     _ensure_unique(session, Drink, name, None)
@@ -159,6 +160,7 @@ def create_drink(
         sort_order=_next_order(session, Drink, Drink.group_id == group_id),
         is_hidden=is_hidden,
         is_active=True,
+        is_keg=is_keg,
         created_at=now,
         updated_at=now,
     )
@@ -179,6 +181,7 @@ def update_drink(
     is_hidden: bool,
     is_active: bool,
     prices: dict[str, int],
+    is_keg: bool = False,
 ) -> Drink:
     drink = _get(session, Drink, drink_id)
     name = clean_name(name, MAX_DRINK)
@@ -192,6 +195,7 @@ def update_drink(
     drink.crate_size = crate_size
     drink.is_hidden = is_hidden
     drink.is_active = is_active
+    drink.is_keg = is_keg
     drink.updated_at = clock.now()
     session.flush()
     _set_prices(session, drink.id, prices)

@@ -158,3 +158,46 @@ def test_downgrade_removes_settlements(db_path: Path) -> None:
     command.downgrade(config, "0003")
     engine = create_engine(f"sqlite:///{db_path}")
     assert "settlements" not in inspect(engine).get_table_names()
+
+
+def test_upgrade_adds_drink_is_keg_defaulting_to_false(db_path: Path) -> None:
+    columns = {
+        c["name"]: c for c in inspect(create_engine(f"sqlite:///{db_path}")).get_columns("drinks")
+    }
+    assert not columns["is_keg"]["nullable"]
+
+
+def test_existing_drinks_become_non_kegs(tmp_path: Path) -> None:
+    path = tmp_path / "old.db"
+    config = Config(str(SERVER_DIR / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{path}")
+    command.upgrade(config, "0004")
+    engine = create_engine(f"sqlite:///{path}")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO drink_groups (id, name, sort_order, color, created_at, updated_at) "
+                f"VALUES ('g1', 'G', 0, '#112233', '{NOW}', '{NOW}')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO drinks (id, name, group_id, crate_size, sort_order, is_hidden, "
+                "is_active, created_at, updated_at) "
+                f"VALUES ('d1', 'D', 'g1', 20, 0, 0, 1, '{NOW}', '{NOW}')"
+            )
+        )
+    command.upgrade(config, "head")
+    with engine.begin() as connection:
+        assert connection.execute(text("SELECT is_keg FROM drinks")).scalar_one() == 0
+
+
+@pytest.mark.filterwarnings("ignore:Skipped unsupported reflection of expression-based index")
+def test_downgrade_removes_drink_is_keg(db_path: Path) -> None:
+    config = Config(str(SERVER_DIR / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    command.downgrade(config, "0004")
+    columns = {
+        c["name"] for c in inspect(create_engine(f"sqlite:///{db_path}")).get_columns("drinks")
+    }
+    assert "is_keg" not in columns

@@ -7,6 +7,7 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    false,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -68,6 +69,7 @@ class Drink(_Timestamps, Base):
     sort_order: Mapped[int]
     is_hidden: Mapped[bool] = mapped_column(default=False)
     is_active: Mapped[bool] = mapped_column(default=True)
+    is_keg: Mapped[bool] = mapped_column(default=False, server_default=false())
 
 
 class DrinkPrice(Base):

@@ -74,6 +74,7 @@ def _drink(session: Session, row: Drink) -> DrinkOut:
         sort_order=row.sort_order,
         is_hidden=row.is_hidden,
         is_active=row.is_active,
+        is_keg=row.is_keg,
         prices={tier_id: cents for tier_id, cents in prices},
     )
 

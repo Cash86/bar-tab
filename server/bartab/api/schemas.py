@@ -58,6 +58,7 @@ class DrinkOut(BaseModel):
     sort_order: int
     is_hidden: bool
     is_active: bool
+    is_keg: bool
     prices: dict[str, int]  # price_tier_id -> cents
 
 
@@ -144,6 +145,7 @@ class DrinkCreate(BaseModel):
     group_id: str
     crate_size: int = Field(ge=1)
     is_hidden: bool
+    is_keg: bool = False
     prices: dict[str, int]  # price_tier_id -> cents
 
 
