@@ -44,7 +44,7 @@ class SyncService {
   DateTime? _lastSuccessAt;
   final _flagsChanged = StreamController<void>.broadcast();
 
-  Future<void>? _running;
+  Future<bool>? _running;
   bool _disposed = false;
   Timer? _timer;
 
@@ -83,7 +83,31 @@ class SyncService {
   /// After [dispose] it does nothing.
   Future<void> syncNow() {
     if (_disposed) return Future.value();
-    return _running ??= _run().whenComplete(() => _running = null);
+    return _running ??= _startRun();
+  }
+
+  Future<bool> _startRun() => _run().whenComplete(() => _running = null);
+
+  /// Pushes every queued booking, including those still in the undo window,
+  /// for a settlement. Always runs a fresh sync (one already running may have
+  /// started before the holds were released).
+  Future<FlushResult> flushForSettlement() async {
+    await _bookings.releaseHolds();
+    final running = _running;
+    if (running != null) {
+      try {
+        await running;
+      } on Object catch (e, st) {
+        _log.severe('Sync failed before flush', e, st);
+      }
+    }
+    final reachable = _disposed ? false : await (_running ??= _startRun());
+    final counts = await _bookings.watchCounts().first;
+    return FlushResult(
+      reachable: reachable,
+      pending: counts.queued,
+      failed: counts.failed,
+    );
   }
 
   /// Whether a sync is running right now.
@@ -120,7 +144,8 @@ class SyncService {
     });
   }
 
-  Future<void> _run() async {
+  /// Returns whether the server was reachable and authorised in this run.
+  Future<bool> _run() async {
     try {
       await _push();
       await _refreshTabs();
@@ -131,16 +156,21 @@ class SyncService {
         isOffline: false,
         lastSuccessAt: _clock.now(),
       );
+      return true;
     } on UnauthorisedException {
       _setFlags(isUnauthorised: true, isOffline: false);
+      return false;
     } on NetworkException {
       _setFlags(isOffline: true);
+      return false;
     } on ServerException catch (e) {
       _log.warning('Sync stopped: $e');
       _setFlags(isOffline: false);
+      return true;
     } on ContractException catch (e) {
       _log.warning('Sync stopped: $e');
       _setFlags(isOffline: false);
+      return true;
     }
   }
 

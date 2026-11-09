@@ -297,5 +297,18 @@ void main() {
       expect(await repo.undoHeld({}), isFalse);
       expect(await db.select(db.bookings).get(), hasLength(1));
     });
+
+    test('releaseHolds makes held queued bookings pushable at once', () async {
+      await repo.addAll([
+        booking('free', minute: 1),
+        booking('held', minute: 2, holdUntil: until),
+        booking('done', minute: 3, status: BookingStatus.accepted),
+      ]);
+      await repo.releaseHolds();
+      expect((await repo.queued()).map((b) => b.id), ['free', 'held']);
+      expect(await repo.undoHeld({'held'}), isFalse);
+      final rows = await db.select(db.bookings).get();
+      expect(rows.map((r) => r.holdUntil), everyElement(isNull));
+    });
   });
 }

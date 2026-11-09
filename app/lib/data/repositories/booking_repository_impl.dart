@@ -100,6 +100,15 @@ class BookingRepositoryImpl implements BookingRepository {
   }
 
   @override
+  Future<void> releaseHolds() =>
+      (_db.update(_db.bookings)..where(
+            (t) =>
+                t.status.equals(BookingStatus.queued.name) &
+                t.holdUntil.isNotNull(),
+          ))
+          .write(const BookingsCompanion(holdUntil: Value(null)));
+
+  @override
   Future<void> applyResults(Map<String, BookingStatus> results) async {
     final now = _clock.now();
     await _db.transaction(() async {

@@ -29,6 +29,10 @@ abstract interface class BookingRepository {
   /// (its `holdUntil` lies in the future); otherwise deletes nothing and
   /// returns `false`.
   Future<bool> undoHeld(Set<String> ids);
+
+  /// Ends the undo window of every queued held booking (`holdUntil` becomes
+  /// null) so the next push includes it.
+  Future<void> releaseHolds();
   Future<void> applyResults(Map<String, BookingStatus> results);
   Future<void> markIncludedInTabs(Set<String> ids);
 

@@ -157,6 +157,17 @@ class FakeBookingRepository implements BookingRepository {
   }
 
   @override
+  Future<void> releaseHolds() async {
+    for (var i = 0; i < bookings.length; i++) {
+      final b = bookings[i];
+      if (b.status == BookingStatus.queued && b.holdUntil != null) {
+        bookings[i] = b.copyWith(holdUntil: null);
+      }
+    }
+    _changed.add(null);
+  }
+
+  @override
   Future<void> applyResults(Map<String, BookingStatus> results) async {}
 
   @override

@@ -145,6 +145,8 @@ class FlakyBookings implements BookingRepository {
   @override
   Future<bool> undoHeld(Set<String> ids) => _inner.undoHeld(ids);
   @override
+  Future<void> releaseHolds() => _inner.releaseHolds();
+  @override
   Future<void> applyResults(Map<String, BookingStatus> results) =>
       _inner.applyResults(results);
   @override
@@ -167,6 +169,7 @@ Booking booking(
   String id, {
   int minute = 0,
   BookingStatus status = BookingStatus.queued,
+  DateTime? holdUntil,
 }) => Booking(
   id: id,
   personId: 'p1',
@@ -176,6 +179,7 @@ Booking booking(
   bookedAt: DateTime.utc(2026, 11, 2, 18).add(Duration(minutes: minute)),
   status: status,
   includedInTabs: false,
+  holdUntil: holdUntil,
 );
 
 void main() {
@@ -753,4 +757,71 @@ void main() {
       expect(seen.last.isOffline, isTrue);
     },
   );
+
+  group('flushForSettlement', () {
+    test('pushes held bookings too and reports nothing pending', () async {
+      await bookings.addAll([
+        booking('free', minute: 1),
+        booking('held', minute: 2, holdUntil: clock.now().add(kUndoWindow)),
+      ]);
+
+      final result = await service.flushForSettlement();
+
+      expect(
+        server.postBatches.expand((b) => b),
+        containsAll(['free', 'held']),
+      );
+      expect(result, const FlushResult(reachable: true, pending: 0, failed: 0));
+    });
+
+    test('offline: not reachable, bookings stay pending', () async {
+      await bookings.addAll([
+        booking('a', minute: 1),
+        booking('held', minute: 2, holdUntil: clock.now().add(kUndoWindow)),
+      ]);
+      server.offline = true;
+
+      final result = await service.flushForSettlement();
+
+      expect(
+        result,
+        const FlushResult(reachable: false, pending: 2, failed: 0),
+      );
+    });
+
+    test('unauthorised counts as not reachable', () async {
+      await bookings.addAll([booking('a')]);
+      server.forcedStatus = 401;
+
+      final result = await service.flushForSettlement();
+
+      expect(result.reachable, isFalse);
+      expect(result.pending, 1);
+    });
+
+    test('reachable reflects this run, not an earlier offline one', () async {
+      await bookings.addAll([booking('a')]);
+      server.offline = true;
+      await service.syncNow();
+      server.offline = false;
+
+      final result = await service.flushForSettlement();
+
+      expect(result.reachable, isTrue);
+      expect(result.pending, 0);
+    });
+
+    test('rejected and conflict count as failed, not pending', () async {
+      await bookings.addAll([
+        booking('ok', minute: 1),
+        booking('bad', minute: 2),
+        booking('clash', minute: 3),
+      ]);
+      server.resultFor.addAll({'bad': 'rejected', 'clash': 'conflict'});
+
+      final result = await service.flushForSettlement();
+
+      expect(result, const FlushResult(reachable: true, pending: 0, failed: 2));
+    });
+  });
 }
