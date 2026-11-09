@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     String,
+    Text,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -131,3 +132,25 @@ class AppSetting(Base):
 
     key: Mapped[str] = mapped_column(primary_key=True)
     value: Mapped[str]
+
+
+MailStatus = Literal["pending", "sent", "failed", "skipped"]
+
+
+class SettlementRecord(_Timestamps, Base):
+    """The figures of a closed period, frozen at close time."""
+
+    __tablename__ = "settlements"
+    __table_args__ = (
+        CheckConstraint(
+            "mail_status IN ('pending', 'sent', 'failed', 'skipped')", name="mail_status_valid"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
+    period_id: Mapped[str] = mapped_column(ForeignKey("periods.id"), unique=True)
+    token: Mapped[str] = mapped_column(String, unique=True)
+    figures_json: Mapped[str] = mapped_column(Text)
+    mail_status: Mapped[str]
+    mail_error: Mapped[str | None]
+    mailed_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)

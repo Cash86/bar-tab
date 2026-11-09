@@ -22,6 +22,7 @@ ENTITY_TABLES = {
     "stock_entries",
     "bookings",
     "app_settings",
+    "settlements",
 }
 NOW = datetime(2026, 1, 1, tzinfo=UTC).isoformat()
 
@@ -132,3 +133,28 @@ def test_downgrade_removes_stock_entry_storno_columns(db_path: Path) -> None:
     columns = {column["name"] for column in inspect(engine).get_columns("stock_entries")}
     assert "cancelled_at" not in columns
     assert "cancelled_by_device_id" not in columns
+
+
+def test_settlement_mail_status_is_checked(db_path: Path) -> None:
+    engine = make_engine(db_path)
+    with engine.begin() as connection:
+        _insert_period(connection, "p1", NOW)
+    insert = text(
+        "INSERT INTO settlements (id, period_id, token, figures_json, mail_status, created_at, "
+        "updated_at) VALUES (:id, 'p1', :id, '{}', :status, :now, :now)"
+    )
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(insert, {"id": "s0", "status": "lost", "now": NOW})
+    with engine.begin() as connection:
+        connection.execute(insert, {"id": "s1", "status": "pending", "now": NOW})
+    with pytest.raises(IntegrityError), engine.begin() as connection:  # one per period
+        connection.execute(insert, {"id": "s2", "status": "pending", "now": NOW})
+
+
+@pytest.mark.filterwarnings("ignore:Skipped unsupported reflection of expression-based index")
+def test_downgrade_removes_settlements(db_path: Path) -> None:
+    config = Config(str(SERVER_DIR / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    command.downgrade(config, "0003")
+    engine = create_engine(f"sqlite:///{db_path}")
+    assert "settlements" not in inspect(engine).get_table_names()
