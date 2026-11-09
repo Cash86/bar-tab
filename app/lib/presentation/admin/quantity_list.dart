@@ -75,6 +75,28 @@ class QuantityLines extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Entered counts per drink id; a drink with an entered 0 keeps its key.
+  Map<String, dynamic> toJson() => {
+    'crates': {..._crates},
+    'units': {..._units},
+  };
+
+  /// Replaces all counts with those of [json] (see [toJson]).
+  void restore(Map<String, dynamic> json) {
+    Map<String, int> read(Object? raw) => {
+      if (raw is Map)
+        for (final e in raw.entries)
+          if (e.value is int) e.key as String: e.value as int,
+    };
+    _crates
+      ..clear()
+      ..addAll(read(json['crates']));
+    _units
+      ..clear()
+      ..addAll(read(json['units']));
+    notifyListeners();
+  }
+
   /// Drink id to single units, only where more than zero.
   Map<String, int> totals(Map<String, int> crateSizes) {
     final ids = {..._crates.keys, ..._units.keys};

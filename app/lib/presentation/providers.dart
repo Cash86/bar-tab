@@ -20,6 +20,7 @@ import '../domain/clock.dart';
 import '../domain/rankings.dart';
 import '../domain/repositories.dart';
 import '../domain/sync_state.dart';
+import 'admin/count_draft.dart';
 
 final clockProvider = Provider<Clock>((ref) => SystemClock());
 
@@ -30,6 +31,10 @@ final databaseProvider = Provider<AppDatabase>(
 
 final configStoreProvider = Provider<ConfigStore>(
   (ref) => DriftConfigStore(ref.watch(databaseProvider)),
+);
+
+final countDraftStoreProvider = Provider<CountDraftStore>(
+  (ref) => CountDraftStore(ref.watch(configStoreProvider)),
 );
 
 /// Hash of the admin PIN kept on the tablet for offline re-pairing.

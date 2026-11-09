@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:bar_tab/domain/catalog.dart';
 import 'package:bar_tab/l10n/app_localizations.dart';
 import 'package:bar_tab/presentation/admin/quantity_list.dart';
@@ -39,6 +41,39 @@ void main() {
     _drink('d3', 'Geheim', hidden: true),
     _drink('d4', 'Wasser', group: 'g2', crate: 1),
   ];
+
+  group('draft round trip', () {
+    test('keeps counts and an entered zero', () {
+      lines.select('d1');
+      lines.digit(2);
+      lines.focusCrates(false);
+      lines.digit(0);
+      lines.select('d4', hasCrates: false);
+      lines.digit(5);
+      final json =
+          jsonDecode(jsonEncode(lines.toJson())) as Map<String, dynamic>;
+
+      final restored = QuantityLines(crateSizeOf: (_) => 20)..restore(json);
+      expect(restored.cratesOf('d1'), 2);
+      expect(restored.unitsOf('d4'), 5);
+      expect(restored.toJson(), lines.toJson());
+      expect((restored.toJson()['units'] as Map).containsKey('d1'), isTrue);
+    });
+
+    test('restore replaces state and notifies', () {
+      lines.select('d1');
+      lines.digit(7);
+      var notified = 0;
+      lines.addListener(() => notified++);
+      lines.restore({
+        'crates': {'d4': 3},
+        'units': <String, dynamic>{},
+      });
+      expect(lines.cratesOf('d1'), 0);
+      expect(lines.cratesOf('d4'), 3);
+      expect(notified, 1);
+    });
+  });
 
   setUp(() => lines = QuantityLines());
 
