@@ -16,6 +16,7 @@ from bartab.api import (
 )
 from bartab.config import Settings
 from bartab.domain.clock import Clock, SystemClock
+from bartab.mail import Mailer, SmtpMailer
 from bartab.persistence.db import make_engine, make_session_factory
 from bartab.persistence.repos import ensure_open_period
 from bartab.security import AdminSessions, PinLockout, seed_admin_pin
@@ -41,7 +42,7 @@ def _merge_security(app: FastAPI) -> None:
     app.openapi = openapi  # type: ignore[method-assign]
 
 
-def create_app(settings: Settings, clock: Clock) -> FastAPI:
+def create_app(settings: Settings, clock: Clock, mailer: Mailer | None = None) -> FastAPI:
     engine = make_engine(settings.db_path)
     session_factory = make_session_factory(engine)
 
@@ -59,6 +60,7 @@ def create_app(settings: Settings, clock: Clock) -> FastAPI:
     )
     app.state.settings = settings
     app.state.clock = clock
+    app.state.mailer = mailer if mailer is not None else SmtpMailer(settings)
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.lockout = PinLockout(clock)
