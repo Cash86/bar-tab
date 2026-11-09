@@ -58,6 +58,9 @@ abstract class DrinkDto with _$DrinkDto {
     required int sortOrder,
     required bool isHidden,
     required bool isActive,
+
+    /// Absent in catalogs cached before kegs existed.
+    @Default(false) bool isKeg,
     required Map<String, int> prices,
   }) = _DrinkDto;
 
@@ -271,6 +274,7 @@ abstract class DrinkWriteDto with _$DrinkWriteDto {
     required String groupId,
     required int crateSize,
     required bool isHidden,
+    required bool isKeg,
     required Map<String, int> prices,
     @JsonKey(includeIfNull: false) bool? isActive,
   }) = _DrinkWriteDto;

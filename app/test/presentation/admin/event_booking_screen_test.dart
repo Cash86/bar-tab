@@ -92,6 +92,7 @@ Drink _drink(
   int crate = 20,
   bool active = true,
   bool hidden = false,
+  bool keg = false,
   Map<String, int> prices = const {'t1': 100, 't2': 150},
 }) => Drink(
   id: id,
@@ -100,6 +101,7 @@ Drink _drink(
   crateSize: crate,
   sortOrder: 1,
   isHidden: hidden,
+  isKeg: keg,
   isActive: active,
   prices: prices,
 );
@@ -134,6 +136,7 @@ void main() {
       _drink('d2', 'Wasser', crate: 1),
       _drink('d3', 'Alt Old', active: false),
       _drink('d4', 'Geheim', hidden: true),
+      _drink('d6', 'Fass 30l', keg: true),
       _drink('d5', 'Nur Mitglieder', crate: 1, prices: const {'t1': 90}),
     ],
     etag: 'e',
@@ -313,6 +316,7 @@ void main() {
     expect(find.text('Person: Hans · AH'), findsOneWidget);
     expect(find.text('Alt Old'), findsNothing);
     expect(find.text('Geheim'), findsOneWidget);
+    expect(find.text('Fass 30l'), findsOneWidget);
     expect(tester.widget<ButtonStyleButton>(submit()).enabled, isFalse);
     await enter(tester, 'd1', crates: '1');
     await enter(tester, 'd2', units: '2');

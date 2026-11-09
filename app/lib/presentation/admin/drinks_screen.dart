@@ -238,6 +238,7 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
   late final TextEditingController _crate;
   late String _groupId;
   late bool _hidden;
+  late bool _keg;
 
   /// One field per price tier id; created when a tier first shows up, so a
   /// tier added meanwhile gets an empty field and the other entries stay.
@@ -260,6 +261,7 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     _groupId = d?.groupId ?? groups.first.id;
     _hidden = d?.isHidden ?? false;
+    _keg = d?.isKeg ?? false;
   }
 
   @override
@@ -319,6 +321,7 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
       groupId: _groupId,
       crateSize: crate,
       isHidden: _hidden,
+      isKeg: _keg,
       prices: prices,
       isActive: existing == null ? null : (isActive ?? existing.isActive),
     );
@@ -442,6 +445,14 @@ class _DrinkDialogState extends ConsumerState<DrinkDialog> {
                 value: _hidden,
                 onChanged: (v) => setState(() => _hidden = v ?? false),
                 title: Text(l10n.drinkHidden),
+              ),
+              CheckboxListTile(
+                key: const Key('drink-keg'),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _keg,
+                onChanged: (v) => setState(() => _keg = v ?? false),
+                title: Text(l10n.drinkKeg),
               ),
               if (_error != null)
                 Padding(

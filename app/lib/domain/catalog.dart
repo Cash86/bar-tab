@@ -46,6 +46,9 @@ abstract class Drink with _$Drink {
     required bool isHidden,
     required bool isActive,
 
+    /// A keg: booked only through events, never offered in the drink grid.
+    @Default(false) bool isKeg,
+
     /// Price tier id to price in cents.
     required Map<String, int> prices,
   }) = _Drink;
@@ -115,7 +118,7 @@ abstract class Catalog with _$Catalog {
     return result;
   }
 
-  /// Orderable drinks for [p] per group; groups by sort order, empty groups
+  /// Orderable drinks for [p] per group (no hidden drinks, no kegs); groups by sort order, empty groups
   /// omitted, drinks by sort order then name.
   List<(DrinkGroup, List<Drink>)> drinksFor(Person p) {
     final sortedGroups = [...groups]
@@ -129,6 +132,7 @@ abstract class Catalog with _$Catalog {
                     d.groupId == group.id &&
                     d.isActive &&
                     !d.isHidden &&
+                    !d.isKeg &&
                     d.prices.containsKey(p.priceTierId),
               )
               .toList()

@@ -553,6 +553,7 @@ void main() {
             groupId: 'g1',
             crateSize: 20,
             isHidden: false,
+            isKeg: true,
             prices: {'t1': 150},
           ),
         ),
@@ -565,6 +566,7 @@ void main() {
         'group_id': 'g1',
         'crate_size': 20,
         'is_hidden': false,
+        'is_keg': true,
         'prices': {'t1': 150},
       });
       expect(d.prices, {'t1': 150});
@@ -580,6 +582,7 @@ void main() {
             groupId: 'g1',
             crateSize: 20,
             isHidden: true,
+            isKeg: false,
             prices: {'t1': 150},
             isActive: true,
           ),

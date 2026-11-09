@@ -32,6 +32,7 @@ Drink _drink(
   int crate = 20,
   int order = 1,
   bool hidden = false,
+  bool keg = false,
   bool active = true,
   Map<String, int> prices = const {'t1': 140, 't2': 180},
 }) => Drink(
@@ -41,6 +42,7 @@ Drink _drink(
   crateSize: crate,
   sortOrder: order,
   isHidden: hidden,
+  isKeg: keg,
   isActive: active,
   prices: prices,
 );
@@ -52,6 +54,7 @@ Map<String, Object?> _dto(Drink d) => {
   'crate_size': d.crateSize,
   'sort_order': d.sortOrder,
   'is_hidden': d.isHidden,
+  'is_keg': d.isKeg,
   'is_active': d.isActive,
   'prices': d.prices,
 };
@@ -111,6 +114,7 @@ void main() {
         crateSize: body['crate_size'] as int,
         sortOrder: 9,
         isHidden: body['is_hidden'] as bool,
+        isKeg: body['is_keg'] as bool,
         isActive: (body['is_active'] as bool?) ?? true,
         prices: (body['prices'] as Map<String, dynamic>).cast<String, int>(),
       );
@@ -321,6 +325,7 @@ void main() {
     expect(lastBody()['group_id'], 'g1');
     expect(lastBody()['crate_size'], 10);
     expect(lastBody()['is_hidden'], isFalse);
+    expect(lastBody()['is_keg'], isFalse);
     expect(lastBody()['prices'], {'t1': 120, 't2': 150});
     expect(lastBody().containsKey('is_active'), isFalse);
     expect(find.byType(AlertDialog), findsNothing);
@@ -340,6 +345,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(lastBody()['group_id'], 'g2');
     expect(lastBody()['is_hidden'], isTrue);
+  });
+
+  testWidgets('the keg switch is sent as is_keg', (tester) async {
+    await openDrinks(tester);
+    await fillNew(tester);
+    await tester.tap(find.byKey(const Key('drink-keg')));
+    await tester.pump();
+    await tester.tap(saveButton());
+    await tester.pumpAndSettle();
+    expect(lastBody()['is_keg'], isTrue);
+    expect(lastBody()['is_hidden'], isFalse);
   });
 
   testWidgets('saving without a price for one tier is disabled', (

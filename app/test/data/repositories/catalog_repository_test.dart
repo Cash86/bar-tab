@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:bar_tab/data/api/dto.dart';
 import 'package:bar_tab/data/api/mappers.dart';
 import 'package:bar_tab/data/db/database.dart';
 import 'package:bar_tab/data/repositories/catalog_repository_impl.dart';
 import 'package:bar_tab/domain/clock.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,6 +33,26 @@ void main() {
     await repo.save(catalog);
     expect(await repo.cached(), catalog);
     expect((await repo.cached())!.etag, 'abc123');
+  });
+
+  test('a cache written before is_keg existed reads as no keg', () async {
+    final json = jsonDecode(jsonEncode(catalogFixtureJson)) as Map;
+    for (final d in json['drinks'] as List) {
+      (d as Map).remove('is_keg');
+    }
+    await db
+        .into(db.catalogCache)
+        .insert(
+          CatalogCacheCompanion.insert(
+            id: const Value(1),
+            json: jsonEncode(json),
+            etag: 'old',
+            savedAt: clock.now(),
+          ),
+        );
+    final cached = await repo.cached();
+    expect(cached!.drinks, isNotEmpty);
+    expect(cached.drinks.every((d) => !d.isKeg), isTrue);
   });
 
   test('a second save replaces the first and stamps savedAt', () async {

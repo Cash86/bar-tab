@@ -23,6 +23,7 @@ Drink drink(
   String group = 'g1',
   int sortOrder = 0,
   bool hidden = false,
+  bool keg = false,
   bool active = true,
   Map<String, int> prices = const {'t1': 100},
 }) => Drink(
@@ -32,6 +33,7 @@ Drink drink(
   crateSize: 24,
   sortOrder: sortOrder,
   isHidden: hidden,
+  isKeg: keg,
   isActive: active,
   prices: prices,
 );
@@ -118,6 +120,7 @@ void main() {
           drink('d2', 'Ale', sortOrder: 2),
           drink('d3', 'Lager', sortOrder: 1),
           drink('d4', 'Hid', hidden: true),
+          drink('d8', 'Fass', keg: true),
           drink('d5', 'Off', active: false),
           drink('d6', 'NoPrice', prices: const {'t2': 100}),
           drink('d7', 'Cola', group: 'g2', prices: const {'t2': 100}),

@@ -7,6 +7,7 @@ Drink drink(
   String id, {
   int sortOrder = 0,
   bool hidden = false,
+  bool keg = false,
   bool active = true,
   Map<String, int> prices = const {'t1': 100},
 }) => Drink(
@@ -16,6 +17,7 @@ Drink drink(
   crateSize: 24,
   sortOrder: sortOrder,
   isHidden: hidden,
+  isKeg: keg,
   isActive: active,
   prices: prices,
 );
@@ -42,6 +44,7 @@ Catalog catalog() => Catalog(
     drink('Weizen', sortOrder: 4),
     drink('Pils', sortOrder: 5),
     drink('Hidden', sortOrder: 6, hidden: true),
+    drink('Fass', sortOrder: 9, keg: true),
     drink('Inactive', sortOrder: 7, active: false),
     drink('OtherTier', sortOrder: 8, prices: const {'t2': 100}),
   ],
@@ -98,6 +101,7 @@ void main() {
   test('drinks the person cannot book are skipped', () {
     final r = rankings({
       'Hidden': 100,
+      'Fass': 100,
       'Inactive': 99,
       'OtherTier': 98,
       'Unknown': 97,

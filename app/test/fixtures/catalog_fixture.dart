@@ -34,6 +34,7 @@ const catalogFixtureJson = <String, dynamic>{
       'sort_order': 1,
       'is_hidden': false,
       'is_active': true,
+      'is_keg': false,
       'prices': {'t1': 150, 't2': 200},
     },
   ],
