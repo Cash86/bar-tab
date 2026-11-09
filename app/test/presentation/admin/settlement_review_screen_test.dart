@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bar_tab/presentation/admin/admin_home.dart';
@@ -172,15 +173,67 @@ void main() {
     expect(body['token'], 'rev-2');
   });
 
-  testWidgets('an unreachable server on close keeps the review', (
+  testWidgets('a lost close answer keeps the review; a retry replays', (
     tester,
   ) async {
     h.onClose = (_) async => throw http.ClientException('down');
     await openReview(tester);
     await close(tester);
-    expect(find.text('Server nicht erreichbar'), findsOneWidget);
+    expect(
+      find.text('Status unklar – bitte erneut abschließen'),
+      findsOneWidget,
+    );
+    expect(find.text('Server nicht erreichbar'), findsNothing);
     expect(find.byType(SettlementReviewScreen), findsOneWidget);
+    expect(h.requestsTo('settlement/review'), hasLength(1));
     expect(h.store.values['count_draft_settlement'], isNotNull);
+
+    closeAnswers('sent');
+    await tester.pump(const Duration(seconds: 5));
+    await close(tester);
+    final tokens = [
+      for (final r in h.requestsTo('settlement/close'))
+        (jsonDecode(r.body) as Map<String, dynamic>)['token'],
+    ];
+    expect(tokens, ['rev-1', 'rev-1']);
+    expect(find.text('Abgeschlossen, PDF verschickt'), findsOneWidget);
+    expect(find.byType(AdminHome), findsOneWidget);
+  });
+
+  testWidgets('the review cannot be left while the close runs', (tester) async {
+    final answer = Completer<http.Response>();
+    h.onClose = (_) => answer.future;
+    await openReview(tester);
+    await close(tester);
+    expect(h.requestsTo('settlement/close'), hasLength(1));
+    expect(
+      tester
+          .widget<ButtonStyleButton>(find.byKey(const Key('review-back')))
+          .enabled,
+      isFalse,
+    );
+    // System back and the app bar back are blocked.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(SettlementReviewScreen), findsOneWidget);
+    final back = find.byType(BackButton);
+    if (back.evaluate().isNotEmpty) {
+      await tester.tap(back);
+      await tester.pumpAndSettle();
+    }
+    expect(find.byType(SettlementReviewScreen), findsOneWidget);
+
+    answer.complete(
+      jsonResponse({
+        'period_id': 'p1',
+        'closed_at': '2026-11-09T21:00:00Z',
+        'mail_status': 'sent',
+      }, 201),
+    );
+    await tester.pumpAndSettle();
+    expect(h.store.values['count_draft_settlement'], isNull);
+    expect(find.text('Abgeschlossen, PDF verschickt'), findsOneWidget);
+    expect(find.byType(AdminHome), findsOneWidget);
   });
 
   testWidgets('a failing review load says so', (tester) async {

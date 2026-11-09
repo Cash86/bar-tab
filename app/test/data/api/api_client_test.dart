@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:bar_tab/data/api/api_client.dart';
 import 'package:bar_tab/data/api/dto.dart';
 import 'package:bar_tab/domain/sync_state.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -956,6 +957,40 @@ void main() {
         body: {...closeJson, 'mail_status': 'sent'},
       );
       expect(c.mailStatus, MailStatus.sent);
+    });
+
+    test('closeSettlement waits 60 s, other calls the client timeout', () {
+      fakeAsync((async) {
+        // Answers after 30 s, like a close that mails synchronously.
+        final api = _api(
+          (r) => Future.delayed(
+            const Duration(seconds: 30),
+            () => _json(closeJson, 201),
+          ),
+        );
+        Object? reviewError;
+        api
+            .reviewSettlement('t', {})
+            .then<void>((_) {}, onError: (Object e) => reviewError = e);
+        SettlementCloseDto? closed;
+        api.closeSettlement('t', 'rt', {}).then((c) => closed = c);
+        async.elapse(const Duration(seconds: 31));
+        expect(reviewError, isA<NetworkException>());
+        expect(closed?.periodId, 'pr1');
+
+        Object? closeError;
+        final slow = _api(
+          (r) => Future.delayed(
+            const Duration(seconds: 61),
+            () => _json(closeJson, 201),
+          ),
+        );
+        slow
+            .closeSettlement('t', 'rt', {})
+            .then<void>((_) {}, onError: (Object e) => closeError = e);
+        async.elapse(const Duration(seconds: 62));
+        expect(closeError, isA<NetworkException>());
+      });
     });
 
     test('closeSettlement 409 stale_review and already_settled', () async {

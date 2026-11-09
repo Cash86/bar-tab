@@ -280,6 +280,8 @@
   "settlementCloseConfirm": "Abrechnung jetzt abschließen?",
   "settlementStale": "Daten haben sich geändert – bitte erneut prüfen",
   "settlementFailed": "Abrechnung nicht möglich",
+  "settlementCloseUnclear": "Status unklar – bitte erneut abschließen",
+  "@settlementCloseUnclear": {"description": "The close request got no answer; the period may be closed. A retry with the same review is a safe replay."},
   "settlementDone": "Abgeschlossen",
   "settlementDoneSent": "Abgeschlossen, PDF verschickt",
   "settlementDoneMailFailed": "Abgeschlossen – Mail fehlgeschlagen, in Einstellungen erneut senden",

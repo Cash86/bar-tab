@@ -111,7 +111,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     setState(() {
       _stock = stock;
       _crateSizes = {for (final d in stock.drinks) d.drinkId: d.crateSize};
-      _restored = !_lines.isEmpty;
+      _restored = stock.drinks.any((d) => _lines.hasEntry(d.drinkId));
     });
   }
 
@@ -209,6 +209,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    // Read before the request: the answer may come after this screen is gone.
+    final drafts = ref.read(countDraftStoreProvider);
     setState(() => _busy = true);
     String? failure;
     try {
@@ -235,9 +237,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       return;
     }
     _lines.removeListener(_saveDraft);
-    final store = ref.read(countDraftStoreProvider);
     try {
-      await (_saving = _saving.then((_) => store.clear(_mode)));
+      await (_saving = _saving.then((_) => drafts.clear(_mode)));
     } on Object catch (e) {
       _log.warning('Count draft not cleared: $e');
     }
@@ -255,16 +256,20 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final l10n = AppLocalizations.of(context);
     final stock = _stock;
     return AdminIdleGuard(
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            _mode == CountMode.settlement
-                ? l10n.settlementTitle
-                : l10n.openingTitle,
+      // Not left while the opening count is saved: its answer clears the draft.
+      child: PopScope(
+        canPop: !_busy,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(
+              _mode == CountMode.settlement
+                  ? l10n.settlementTitle
+                  : l10n.openingTitle,
+            ),
+            actions: [if (stock != null) ..._actions(l10n, stock)],
           ),
-          actions: [if (stock != null) ..._actions(l10n, stock)],
+          body: _body(l10n, stock),
         ),
-        body: _body(l10n, stock),
       ),
     );
   }
@@ -272,7 +277,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   List<Widget> _actions(AppLocalizations l10n, StockDto stock) => [
     TextButton(
       key: const Key('count-discard'),
-      onPressed: _discard,
+      onPressed: _busy ? null : _discard,
       child: Text(l10n.countDiscard),
     ),
     const SizedBox(width: 8),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bar_tab/domain/sync_state.dart';
@@ -156,6 +157,16 @@ void main() {
       expect(enabled(tester, reviewButton()), isTrue);
     });
 
+    testWidgets('no note for a draft without a listed drink', (tester) async {
+      h.store.values['count_draft_settlement'] = jsonEncode({
+        'crates': {'gone': 2},
+        'units': <String, dynamic>{},
+      });
+      await h.open(tester, 'settlement');
+      expect(find.byKey(const Key('qty-row-d1')), findsOneWidget);
+      expect(find.text('Entwurf fortgesetzt'), findsNothing);
+    });
+
     testWidgets('Verwerfen clears the draft after confirmation', (
       tester,
     ) async {
@@ -265,6 +276,27 @@ void main() {
       expect(draft('opening'), isNull);
       expect(find.byType(InventoryScreen), findsNothing);
       expect(find.byType(AdminHome), findsOneWidget);
+      expect(find.text('Anfangsbestand gespeichert'), findsOneWidget);
+    });
+
+    testWidgets('the screen cannot be left while the save runs', (
+      tester,
+    ) async {
+      final answer = Completer<http.Response>();
+      h.onOpening = (_) => answer.future;
+      await h.open(tester, 'opening');
+      await h.enterAll(tester);
+      await tester.tap(saveButton());
+      await tester.pump();
+      expect(h.requestsTo('admin/opening-count'), hasLength(1));
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(InventoryScreen), findsOneWidget);
+
+      answer.complete(http.Response('', 204));
+      await tester.pumpAndSettle();
+      expect(draft('opening'), isNull);
+      expect(find.byType(InventoryScreen), findsNothing);
       expect(find.text('Anfangsbestand gespeichert'), findsOneWidget);
     });
 

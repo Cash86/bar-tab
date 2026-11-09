@@ -124,6 +124,10 @@ final class PinLocked extends PinChange {
   final int retryAfter;
 }
 
+/// How long a settlement close may take: the server mails the PDF before it
+/// answers, with an SMTP timeout above the default request timeout.
+const kCloseSettlementTimeout = Duration(seconds: 60);
+
 class BarTabApi {
   BarTabApi({
     required this._client,
@@ -388,11 +392,13 @@ class BarTabApi {
   );
 
   /// Closes the period. 201 (first close) and 200 (replay) both succeed.
+  /// Waits up to [timeout] instead of the client's request timeout.
   Future<SettlementCloseDto> closeSettlement(
     String token,
     String reviewToken,
-    Map<String, int> counts,
-  ) => _write(
+    Map<String, int> counts, {
+    Duration timeout = kCloseSettlementTimeout,
+  }) => _write(
     'POST',
     'admin/settlement/close',
     token,
@@ -401,6 +407,7 @@ class BarTabApi {
       counts: _counts(counts).counts,
     ).toJson(),
     SettlementCloseDto.fromJson,
+    timeout: timeout,
   );
 
   Future<void> recordOpeningCount(String token, Map<String, int> counts) =>
@@ -453,9 +460,16 @@ class BarTabApi {
     String path,
     String token,
     Map<String, dynamic>? json,
-    T Function(Map<String, dynamic>) from,
-  ) async {
-    final response = await _sendWrite(method, path, token, json);
+    T Function(Map<String, dynamic>) from, {
+    Duration? timeout,
+  }) async {
+    final response = await _sendWrite(
+      method,
+      path,
+      token,
+      json,
+      timeout: timeout,
+    );
     return _parse(response, from);
   }
 
@@ -475,11 +489,13 @@ class BarTabApi {
     String method,
     String path,
     String token,
-    Map<String, dynamic>? json,
-  ) async {
+    Map<String, dynamic>? json, {
+    Duration? timeout,
+  }) async {
     final response = await _send(
       method,
       path,
+      timeout: timeout,
       headers: json == null
           ? const {}
           : {'Content-Type': 'application/json; charset=utf-8'},
@@ -528,7 +544,9 @@ class BarTabApi {
     List<int>? body,
     Map<String, String> query = const {},
     String? admin,
+    Duration? timeout,
   }) async {
+    final limit = timeout ?? _timeout;
     final request = http.Request(method, _uri(path, query))
       ..headers['Authorization'] = 'Bearer ${_config.deviceKey}'
       ..headers.addAll({'X-Admin-Token': ?admin})
@@ -536,8 +554,8 @@ class BarTabApi {
     if (body != null) request.bodyBytes = body;
     try {
       return await http.Response.fromStream(
-        await _client.send(request).timeout(_timeout),
-      ).timeout(_timeout);
+        await _client.send(request).timeout(limit),
+      ).timeout(limit);
     } on TimeoutException {
       throw const NetworkException('Request timed out');
     } on SocketException {

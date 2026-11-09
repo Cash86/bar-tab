@@ -97,6 +97,8 @@ class _SettlementReviewScreenState
       ),
     );
     if (confirmed != true || !mounted) return;
+    // Read before the request: the answer may come after this screen is gone.
+    final drafts = ref.read(countDraftStoreProvider);
     setState(() => _busy = true);
     try {
       final closed = await ref
@@ -105,7 +107,7 @@ class _SettlementReviewScreenState
             (api, token) =>
                 api.closeSettlement(token, review.token, widget.counts),
           );
-      await _clearDraft();
+      await _clearDraft(drafts);
       if (!mounted) return;
       _toast(switch (closed.mailStatus) {
         MailStatus.sent => l10n.settlementDoneSent,
@@ -123,8 +125,9 @@ class _SettlementReviewScreenState
       setState(() => _review = null);
       await _load();
     } on NetworkException catch (e) {
-      _log.info('Close unreachable: ${e.message}');
-      if (mounted) _toast(l10n.adminUnreachable);
+      // The close may have happened; the same token replays it safely.
+      _log.info('Close without answer: ${e.message}');
+      if (mounted) _toast(l10n.settlementCloseUnclear);
     } on ApiException catch (e) {
       _log.info('Close failed: ${e.message}');
       if (mounted) _toast(l10n.settlementFailed);
@@ -133,9 +136,9 @@ class _SettlementReviewScreenState
   }
 
   /// The period is closed: the counts are done with.
-  Future<void> _clearDraft() async {
+  Future<void> _clearDraft(CountDraftStore drafts) async {
     try {
-      await ref.read(countDraftStoreProvider).clear(CountMode.settlement);
+      await drafts.clear(CountMode.settlement);
     } on Object catch (e) {
       _log.warning('Count draft not cleared: $e');
     }
@@ -150,32 +153,38 @@ class _SettlementReviewScreenState
     final review = _review;
     final failure = _loadFailure;
     return AdminIdleGuard(
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.reviewTitle),
-          actions: [
-            TextButton(
-              key: const Key('review-back'),
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(l10n.reviewBack),
-            ),
-            const SizedBox(width: 8),
-            if (review != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: FilledButton(
-                  key: const Key('settlement-close'),
-                  onPressed: _busy ? null : () => _close(review),
-                  child: Text(l10n.settlementClose),
-                ),
+      // Not left while the close runs: its answer clears the draft.
+      child: PopScope(
+        canPop: !_busy,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(l10n.reviewTitle),
+            actions: [
+              TextButton(
+                key: const Key('review-back'),
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.of(context).pop(false),
+                child: Text(l10n.reviewBack),
               ),
-          ],
+              const SizedBox(width: 8),
+              if (review != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: FilledButton(
+                    key: const Key('settlement-close'),
+                    onPressed: _busy ? null : () => _close(review),
+                    child: Text(l10n.settlementClose),
+                  ),
+                ),
+            ],
+          ),
+          body: failure != null
+              ? Center(child: Text(failure(l10n)))
+              : review == null
+              ? const Center(child: CircularProgressIndicator())
+              : _ReviewTable(review: review),
         ),
-        body: failure != null
-            ? Center(child: Text(failure(l10n)))
-            : review == null
-            ? const Center(child: CircularProgressIndicator())
-            : _ReviewTable(review: review),
       ),
     );
   }
