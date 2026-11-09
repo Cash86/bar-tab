@@ -285,5 +285,20 @@
   "settlementDone": "Abgeschlossen",
   "settlementDoneSent": "Abgeschlossen, PDF verschickt",
   "settlementDoneMailFailed": "Abgeschlossen – Mail fehlgeschlagen, in Einstellungen erneut senden",
-  "settlementDoneNoMail": "Abgeschlossen – keine Mail (keine Empfänger oder kein Mailserver)"
+  "settlementDoneNoMail": "Abgeschlossen – keine Mail (keine Empfänger oder kein Mailserver)",
+  "settingsTitle": "Einstellungen",
+  "adminTileSettingsSubtitle": "Mail-Empfänger, Schwund, PDF",
+  "settingsRecipients": "Mail-Empfänger",
+  "settingsRecipientField": "E-Mail-Adresse",
+  "settingsRecipientAdd": "Hinzufügen",
+  "settingsRecipientRemove": "Entfernen",
+  "settingsInvalidEmail": "Ungültige E-Mail-Adresse",
+  "settingsValuationTier": "Schwund bewerten mit",
+  "settingsLastSettlement": "Letzte Abrechnung",
+  "settingsResend": "PDF erneut senden",
+  "settingsResendFailed": "Senden nicht möglich",
+  "settingsMailSent": "PDF verschickt",
+  "settingsMailFailed": "Mail fehlgeschlagen",
+  "settingsMailSkipped": "keine Mail",
+  "settingsMailPending": "Mail ausstehend"
 }

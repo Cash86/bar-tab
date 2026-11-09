@@ -15,6 +15,7 @@ import 'groups_screen.dart';
 import 'inventory_screen.dart';
 import 'persons_screen.dart';
 import 'pin_change_screen.dart';
+import 'settings_screen.dart';
 import 'tiers_screen.dart';
 
 /// Pushes an admin [screen]. All admin tiles use this, so the idle guard's
@@ -99,6 +100,12 @@ final List<_TileSpec> _tiles = [
     screen: () => const InventoryScreen(mode: CountMode.opening),
   ),
   (
+    name: 'settings',
+    label: (l) => l.settingsTitle,
+    subtitle: (l) => l.adminTileSettingsSubtitle,
+    screen: () => const SettingsScreen(),
+  ),
+  (
     name: 'pin',
     label: (l) => l.pinChangeTitle,
     subtitle: null,
@@ -124,9 +131,9 @@ class AdminHome extends ConsumerWidget {
           Expanded(
             child: GridView.count(
               crossAxisCount: 4,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 1.75,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 2.4,
               children: [
                 for (final tile in _tiles)
                   _Tile(
@@ -175,17 +182,17 @@ class _Tile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: tokens.text, fontSize: 24)),
+              Text(label, style: TextStyle(color: tokens.text, fontSize: 22)),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(color: tokens.muted, fontSize: 16),
+                  style: TextStyle(color: tokens.muted, fontSize: 15),
                 ),
               ],
             ],
