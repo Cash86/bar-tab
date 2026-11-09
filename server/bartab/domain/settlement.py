@@ -134,13 +134,26 @@ def _stock_sums(stocks: Iterable[StockIn], kind: str) -> dict[str, int]:
     return sums
 
 
+def _since(
+    stocks: Iterable[StockIn], bookings: Iterable[BookingIn], stock_since: datetime | None
+) -> tuple[list[StockIn], list[BookingIn]]:
+    """Stock movements from `stock_since` on (the opening count before the first settlement)."""
+    if stock_since is None:
+        return list(stocks), list(bookings)
+    return (
+        [s for s in stocks if s.created_at >= stock_since],
+        [b for b in bookings if b.booked_at >= stock_since],
+    )
+
+
 def _drink_stocks(
     drinks: Iterable[DrinkIn],
     stocks: Iterable[StockIn],
     bookings: Iterable[BookingIn],
     counts: dict[str, int] | None,
+    stock_since: datetime | None = None,
 ) -> dict[str, DrinkStock]:
-    stocks = list(stocks)
+    stocks, bookings = _since(stocks, bookings, stock_since)
     opening = _stock_sums(stocks, "opening")
     delivered = _stock_sums(stocks, "delivery")
     booked = _booked_by_drink(bookings)
@@ -158,17 +171,28 @@ def _drink_stocks(
 
 
 def expected_stock(
-    drinks: Iterable[DrinkIn], stocks: Iterable[StockIn], bookings: Iterable[BookingIn]
+    drinks: Iterable[DrinkIn],
+    stocks: Iterable[StockIn],
+    bookings: Iterable[BookingIn],
+    stock_since: datetime | None = None,
 ) -> dict[str, int]:
-    """Opening + delivered - booked per drink, cancelled entries left out."""
-    return {d: s.expected for d, s in _drink_stocks(drinks, stocks, bookings, None).items()}
+    """Opening + delivered - booked per drink, cancelled entries left out.
+
+    With `stock_since`, only bookings booked and stock entries created from then on count.
+    """
+    return {
+        d: s.expected for d, s in _drink_stocks(drinks, stocks, bookings, None, stock_since).items()
+    }
 
 
 def drinks_to_count(
-    drinks: Iterable[DrinkIn], stocks: Iterable[StockIn], bookings: Iterable[BookingIn]
+    drinks: Iterable[DrinkIn],
+    stocks: Iterable[StockIn],
+    bookings: Iterable[BookingIn],
+    stock_since: datetime | None = None,
 ) -> list[DrinkIn]:
     drinks = list(drinks)
-    expected = expected_stock(drinks, stocks, bookings)
+    expected = expected_stock(drinks, stocks, bookings, stock_since)
     return [d for d in drinks if d.is_active or expected[d.id] != 0]
 
 
@@ -218,14 +242,17 @@ def compute_settlement(
     prices: dict[tuple[str, str], int],
     counts: dict[str, int] | None,
     valuation_tier: TierIn,
+    stock_since: datetime | None = None,
 ) -> Settlement:
-    to_count = drinks_to_count(drinks, stocks, bookings)
+    """Figures of a period. Billing uses all its bookings; the stock reconciliation only the
+    movements from `stock_since` on (the opening count while no settlement has been closed)."""
+    to_count = drinks_to_count(drinks, stocks, bookings, stock_since)
     if counts is not None:
         missing = [d.id for d in to_count if d.id not in counts]
         if missing:
             raise ValueError(f"missing counts for drinks: {missing}")
     group_of = {d.id: d.group_id for d in drinks}
-    drink_stocks = _drink_stocks(to_count, stocks, bookings, counts)
+    drink_stocks = _drink_stocks(to_count, stocks, bookings, counts, stock_since)
 
     lines: list[DrinkLine] = []
     value_by_group: dict[str, int] = {}

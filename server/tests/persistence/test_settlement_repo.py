@@ -382,3 +382,54 @@ def test_last_settlement_follows_the_closing_time(s, clock):
     first.created_at = clock.now() + timedelta(days=1)  # row timestamps do not decide
     s.flush()
     assert st.last_settlement(s).id == second.id
+
+
+def test_opening_count_cuts_off_earlier_stock_movements_but_not_billing(s, clock):
+    _deliver(s, clock, "e1", qty=10)  # before the opening count: not added
+    _book(s, clock, "b1", qty=2)  # before the opening count: billed, not subtracted
+    clock.advance(timedelta(hours=1))
+    st.record_opening_count(s, clock, {"d1": 8, "d2": 0})
+    clock.advance(timedelta(hours=1))
+    _book(s, clock, "b2", qty=1)
+    _deliver(s, clock, "e2", qty=3)
+
+    _, drinks = st.stock_overview(s)
+    assert [(d.id, expected) for d, expected in drinks] == [("d1", 10), ("d2", 0)]
+    reviewed = st.review(s, clock, {"d1": 10, "d2": 0})
+    lager = reviewed.drinks[0]
+    assert (lager.opening, lager.delivered, lager.booked, lager.expected) == (8, 3, 1, 10)
+    assert lager.shrinkage == 0
+    assert reviewed.persons[0].amount_cents == 3 * 60
+    assert reviewed.grand_total_cents == 180
+    preview = st.open_period_preview(s, clock)
+    assert preview.drinks[0].expected == 10
+
+
+def test_inactive_drink_delivered_before_the_opening_count_is_not_counted(s, clock):
+    _deliver(s, clock, "e1", drink="d3", qty=4)
+    clock.advance(timedelta(hours=1))
+    st.record_opening_count(s, clock, {"d1": 0, "d2": 0, "d3": 0})
+    _, drinks = st.stock_overview(s)
+    assert [d.id for d, _ in drinks] == ["d1", "d2"]
+
+
+def test_re_recorded_opening_count_moves_the_cutoff(s, clock):
+    st.record_opening_count(s, clock, {"d1": 5, "d2": 0})
+    clock.advance(timedelta(hours=1))
+    _book(s, clock, "b1", qty=2)  # after the first count, before the second
+    clock.advance(timedelta(hours=1))
+    st.record_opening_count(s, clock, {"d1": 4, "d2": 0})
+    _, drinks = st.stock_overview(s)
+    assert dict((d.id, expected) for d, expected in drinks) == {"d1": 4, "d2": 0}
+    assert st.review(s, clock, {"d1": 4, "d2": 0}).persons[0].amount_cents == 120
+
+
+def test_no_cutoff_after_a_settlement(s, clock):
+    _review_and_close(s, clock, {"d1": 0, "d2": 0})
+    clock.advance(timedelta(hours=1))
+    _deliver(s, clock, "e1", qty=6)
+    late = _book(s, clock, "late", qty=1, booked_at=clock.now() - timedelta(hours=2))
+    assert late.is_late is True
+    _, drinks = st.stock_overview(s)
+    # the late booking predates the opening of this period yet is subtracted
+    assert dict((d.id, expected) for d, expected in drinks) == {"d1": 5, "d2": 0}

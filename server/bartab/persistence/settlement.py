@@ -74,9 +74,13 @@ class _Inputs:
     bookings: list[BookingIn]
     stocks: list[StockIn]
     prices: dict[tuple[str, str], int]  # (tier_id, drink_id) -> cents
+    stock_since: datetime | None  # stock movements count from then on
 
     def to_count(self) -> list[DrinkIn]:
-        return drinks_to_count(self.drinks, self.stocks, self.bookings)
+        return drinks_to_count(self.drinks, self.stocks, self.bookings, self.stock_since)
+
+    def expected(self) -> dict[str, int]:
+        return expected_stock(self.drinks, self.stocks, self.bookings, self.stock_since)
 
 
 def _open_period(session: Session) -> Period | None:
@@ -92,6 +96,23 @@ def _require_open_period(session: Session) -> Period:
 
 def _has_closed_period(session: Session) -> bool:
     return session.scalar(select(func.count(Period.id)).where(Period.closed_at.is_not(None))) > 0
+
+
+def _opening_count_at(session: Session, period_id: str) -> datetime | None:
+    """Time of the latest opening count of the period while no settlement has been closed.
+
+    Stock movements of the open period count only from then on (spec section 10); after a
+    settlement the opening stock is the previous count, taken when the period started.
+    """
+    if _has_closed_period(session):
+        return None
+    return session.scalar(
+        select(func.max(StockEntry.created_at)).where(
+            StockEntry.period_id == period_id,
+            StockEntry.kind == "opening",
+            StockEntry.cancelled_at.is_(None),
+        )
+    )
 
 
 def _load(session: Session, period_id: str | None) -> _Inputs:
@@ -124,7 +145,9 @@ def _load(session: Session, period_id: str | None) -> _Inputs:
     }
     bookings: list[BookingIn] = []
     stocks: list[StockIn] = []
+    stock_since: datetime | None = None
     if period_id is not None:
+        stock_since = _opening_count_at(session, period_id)
         bookings = [
             BookingIn(
                 b.person_id,
@@ -152,7 +175,7 @@ def _load(session: Session, period_id: str | None) -> _Inputs:
                 .order_by(StockEntry.created_at, StockEntry.id)
             )
         ]
-    return _Inputs(persons, tiers, drinks, bookings, stocks, prices)
+    return _Inputs(persons, tiers, drinks, bookings, stocks, prices, stock_since)
 
 
 def _check_counts(to_count: list[DrinkIn], counts: dict[str, int]) -> None:
@@ -180,6 +203,7 @@ def _compute(
         prices=inputs.prices,
         counts=counts,
         valuation_tier=effective_valuation_tier(inputs.tiers, get_valuation_tier_id(session)),
+        stock_since=inputs.stock_since,
     )
 
 
@@ -196,7 +220,7 @@ def stock_overview(session: Session) -> tuple[bool, list[tuple[DrinkIn, int]]]:
     """Whether an opening count is allowed, and the drinks to count with their expected stock."""
     period = _open_period(session)
     inputs = _load(session, None if period is None else period.id)
-    expected = expected_stock(inputs.drinks, inputs.stocks, inputs.bookings)
+    expected = inputs.expected()
     drinks = [(d, expected[d.id]) for d in inputs.to_count()]
     return not _has_closed_period(session), drinks
 
@@ -222,6 +246,7 @@ def open_period_preview(session: Session, clock: Clock) -> Settlement:
         prices=inputs.prices,
         counts=None,
         valuation_tier=effective_valuation_tier(inputs.tiers, get_valuation_tier_id(session)),
+        stock_since=inputs.stock_since,
     )
 
 
@@ -321,17 +346,8 @@ def record_opening_count(session: Session, clock: Clock, counts: dict[str, int])
 
 def last_inventory_at(session: Session) -> datetime:
     period = _require_open_period(session)
-    if not _has_closed_period(session):
-        latest = session.scalar(
-            select(func.max(StockEntry.created_at)).where(
-                StockEntry.period_id == period.id,
-                StockEntry.kind == "opening",
-                StockEntry.cancelled_at.is_(None),
-            )
-        )
-        if latest is not None:
-            return latest
-    return period.started_at
+    latest = _opening_count_at(session, period.id)
+    return period.started_at if latest is None else latest
 
 
 def last_settlement(session: Session) -> SettlementRecord | None:

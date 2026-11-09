@@ -242,3 +242,43 @@ def test_snapshot_without_name_maps_loads_with_empty_maps():
         del data[key]
     s = settlement_from_json(data)
     assert (s.person_names, s.drink_names, s.group_names) == ({}, {}, {})
+
+
+def test_stock_since_cuts_off_earlier_stock_movements_but_not_billing():
+    count_at = T0 + timedelta(days=1, hours=1)  # after booking() at T0 + 1 day
+    before = booking(qty=3)
+    after = BookingIn("p1", "d1", 2, 150, count_at + timedelta(hours=1), None, False)
+    early_delivery = StockIn("d1", "delivery", 7, T0, None)
+    opening = StockIn("d1", "opening", 10, count_at, None)
+    late_delivery = StockIn("d1", "delivery", 4, count_at + timedelta(hours=2), None)
+    bookings = [before, after]
+    stocks = [early_delivery, opening, late_delivery]
+
+    assert expected_stock([BEER], stocks, bookings, stock_since=count_at) == {"d1": 10 + 4 - 2}
+    s = compute_settlement(
+        period_id="per1",
+        started_at=T0,
+        ended_at=T1,
+        persons=[ANNA],
+        tiers=[AKTIVE],
+        drinks=[BEER],
+        bookings=bookings,
+        stocks=stocks,
+        prices=PRICES,
+        counts={"d1": 12},
+        valuation_tier=AKTIVE,
+        stock_since=count_at,
+    )
+    line = s.drinks[0]
+    assert (line.opening, line.delivered, line.booked, line.expected) == (10, 4, 2, 12)
+    assert s.persons[0].amount_cents == 5 * 150
+    assert s.person_drink == {"p1": {"d1": 5}}
+
+
+def test_drinks_to_count_uses_stock_since():
+    old = DrinkIn("d3", "Alt", "g1", "Bier", 10, False)
+    since = T0 + timedelta(days=5)
+    # 4 delivered before the opening count, which found none: nothing left to count
+    stocks = [stock("d3", kind="delivery", qty=4)]
+    assert drinks_to_count([BEER, old], stocks, [], stock_since=since) == [BEER]
+    assert drinks_to_count([BEER, old], stocks, []) == [BEER, old]

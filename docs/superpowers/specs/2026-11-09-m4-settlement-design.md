@@ -175,6 +175,9 @@ and the mail, so they cannot differ.
   "Status unklar – bitte erneut abschließen" and a retry replays the same close safely.
 - **Number format:** settlement and PDF show German thousands separators (1.234,56 €).
 - **Recipients:** duplicates are ignored; e-mail syntax is checked by the server.
+- **Opening count cuts off stock (maintainer ruling):** while no settlement has been closed, stock
+  movements of the open period count only from the latest uncancelled opening count on (bookings
+  by `booked_at`, deliveries by `created_at`); amounts owed still use all bookings of the period.
 
 ## 11. Left to the builder
 
