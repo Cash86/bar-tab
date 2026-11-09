@@ -80,8 +80,9 @@ The booking request carries it; the server records it as sent (device-authentica
 re-prices. A price change made while a tablet is offline therefore only affects bookings made
 after that tablet has synced the new price. No effective-dated price history is needed.
 
-**Shrinkage is reported in units only** (as in the legacy system), per drink and per group. It is
-not valued in money and not charged to anyone by the app; the club decides that outside.
+**Shrinkage** is reported in units per drink and per group and, since M4 (maintainer
+2026-11-09), also valued in euros at the price of a valuation tier (default "Aktive"); see
+`2026-11-09-m4-settlement-design.md` §5.2. It is not charged to anyone by the app.
 
 ## 4. Tablet app (Flutter)
 
@@ -205,7 +206,8 @@ functions require a server connection (only bookings work offline).
 - **Master data:** create / edit / deactivate persons, price tiers, drink groups (order, colour),
   drinks (group, prices per tier, crate size, hidden, order). Nothing referenced by bookings is
   hard-deleted.
-- **Settings:** recipients of the monthly report and of the settlement (email addresses), change
+- **Settings:** one recipient list (any number of addresses) for both the monthly report and the
+  settlement (M4 spec §7), change
   admin PIN (shipped in M3; recipients and PDF re-send stay M4), re-send last settlement PDF.
 
 ### 4.4 First start
@@ -378,7 +380,8 @@ server; one monorepo; public repo `bar-tab` under `Cash86`; all configuration in
 - Quantity sheet: "Buchen" books the whole order, "Weitere Getränke" returns to the grid; no
   discard inside the sheet.
 - Tablet's stored unit price is final; no price history.
-- Shrinkage in units only, not valued or charged (as in the legacy system).
+- Shrinkage valued in euros at the valuation tier's price, not charged (superseded 2026-11-09, see
+  the M4 spec).
 - Legacy hidden persons default to the "Alte Herren" tier.
 - In-app keypad and "Kasten (n)" key in the quantity sheet.
 - Admin auto-logout after 2 minutes; admin functions online-only.
