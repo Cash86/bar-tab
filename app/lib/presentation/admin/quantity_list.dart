@@ -33,6 +33,14 @@ class QuantityLines extends ChangeNotifier {
   int cratesOf(String drinkId) => _crates[drinkId] ?? 0;
   int unitsOf(String drinkId) => _units[drinkId] ?? 0;
 
+  /// Whether a value was typed for [drinkId]; an entered 0 counts, a drink
+  /// that was only selected does not.
+  bool hasEntry(String drinkId) =>
+      _crates.containsKey(drinkId) || _units.containsKey(drinkId);
+
+  /// Whether no value was typed for any drink.
+  bool get isEmpty => _crates.isEmpty && _units.isEmpty;
+
   /// Selects [drinkId]; the crates field is focused first, the units field
   /// when the drink has no crates.
   void select(String drinkId, {bool hasCrates = true}) {

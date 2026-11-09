@@ -251,6 +251,23 @@ class FakeSyncService implements SyncService {
   /// When set, `syncNow` completes with this error.
   Object? syncError;
 
+  /// What `flushForSettlement` answers; [flushError] makes it throw instead.
+  FlushResult flushResult = const FlushResult(
+    reachable: true,
+    pending: 0,
+    failed: 0,
+  );
+  Object? flushError;
+  int flushCalls = 0;
+
+  @override
+  Future<FlushResult> flushForSettlement() async {
+    flushCalls++;
+    final error = flushError;
+    if (error != null) throw error;
+    return flushResult;
+  }
+
   @override
   Future<void> syncNow() async {
     syncNowCalls++;

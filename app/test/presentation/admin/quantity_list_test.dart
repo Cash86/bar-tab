@@ -60,6 +60,23 @@ void main() {
       expect((restored.toJson()['units'] as Map).containsKey('d1'), isTrue);
     });
 
+    test('hasEntry: an entered 0 counts, a selected-only drink does not', () {
+      lines.select('d1');
+      expect(lines.hasEntry('d1'), isFalse);
+      lines.digit(0);
+      expect(lines.hasEntry('d1'), isTrue);
+      lines.select('d4', hasCrates: false);
+      lines.digit(3);
+      expect(lines.hasEntry('d4'), isTrue);
+      expect(lines.hasEntry('d3'), isFalse);
+      lines.restore({
+        'crates': <String, dynamic>{},
+        'units': {'d3': 0},
+      });
+      expect(lines.hasEntry('d3'), isTrue);
+      expect(lines.hasEntry('d1'), isFalse);
+    });
+
     test('restore replaces state and notifies', () {
       lines.select('d1');
       lines.digit(7);

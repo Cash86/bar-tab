@@ -10,7 +10,9 @@ import 'delivery_screen.dart';
 import 'design_screen.dart';
 import 'drinks_screen.dart';
 import 'event_booking_screen.dart';
+import 'count_draft.dart';
 import 'groups_screen.dart';
+import 'inventory_screen.dart';
 import 'persons_screen.dart';
 import 'pin_change_screen.dart';
 import 'tiers_screen.dart';
@@ -85,6 +87,18 @@ final List<_TileSpec> _tiles = [
     screen: () => const EventBookingScreen(),
   ),
   (
+    name: 'settlement',
+    label: (l) => l.settlementTitle,
+    subtitle: (l) => l.adminTileSettlementSubtitle,
+    screen: () => const InventoryScreen(mode: CountMode.settlement),
+  ),
+  (
+    name: 'opening',
+    label: (l) => l.openingTitle,
+    subtitle: (l) => l.adminTileOpeningSubtitle,
+    screen: () => const InventoryScreen(mode: CountMode.opening),
+  ),
+  (
     name: 'pin',
     label: (l) => l.pinChangeTitle,
     subtitle: null,
@@ -112,7 +126,7 @@ class AdminHome extends ConsumerWidget {
               crossAxisCount: 4,
               mainAxisSpacing: 16,
               crossAxisSpacing: 16,
-              childAspectRatio: 2,
+              childAspectRatio: 1.75,
               children: [
                 for (final tile in _tiles)
                   _Tile(
