@@ -85,7 +85,7 @@ def _import_legacy(users: Path, drinks: Path, mapping: Path, dry_run: bool) -> i
         plan = build_plan(users_text, drinks_text, parse_mapping(mapping_data))
         _print_plan(plan)
         if dry_run:
-            print("dry run: nothing written")
+            print("dry run: nothing written (database emptiness not checked)")
             return 0
         settings = Settings()  # type: ignore[call-arg]
         engine = make_engine(settings.db_path)

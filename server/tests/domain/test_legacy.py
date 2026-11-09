@@ -240,3 +240,34 @@ def test_hidden_collective_person_keeps_both_flags():
     ghost = next(x for x in p.persons if x.name == "Geist Eins")
     assert ghost.is_hidden
     assert ghost.is_collective
+
+
+def test_person_rename_applies_and_is_reported():
+    p = plan(person_rename={"Kim Beispiel": "Kim B."})
+    assert [x.name for x in p.persons][0] == "Kim B."
+    assert "renamed person 'Kim Beispiel' to 'Kim B.'" in p.report
+
+
+def test_person_rename_fixes_too_long_name():
+    long_name = "Maximilian Beispielmann-Muster"
+    users = USERS + f"{long_name},Aktiv\n"
+    with pytest.raises(LegacyError, match="longer"):
+        plan(users=users)
+    p = plan(users=users, person_rename={long_name: "Max Beispielmann"})
+    assert "Max Beispielmann" in [x.name for x in p.persons]
+
+
+def test_collective_uses_legacy_name_even_if_renamed():
+    p = plan(person_rename={"Kasse Eins": "Kasse"})
+    kasse = next(x for x in p.persons if x.name == "Kasse")
+    assert kasse.is_collective
+
+
+def test_person_rename_unknown_key_aborts():
+    with pytest.raises(LegacyError, match="person_rename 'Nobody'"):
+        plan(person_rename={"Nobody": "X"})
+
+
+def test_person_rename_to_duplicate_aborts():
+    with pytest.raises(LegacyError, match="duplicate person"):
+        plan(person_rename={"Kim Beispiel": "Jörg Muster"})

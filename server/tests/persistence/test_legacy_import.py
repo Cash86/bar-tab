@@ -72,6 +72,63 @@ def test_refuses_non_empty_database(db_session, clock):
     assert count(db_session, Drink) == before
 
 
+def _tier(clock):
+    return PriceTier(
+        id="t1", name="T", sort_order=0, created_at=clock.now(), updated_at=clock.now()
+    )
+
+
+def _group(clock):
+    return DrinkGroup(
+        id="g1",
+        name="G",
+        sort_order=0,
+        color="#EA1313",
+        created_at=clock.now(),
+        updated_at=clock.now(),
+    )
+
+
+@pytest.mark.parametrize("kind", ["tier", "group", "person", "drink"])
+def test_each_kind_alone_blocks_the_import(db_session, clock, kind):
+    now = clock.now()
+    # the kind under test must stand alone, without its parent rows
+    raw = db_session.get_bind().raw_connection()
+    raw.cursor().execute("PRAGMA foreign_keys=OFF")
+    raw.close()
+    if kind == "tier":
+        db_session.add(_tier(clock))
+    elif kind == "group":
+        db_session.add(_group(clock))
+    elif kind == "person":
+        db_session.add(
+            Person(
+                id="p1",
+                name="P",
+                price_tier_id="t1",
+                is_collective=False,
+                is_hidden=False,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    else:
+        db_session.add(
+            Drink(
+                id="d1",
+                name="D",
+                group_id="g1",
+                crate_size=1,
+                sort_order=0,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    db_session.commit()
+    with pytest.raises(NotEmpty):
+        apply_plan(db_session, clock, make_plan())
+
+
 def test_import_is_all_or_nothing(db_session, clock):
     bad = dataclasses.replace(
         make_plan(),

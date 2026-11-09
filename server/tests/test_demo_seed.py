@@ -146,6 +146,11 @@ def test_cli_import_legacy_dry_run_writes_nothing(settings, monkeypatch, capsys,
     assert "Bier: 2 drinks" in out
     assert "Kasse Eins" in out
     assert "Geist Eins" in out
+    assert "hidden drinks: Altes Zeug" in out
+    assert "kegs: Fass Alpha" in out
+    assert "placeholder price" in out
+    assert "drink 'fass_a' renamed to 'Fass Alpha'" in out
+    assert "database emptiness not checked" in out
     assert _db_counts(settings) == (0, 0)
 
 

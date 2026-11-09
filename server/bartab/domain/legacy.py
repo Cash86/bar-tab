@@ -41,6 +41,7 @@ class Mapping:
     group_order: list[str]
     collective: list[str] = field(default_factory=list)
     kegs: list[str] = field(default_factory=list)
+    person_rename: dict[str, str] = field(default_factory=dict)
     rename: dict[str, str] = field(default_factory=dict)
     word_replacements: dict[str, str] = field(default_factory=dict)
     price_overrides: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -164,6 +165,7 @@ def parse_mapping(data: dict) -> Mapping:
         group_order=_str_list(data.get("group_order", []), "group_order", problems),
         collective=_str_list(data.get("collective", []), "collective", problems),
         kegs=_str_list(data.get("kegs", []), "kegs", problems),
+        person_rename=_str_dict(data.get("person_rename", {}), "person_rename", problems),
         rename=_str_dict(data.get("rename", {}), "rename", problems),
         word_replacements=_str_dict(
             data.get("word_replacements", {}), "word_replacements", problems
@@ -248,11 +250,18 @@ def _check_mapping(mapping: Mapping, problems: list[str]) -> list[str]:
     return roles
 
 
-def _plan_persons(users_csv: str, mapping: Mapping, problems: list[str]) -> list[PlannedPerson]:
+def _plan_persons(
+    users_csv: str, mapping: Mapping, problems: list[str], report: list[str]
+) -> list[PlannedPerson]:
     persons: list[PlannedPerson] = []
     seen: set[str] = set()
-    for name, role in _rows(users_csv, _USER_COLUMNS, "user.csv", problems):
-        name, role = name.strip(), role.strip()
+    legacy_names: set[str] = set()
+    for legacy, role in _rows(users_csv, _USER_COLUMNS, "user.csv", problems):
+        legacy, role = legacy.strip(), role.strip()
+        legacy_names.add(legacy)
+        name = mapping.person_rename.get(legacy, legacy)
+        if name != legacy:
+            report.append(f"renamed person {legacy!r} to {name!r}")
         _check_length("person", name, MAX_PERSON, problems)
         if name_key(name) in seen:
             problems.append(f"duplicate person {name!r}")
@@ -264,10 +273,14 @@ def _plan_persons(users_csv: str, mapping: Mapping, problems: list[str]) -> list
         else:
             problems.append(f"person {name!r}: unknown role {role!r}")
             continue
-        persons.append(PlannedPerson(name, tier, role == HIDDEN, name in mapping.collective))
-    for name in mapping.collective:
-        if name not in {p.name for p in persons}:
-            problems.append(f"collective {name!r} matches no person")
+        persons.append(PlannedPerson(name, tier, role == HIDDEN, legacy in mapping.collective))
+    for key, names in (
+        ("collective", mapping.collective),
+        ("person_rename", mapping.person_rename),
+    ):
+        for legacy in names:
+            if legacy not in legacy_names:
+                problems.append(f"{key} {legacy!r} matches no person")
     return persons
 
 
@@ -338,7 +351,7 @@ def build_plan(users_csv: str, drinks_csv: str, mapping: Mapping) -> ImportPlan:
     problems: list[str] = []
     report: list[str] = []
     roles = _check_mapping(mapping, problems)
-    persons = _plan_persons(users_csv, mapping, problems)
+    persons = _plan_persons(users_csv, mapping, problems, report)
     drinks = _plan_drinks(drinks_csv, mapping, roles, problems, report)
     for extra in mapping.extra_drinks:
         drinks.append(
