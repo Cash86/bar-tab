@@ -88,12 +88,12 @@ docker compose ps
 
 ### Import legacy data
 
-Only into an empty database. Put the legacy CSV files and your mapping file (see
+Only into an empty database, with the server running. Put the legacy CSV files and your mapping file (see
 [docs/legacy-mapping.example.json](docs/legacy-mapping.example.json) for every key) under
 `./data/import/`; `./data` is mounted as `/data` in the container. Keep these files out of git.
 
 ```sh
-docker compose run --rm server python -m bartab.cli import-legacy \
+docker compose exec server python -m bartab.cli import-legacy \
   --users /data/import/user.csv --drinks /data/import/drink.csv \
   --mapping /data/import/mapping.json --dry-run     # prints the report, writes nothing
 # if the report looks right, run again without --dry-run
@@ -110,7 +110,8 @@ An already paired tablet is re-paired in the admin area ("Server neu koppeln").
 ### Backup
 
 Take a consistent snapshot of the SQLite database, for example daily from cron on the host
-(needs `sqlite3` installed on the host; `%` must be escaped in crontab):
+(needs `sqlite3` installed on the host; `%` must be escaped in crontab). `data/` is owned by
+uid 10001 after the container's chown, so run the cron job as root:
 
 ```cron
 0 3 * * * sqlite3 /opt/containers/bar-tab/data/bartab.db ".backup '/opt/backup/bartab-$(date +\%F).db'"
@@ -127,7 +128,7 @@ Copy the backups off the machine. A restore is: stop the server, replace `data/b
 ### Cut-over from the paper/legacy system
 
 1. Deploy, then run the import (dry run first) with the local mapping file.
-2. Log in to the admin area with `BARTAB_INITIAL_ADMIN_PIN` and change the PIN.
+2. Log in to the admin area with `BARTAB_INITIAL_ADMIN_PIN` and change the PIN (Admin, "Admin-PIN ändern").
 3. Re-pair the tablet: admin area, "Server neu koppeln" (or clear the app data and pair on first
    start; only when no bookings are queued).
 4. Enter the opening count, then start normal operation.
