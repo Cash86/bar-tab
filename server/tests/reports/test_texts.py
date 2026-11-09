@@ -79,3 +79,14 @@ def test_monthly_mail_names_sold_out_inactive_drink():
     _, body = monthly_mail(s, None, "November 2026")
     assert "1 × Winterbock" in body
     assert "d9" not in body
+
+
+def test_monthly_mail_lists_hidden_accounts_in_their_own_section():
+    _, body = monthly_mail(make_settlement(True), None, "November 2026")
+    lines = body.splitlines()
+    persons_at = lines.index("Verbrauch je Person:")
+    hidden_at = lines.index("Versteckte Konten:")
+    assert persons_at < lines.index("Anna: 10,50 €") < hidden_at
+    assert lines.index("Fass: 1,50 €") > hidden_at
+    assert lines.index("Zwischensumme Mitglieder: 10,50 €") < hidden_at
+    assert lines.index("Zwischensumme versteckte Konten: 1,50 €") > hidden_at

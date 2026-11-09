@@ -3,7 +3,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from bartab.domain.settlement import Settlement
+from bartab.domain.settlement import PersonLine, Settlement
 from bartab.reports.money import format_cents
 from bartab.reports.names import drink_names_of
 
@@ -55,11 +55,30 @@ def monthly_mail(preview: Settlement, overdue: int | None, month_label: str) -> 
         lines += [f"Inventur überfällig seit {overdue} Tagen", ""]
     lines += ["Zwischenstand, keine Abrechnung", ""]
     drink_names = drink_names_of(preview)
-    lines.append("Verbrauch je Person:")
-    for p in [*preview.persons, *preview.hidden]:
-        lines.append(f"{p.name}: {format_cents(p.amount_cents)}")
-        for drink_id, qty in preview.person_drink.get(p.person_id, {}).items():
-            lines.append(f"  {qty} × {drink_names.get(drink_id, drink_id)}")
+
+    def section(title: str, people: list[PersonLine], total_label: str, total: int) -> None:
+        lines.append(title)
+        for p in people:
+            lines.append(f"{p.name}: {format_cents(p.amount_cents)}")
+            for drink_id, qty in preview.person_drink.get(p.person_id, {}).items():
+                lines.append(f"  {qty} × {drink_names.get(drink_id, drink_id)}")
+        if not people:
+            lines.append("keine")
+        lines.append(f"{total_label}: {format_cents(total)}")
+
+    section(
+        "Verbrauch je Person:",
+        preview.persons,
+        "Zwischensumme Mitglieder",
+        preview.persons_total_cents,
+    )
+    lines.append("")
+    section(
+        "Versteckte Konten:",
+        preview.hidden,
+        "Zwischensumme versteckte Konten",
+        preview.hidden_total_cents,
+    )
     lines += ["", "Erwarteter Bestand:"]
     for d in preview.drinks:
         lines.append(f"{d.name}: {d.expected}")
