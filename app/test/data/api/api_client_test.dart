@@ -830,4 +830,268 @@ void main() {
       },
     );
   });
+
+  group('inventory, settlement and settings', () {
+    final lineJson = {
+      'drink_id': 'd1',
+      'name': 'Faßbrause',
+      'group_id': 'g1',
+      'opening': 10,
+      'delivered': 20,
+      'booked': 5,
+      'expected': 25,
+      'counted': 24,
+      'shrinkage': 1,
+      'value_cents': 3600,
+      'has_price': true,
+    };
+    final groupLineJson = {
+      'group_id': 'g1',
+      'name': 'Alkoholfrei',
+      'opening': 10,
+      'delivered': 20,
+      'booked': 5,
+      'expected': 25,
+      'counted': 24,
+      'shrinkage': 1,
+      'value_cents': 3600,
+      'has_price': true,
+    };
+    final closeJson = {
+      'period_id': 'pr1',
+      'closed_at': '2026-11-09T20:00:00Z',
+      'mail_status': 'pending',
+    };
+
+    Future<(http.Request, T)> run<T>(
+      Future<T> Function(BarTabApi api) call, {
+      Object? body,
+      int status = 200,
+    }) async {
+      late http.Request seen;
+      final api = _api((r) async {
+        seen = r;
+        return body == null ? http.Response('', status) : _json(body, status);
+      });
+      final result = await call(api);
+      return (seen, result);
+    }
+
+    void expectAdmin(http.Request r, String method, String path) {
+      expect(r.method, method);
+      expect(r.url.path, '/api/v1/$path');
+      expect(r.headers['X-Admin-Token'], 't');
+    }
+
+    test('getStock GETs the stock', () async {
+      final (r, s) = await run(
+        (a) => a.getStock('t'),
+        body: {
+          'opening_count_allowed': true,
+          'drinks': [
+            {
+              'drink_id': 'd1',
+              'name': 'Faßbrause',
+              'group_id': 'g1',
+              'group_name': 'Alkoholfrei',
+              'crate_size': 20,
+              'expected': 7,
+            },
+          ],
+        },
+      );
+      expectAdmin(r, 'GET', 'admin/stock');
+      expect(s.openingCountAllowed, isTrue);
+      expect(s.drinks.single.groupName, 'Alkoholfrei');
+      expect(s.drinks.single.expected, 7);
+    });
+
+    test('reviewSettlement POSTs the counts and parses the review', () async {
+      final (r, v) = await run(
+        (a) => a.reviewSettlement('t', {'d1': 24}),
+        body: {
+          'token': 'rt',
+          'valuation_tier_name': 'Standard',
+          'drinks': [lineJson],
+          'groups': [groupLineJson],
+          'persons_total_cents': 3000,
+          'hidden_total_cents': 600,
+          'grand_total_cents': 3600,
+          'shrinkage_total_cents': 150,
+        },
+      );
+      expectAdmin(r, 'POST', 'admin/settlement/review');
+      expect(jsonDecode(r.body), {
+        'counts': [
+          {'drink_id': 'd1', 'quantity': 24},
+        ],
+      });
+      expect(v.token, 'rt');
+      expect(v.drinks.single.shrinkage, 1);
+      expect(v.groups.single.valueCents, 3600);
+      expect(v.grandTotalCents, 3600);
+    });
+
+    test('closeSettlement POSTs token and counts, 201 parses', () async {
+      final (r, c) = await run(
+        (a) => a.closeSettlement('t', 'rt', {'d1': 24}),
+        body: closeJson,
+        status: 201,
+      );
+      expectAdmin(r, 'POST', 'admin/settlement/close');
+      expect(jsonDecode(r.body), {
+        'token': 'rt',
+        'counts': [
+          {'drink_id': 'd1', 'quantity': 24},
+        ],
+      });
+      expect(c.periodId, 'pr1');
+      expect(c.closedAt, DateTime.utc(2026, 11, 9, 20));
+      expect(c.mailStatus, MailStatus.pending);
+    });
+
+    test('closeSettlement 200 (replay) is a success too', () async {
+      final (_, c) = await run(
+        (a) => a.closeSettlement('t', 'rt', {}),
+        body: {...closeJson, 'mail_status': 'sent'},
+      );
+      expect(c.mailStatus, MailStatus.sent);
+    });
+
+    test('closeSettlement 409 stale_review and already_settled', () async {
+      Future<void> expectThrows(String detail, Matcher matcher) async {
+        final api = _api((r) async => _json({'detail': detail}, 409));
+        await expectLater(api.closeSettlement('t', 'rt', {}), throwsA(matcher));
+      }
+
+      await expectThrows('stale_review', isA<StaleReviewException>());
+      await expectThrows('already_settled', isA<AlreadySettledException>());
+    });
+
+    test('settlement 422 codes become RejectedException', () async {
+      for (final detail in [
+        'missing_count',
+        'unknown_reference',
+        'invalid_quantity',
+      ]) {
+        final api = _api((r) async => _json({'detail': detail}, 422));
+        await expectLater(
+          api.reviewSettlement('t', {'d1': -1}),
+          throwsA(
+            isA<RejectedException>().having((e) => e.detail, 'detail', detail),
+          ),
+        );
+      }
+    });
+
+    test('recordOpeningCount POSTs the counts, 204', () async {
+      final (r, _) = await run(
+        (a) => a.recordOpeningCount('t', {'d1': 4, 'd2': 0}),
+        status: 204,
+      );
+      expectAdmin(r, 'POST', 'admin/opening-count');
+      expect(jsonDecode(r.body), {
+        'counts': [
+          {'drink_id': 'd1', 'quantity': 4},
+          {'drink_id': 'd2', 'quantity': 0},
+        ],
+      });
+    });
+
+    test('recordOpeningCount 409 is a RejectedException', () async {
+      final api = _api((r) async => _json({'detail': 'not_allowed'}, 409));
+      await expectLater(
+        api.recordOpeningCount('t', {}),
+        throwsA(
+          isA<RejectedException>().having(
+            (e) => e.detail,
+            'detail',
+            'not_allowed',
+          ),
+        ),
+      );
+    });
+
+    test('getSettings GETs and parses nulls and last settlement', () async {
+      final (r, s) = await run(
+        (a) => a.getSettings('t'),
+        body: {
+          'recipients': ['a@example.test'],
+          'valuation_tier_id': null,
+          'effective_valuation_tier_id': 't1',
+          'last_settlement': closeJson,
+        },
+      );
+      expectAdmin(r, 'GET', 'admin/settings');
+      expect(s.recipients, ['a@example.test']);
+      expect(s.valuationTierId, isNull);
+      expect(s.effectiveValuationTierId, 't1');
+      expect(s.lastSettlement!.periodId, 'pr1');
+    });
+
+    test('setRecipients PUTs the list, 204', () async {
+      final (r, _) = await run(
+        (a) => a.setRecipients('t', ['a@example.test']),
+        status: 204,
+      );
+      expectAdmin(r, 'PUT', 'admin/settings/recipients');
+      expect(jsonDecode(r.body), {
+        'recipients': ['a@example.test'],
+      });
+    });
+
+    test('setRecipients 422 invalid_email', () async {
+      final api = _api((r) async => _json({'detail': 'invalid_email'}, 422));
+      await expectLater(
+        api.setRecipients('t', ['nope']),
+        throwsA(isA<InvalidEmailException>()),
+      );
+    });
+
+    test('setValuationTier PUTs the tier id, 204', () async {
+      final (r, _) = await run(
+        (a) => a.setValuationTier('t', 't2'),
+        status: 204,
+      );
+      expectAdmin(r, 'PUT', 'admin/settings/valuation-tier');
+      expect(jsonDecode(r.body), {'tier_id': 't2'});
+    });
+
+    test(
+      'resendSettlement POSTs without body and returns the status',
+      () async {
+        final (r, m) = await run(
+          (a) => a.resendSettlement('t'),
+          body: {'mail_status': 'failed'},
+        );
+        expectAdmin(r, 'POST', 'admin/settlement/resend');
+        expect(r.body, isEmpty);
+        expect(m, MailStatus.failed);
+      },
+    );
+
+    test('resendSettlement 404 no_settlement', () async {
+      final api = _api((r) async => _json({'detail': 'no_settlement'}, 404));
+      await expectLater(
+        api.resendSettlement('t'),
+        throwsA(
+          isA<RejectedException>().having(
+            (e) => e.detail,
+            'detail',
+            'no_settlement',
+          ),
+        ),
+      );
+    });
+
+    test('401 admin_session_required ends the session', () async {
+      final api = _api(
+        (r) async => _json({'detail': 'admin_session_required'}, 401),
+      );
+      await expectLater(
+        api.getStock('t'),
+        throwsA(isA<AdminSessionEndedException>()),
+      );
+    });
+  });
 }

@@ -363,3 +363,176 @@ abstract class PinChangeRequestDto with _$PinChangeRequestDto {
   factory PinChangeRequestDto.fromJson(Map<String, dynamic> json) =>
       _$PinChangeRequestDtoFromJson(json);
 }
+
+enum MailStatus {
+  @JsonValue('pending')
+  pending,
+  @JsonValue('sent')
+  sent,
+  @JsonValue('failed')
+  failed,
+  @JsonValue('skipped')
+  skipped,
+}
+
+@freezed
+abstract class CountInDto with _$CountInDto {
+  const factory CountInDto({required String drinkId, required int quantity}) =
+      _CountInDto;
+
+  factory CountInDto.fromJson(Map<String, dynamic> json) =>
+      _$CountInDtoFromJson(json);
+}
+
+@freezed
+abstract class CountsRequestDto with _$CountsRequestDto {
+  const factory CountsRequestDto({required List<CountInDto> counts}) =
+      _CountsRequestDto;
+
+  factory CountsRequestDto.fromJson(Map<String, dynamic> json) =>
+      _$CountsRequestDtoFromJson(json);
+}
+
+@freezed
+abstract class CloseRequestDto with _$CloseRequestDto {
+  const factory CloseRequestDto({
+    required String token,
+    required List<CountInDto> counts,
+  }) = _CloseRequestDto;
+
+  factory CloseRequestDto.fromJson(Map<String, dynamic> json) =>
+      _$CloseRequestDtoFromJson(json);
+}
+
+@freezed
+abstract class StockDrinkDto with _$StockDrinkDto {
+  const factory StockDrinkDto({
+    required String drinkId,
+    required String name,
+    required String groupId,
+    required String groupName,
+    required int crateSize,
+    required int expected,
+  }) = _StockDrinkDto;
+
+  factory StockDrinkDto.fromJson(Map<String, dynamic> json) =>
+      _$StockDrinkDtoFromJson(json);
+}
+
+@freezed
+abstract class StockDto with _$StockDto {
+  const factory StockDto({
+    required bool openingCountAllowed,
+    required List<StockDrinkDto> drinks,
+  }) = _StockDto;
+
+  factory StockDto.fromJson(Map<String, dynamic> json) =>
+      _$StockDtoFromJson(json);
+}
+
+@freezed
+abstract class DrinkLineDto with _$DrinkLineDto {
+  const factory DrinkLineDto({
+    required String drinkId,
+    required String groupId,
+    required String name,
+    required int opening,
+    required int delivered,
+    required int booked,
+    required int expected,
+    required int counted,
+    required int shrinkage,
+    required int valueCents,
+    required bool hasPrice,
+  }) = _DrinkLineDto;
+
+  factory DrinkLineDto.fromJson(Map<String, dynamic> json) =>
+      _$DrinkLineDtoFromJson(json);
+}
+
+@freezed
+abstract class GroupLineDto with _$GroupLineDto {
+  const factory GroupLineDto({
+    required String groupId,
+    required String name,
+    required int opening,
+    required int delivered,
+    required int booked,
+    required int expected,
+    required int counted,
+    required int shrinkage,
+    required int valueCents,
+    required bool hasPrice,
+  }) = _GroupLineDto;
+
+  factory GroupLineDto.fromJson(Map<String, dynamic> json) =>
+      _$GroupLineDtoFromJson(json);
+}
+
+@freezed
+abstract class SettlementReviewDto with _$SettlementReviewDto {
+  const factory SettlementReviewDto({
+    required String token,
+    required String valuationTierName,
+    required List<DrinkLineDto> drinks,
+    required List<GroupLineDto> groups,
+    required int personsTotalCents,
+    required int hiddenTotalCents,
+    required int grandTotalCents,
+    required int shrinkageTotalCents,
+  }) = _SettlementReviewDto;
+
+  factory SettlementReviewDto.fromJson(Map<String, dynamic> json) =>
+      _$SettlementReviewDtoFromJson(json);
+}
+
+@freezed
+abstract class SettlementCloseDto with _$SettlementCloseDto {
+  const factory SettlementCloseDto({
+    required String periodId,
+    required DateTime closedAt,
+    required MailStatus mailStatus,
+  }) = _SettlementCloseDto;
+
+  factory SettlementCloseDto.fromJson(Map<String, dynamic> json) =>
+      _$SettlementCloseDtoFromJson(json);
+}
+
+@freezed
+abstract class SettingsDto with _$SettingsDto {
+  const factory SettingsDto({
+    required List<String> recipients,
+    required String? valuationTierId,
+    required String effectiveValuationTierId,
+    required SettlementCloseDto? lastSettlement,
+  }) = _SettingsDto;
+
+  factory SettingsDto.fromJson(Map<String, dynamic> json) =>
+      _$SettingsDtoFromJson(json);
+}
+
+@freezed
+abstract class RecipientsWriteDto with _$RecipientsWriteDto {
+  const factory RecipientsWriteDto({required List<String> recipients}) =
+      _RecipientsWriteDto;
+
+  factory RecipientsWriteDto.fromJson(Map<String, dynamic> json) =>
+      _$RecipientsWriteDtoFromJson(json);
+}
+
+@freezed
+abstract class ValuationTierWriteDto with _$ValuationTierWriteDto {
+  const factory ValuationTierWriteDto({required String tierId}) =
+      _ValuationTierWriteDto;
+
+  factory ValuationTierWriteDto.fromJson(Map<String, dynamic> json) =>
+      _$ValuationTierWriteDtoFromJson(json);
+}
+
+@freezed
+abstract class ResendDto with _$ResendDto {
+  const factory ResendDto({required MailStatus mailStatus}) = _ResendDto;
+
+  factory ResendDto.fromJson(Map<String, dynamic> json) =>
+      _$ResendDtoFromJson(json);
+}

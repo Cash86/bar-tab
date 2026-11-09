@@ -44,6 +44,22 @@ final class RejectedException extends ApiException {
   final String detail;
 }
 
+/// Closing a settlement was refused: 409 `stale_review`, the data changed since
+/// the review. Review again.
+final class StaleReviewException extends ApiException {
+  const StaleReviewException() : super('Settlement review is stale');
+}
+
+/// Closing a settlement was refused: 409 `already_settled`.
+final class AlreadySettledException extends ApiException {
+  const AlreadySettledException() : super('Period already settled');
+}
+
+/// 422 `invalid_email`: a recipient address is malformed.
+final class InvalidEmailException extends ApiException {
+  const InvalidEmailException() : super('Invalid email address');
+}
+
 /// The server could not be reached (socket, TLS, timeout).
 final class NetworkException extends ApiException {
   const NetworkException(super.message);
@@ -354,6 +370,83 @@ class BarTabApi {
     return const PinChanged();
   }
 
+  Future<StockDto> getStock(String token) async {
+    final response = await _send('GET', 'admin/stock', admin: token);
+    _checkStatus(response);
+    return _parse(response, StockDto.fromJson);
+  }
+
+  Future<SettlementReviewDto> reviewSettlement(
+    String token,
+    Map<String, int> counts,
+  ) => _write(
+    'POST',
+    'admin/settlement/review',
+    token,
+    _counts(counts).toJson(),
+    SettlementReviewDto.fromJson,
+  );
+
+  /// Closes the period. 201 (first close) and 200 (replay) both succeed.
+  Future<SettlementCloseDto> closeSettlement(
+    String token,
+    String reviewToken,
+    Map<String, int> counts,
+  ) => _write(
+    'POST',
+    'admin/settlement/close',
+    token,
+    CloseRequestDto(
+      token: reviewToken,
+      counts: _counts(counts).counts,
+    ).toJson(),
+    SettlementCloseDto.fromJson,
+  );
+
+  Future<void> recordOpeningCount(String token, Map<String, int> counts) =>
+      _writeNoContent(
+        'POST',
+        'admin/opening-count',
+        token,
+        _counts(counts).toJson(),
+      );
+
+  Future<SettingsDto> getSettings(String token) async {
+    final response = await _send('GET', 'admin/settings', admin: token);
+    _checkStatus(response);
+    return _parse(response, SettingsDto.fromJson);
+  }
+
+  Future<void> setRecipients(String token, List<String> recipients) =>
+      _writeNoContent(
+        'PUT',
+        'admin/settings/recipients',
+        token,
+        RecipientsWriteDto(recipients: recipients).toJson(),
+      );
+
+  Future<void> setValuationTier(String token, String tierId) => _writeNoContent(
+    'PUT',
+    'admin/settings/valuation-tier',
+    token,
+    ValuationTierWriteDto(tierId: tierId).toJson(),
+  );
+
+  Future<MailStatus> resendSettlement(String token) async => (await _write(
+    'POST',
+    'admin/settlement/resend',
+    token,
+    null,
+    ResendDto.fromJson,
+  )).mailStatus;
+
+  CountsRequestDto _counts(Map<String, int> counts) => CountsRequestDto(
+    counts: [
+      for (final e in counts.entries)
+        CountInDto(drinkId: e.key, quantity: e.value),
+    ],
+  );
+
   /// An admin write with an optional JSON [json] body and a parsed answer.
   Future<T> _write<T>(
     String method,
@@ -376,7 +469,8 @@ class BarTabApi {
     await _sendWrite(method, path, token, json);
   }
 
-  /// Sends an admin write; 404, 409 and 422 become [RejectedException].
+  /// Sends an admin write; 404, 409 and 422 become [RejectedException] (or a
+  /// specific exception for the settlement and settings codes).
   Future<http.Response> _sendWrite(
     String method,
     String path,
@@ -394,7 +488,17 @@ class BarTabApi {
     );
     final status = response.statusCode;
     if (status == 404 || status == 409 || status == 422) {
-      throw RejectedException(_detail(response) ?? 'unknown');
+      final detail = _detail(response);
+      if (status == 409 && detail == 'stale_review') {
+        throw const StaleReviewException();
+      }
+      if (status == 409 && detail == 'already_settled') {
+        throw const AlreadySettledException();
+      }
+      if (status == 422 && detail == 'invalid_email') {
+        throw const InvalidEmailException();
+      }
+      throw RejectedException(detail ?? 'unknown');
     }
     _checkStatus(response);
     return response;

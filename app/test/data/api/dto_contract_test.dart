@@ -164,6 +164,109 @@ final _cases = <_Case>[
   _Case('DeliveriesDto', 'DeliveriesResponse', [
     DeliveriesDto(deliveries: [_delivery()]).toJson(),
   ]),
+  _Case('CountInDto', 'CountIn', [
+    const CountInDto(drinkId: 'd', quantity: 3).toJson(),
+  ]),
+  _Case('CountsRequestDto', 'CountsRequest', [
+    const CountsRequestDto(
+      counts: [CountInDto(drinkId: 'd', quantity: 3)],
+    ).toJson(),
+  ]),
+  _Case('CloseRequestDto', 'CloseRequest', [
+    const CloseRequestDto(
+      token: 't',
+      counts: [CountInDto(drinkId: 'd', quantity: 3)],
+    ).toJson(),
+  ]),
+  _Case('StockDrinkDto', 'StockDrinkOut', [
+    const StockDrinkDto(
+      drinkId: 'd',
+      name: 'n',
+      groupId: 'g',
+      groupName: 'gn',
+      crateSize: 20,
+      expected: 5,
+    ).toJson(),
+  ]),
+  _Case('StockDto', 'StockResponse', [
+    const StockDto(openingCountAllowed: true, drinks: []).toJson(),
+  ]),
+  _Case('DrinkLineDto', 'DrinkLineOut', [
+    const DrinkLineDto(
+      drinkId: 'd',
+      name: 'n',
+      groupId: 'g',
+      opening: 1,
+      delivered: 2,
+      booked: 3,
+      expected: 4,
+      counted: 5,
+      shrinkage: -1,
+      valueCents: 6,
+      hasPrice: true,
+    ).toJson(),
+  ]),
+  _Case('GroupLineDto', 'GroupLineOut', [
+    const GroupLineDto(
+      groupId: 'g',
+      name: 'n',
+      opening: 1,
+      delivered: 2,
+      booked: 3,
+      expected: 4,
+      counted: 5,
+      shrinkage: -1,
+      valueCents: 6,
+      hasPrice: false,
+    ).toJson(),
+  ]),
+  _Case('SettlementReviewDto', 'SettlementReviewOut', [
+    const SettlementReviewDto(
+      token: 't',
+      valuationTierName: 'n',
+      drinks: [],
+      groups: [],
+      personsTotalCents: 1,
+      hiddenTotalCents: 2,
+      grandTotalCents: 3,
+      shrinkageTotalCents: 4,
+    ).toJson(),
+  ]),
+  _Case('SettlementCloseDto', 'SettlementCloseOut', [
+    for (final s in MailStatus.values)
+      SettlementCloseDto(
+        periodId: 'p',
+        closedAt: _date,
+        mailStatus: s,
+      ).toJson(),
+  ]),
+  _Case('SettingsDto', 'SettingsResponse', [
+    SettingsDto(
+      recipients: const ['a@example.test'],
+      valuationTierId: 't',
+      effectiveValuationTierId: 't',
+      lastSettlement: SettlementCloseDto(
+        periodId: 'p',
+        closedAt: _date,
+        mailStatus: MailStatus.sent,
+      ),
+    ).toJson(),
+    const SettingsDto(
+      recipients: [],
+      valuationTierId: null,
+      effectiveValuationTierId: 't',
+      lastSettlement: null,
+    ).toJson(),
+  ]),
+  _Case('RecipientsWriteDto', 'RecipientsWrite', [
+    const RecipientsWriteDto(recipients: ['a@example.test']).toJson(),
+  ]),
+  _Case('ValuationTierWriteDto', 'ValuationTierWrite', [
+    const ValuationTierWriteDto(tierId: 't').toJson(),
+  ]),
+  _Case('ResendDto', 'ResendOut', [
+    for (final s in MailStatus.values) ResendDto(mailStatus: s).toJson(),
+  ]),
   _Case('PinChangeRequestDto', 'PinChangeRequest', [
     const PinChangeRequestDto(currentPin: '1234', newPin: '5678').toJson(),
   ]),
@@ -228,7 +331,8 @@ Map<String, dynamic> _loadSchemas() {
     return (type: inner.type, nullable: nullable, enums: inner.enums);
   }
   return (
-    type: prop['type'] as String?,
+    // A $ref points at another object schema.
+    type: prop.containsKey(r'$ref') ? 'object' : prop['type'] as String?,
     nullable: false,
     enums: (prop['enum'] as List?)?.cast<String>().toSet(),
   );
