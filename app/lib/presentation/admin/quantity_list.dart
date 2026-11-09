@@ -132,6 +132,7 @@ class QuantityList extends StatelessWidget {
     required this.groups,
     required this.lines,
     this.trailing,
+    this.rowExtra,
   });
 
   final List<Drink> drinks;
@@ -140,6 +141,10 @@ class QuantityList extends StatelessWidget {
 
   /// Extra text after a row's total, e.g. its amount; shown for units > 0.
   final String Function(Drink drink, int units)? trailing;
+
+  /// A widget between a row's total and its [trailing] text, e.g. an input;
+  /// null for no widget. Built on every change of [lines].
+  final Widget? Function(Drink drink, int units)? rowExtra;
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +185,8 @@ class QuantityList extends StatelessWidget {
           style: TextStyle(color: tokens.muted, fontSize: 18),
         ),
       ),
-      for (final d in shown) _Row(drink: d, lines: lines, trailing: trailing),
+      for (final d in shown)
+        _Row(drink: d, lines: lines, trailing: trailing, rowExtra: rowExtra),
     ];
   }
 }
@@ -190,11 +196,13 @@ class _Row extends StatelessWidget {
     required this.drink,
     required this.lines,
     required this.trailing,
+    required this.rowExtra,
   });
 
   final Drink drink;
   final QuantityLines lines;
   final String Function(Drink, int)? trailing;
+  final Widget? Function(Drink, int)? rowExtra;
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +215,7 @@ class _Row extends StatelessWidget {
       crateSize: drink.crateSize,
     );
     final extra = trailing;
+    final input = rowExtra?.call(drink, units);
     return Material(
       key: Key('qty-row-${drink.id}'),
       color: selected ? tokens.surface : Colors.transparent,
@@ -250,6 +259,7 @@ class _Row extends StatelessWidget {
                   style: TextStyle(color: tokens.text, fontSize: 22),
                 ),
               ),
+              ?input,
               if (extra != null)
                 Container(
                   constraints: const BoxConstraints(minWidth: 110),

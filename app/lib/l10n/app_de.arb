@@ -196,6 +196,7 @@
   "eventFailed": "Buchung nicht möglich",
   "eventUnpriced": "Kein Preis für {tier}: {drinks}",
   "@eventUnpriced": {"placeholders": {"tier": {"type": "String"}, "drinks": {"type": "String"}}},
+  "eventKegPrice": "Einkaufspreis",
   "quantityCrateSize": "Kasten = {count} Einheiten",
   "@quantityCrateSize": {"placeholders": {"count": {"type": "int"}}},
   "quantityCrates": "Kästen",

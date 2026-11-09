@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:uuid/uuid.dart';
@@ -8,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../data/api/api_client.dart';
 import '../../data/api/dto.dart';
 import '../../domain/catalog.dart';
+import '../../domain/master_data.dart' show maxPriceCents;
 import '../../l10n/app_localizations.dart';
 import '../design/design.dart';
 import '../format.dart';
@@ -46,8 +48,34 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
   Map<String, _Sent> _attempt = {};
   bool _busy = false;
 
+  /// Purchase price inputs of keg lines by drink id, for the chosen person.
+  final Map<String, TextEditingController> _kegPrices = {};
+
+  void _disposeKegPrices() {
+    for (final c in _kegPrices.values) {
+      c.dispose();
+    }
+    _kegPrices.clear();
+  }
+
+  /// The input of a keg, pre-filled with its price for [person]'s tier.
+  TextEditingController _kegField(Drink drink, Person person) =>
+      _kegPrices.putIfAbsent(drink.id, () {
+        final cents = drink.prices[person.priceTierId];
+        return TextEditingController(
+          text: cents == null ? '' : formatCentsPlain(cents),
+        );
+      });
+
+  /// The entered price of a keg in cents; null while missing or invalid.
+  int? _kegCents(Drink drink, Person person) {
+    final cents = parseEuroCents(_kegField(drink, person).text);
+    return cents == null || cents > maxPriceCents ? null : cents;
+  }
+
   @override
   void dispose() {
+    _disposeKegPrices();
     _lines?.dispose();
     super.dispose();
   }
@@ -64,6 +92,7 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
   void _choose(Person person, Catalog catalog) {
     final sizes = {for (final d in catalog.drinks) d.id: d.crateSize};
     setState(() {
+      _disposeKegPrices();
       _lines?.dispose();
       _lines = QuantityLines(
         maxLineUnits: _maxLineUnits,
@@ -77,6 +106,7 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
   /// Back to step 1; nothing entered is kept.
   void _changePerson() {
     setState(() {
+      _disposeKegPrices();
       _lines?.dispose();
       _lines = null;
       _attempt = {};
@@ -92,12 +122,25 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
     final totals = _lines!.totals({
       for (final d in catalog.drinks) d.id: d.crateSize,
     });
-    final prices = {for (final d in catalog.drinks) d.id: d.prices};
+    final drinks = {for (final d in catalog.drinks) d.id: d};
     return {
       for (final e in totals.entries)
-        if (prices[e.key]?[person.priceTierId] case final price?)
-          e.key: (units: e.value, price: price),
+        if (drinks[e.key] case final d?)
+          if ((d.isKeg ? _kegCents(d, person) : d.prices[person.priceTierId])
+              case final price?)
+            e.key: (units: e.value, price: price),
     };
+  }
+
+  /// Whether a keg with a quantity has no valid purchase price yet.
+  bool _kegUnpriced(Catalog catalog, Person person) {
+    final totals = _lines!.totals({
+      for (final d in catalog.drinks) d.id: d.crateSize,
+    });
+    return catalog.drinks.any(
+      (d) =>
+          d.isKeg && totals.containsKey(d.id) && _kegCents(d, person) == null,
+    );
   }
 
   /// Names of entered drinks without a price for the person's tier; while
@@ -108,7 +151,9 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
     });
     return [
       for (final d in catalog.drinks)
-        if (totals.containsKey(d.id) && d.prices[person.priceTierId] == null)
+        if (totals.containsKey(d.id) &&
+            !d.isKeg &&
+            d.prices[person.priceTierId] == null)
           d.name,
     ];
   }
@@ -118,7 +163,12 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
 
   Future<void> _book(Catalog catalog, Person person) async {
     final data = _lineData(catalog, person);
-    if (data.isEmpty || _busy || _unpriced(catalog, person).isNotEmpty) return;
+    if (data.isEmpty ||
+        _busy ||
+        _unpriced(catalog, person).isNotEmpty ||
+        _kegUnpriced(catalog, person)) {
+      return;
+    }
     final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -258,7 +308,9 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
               listenable: lines,
               builder: (context, _) {
                 final data = _lineData(catalog, person);
-                final blocked = _unpriced(catalog, person).isNotEmpty;
+                final blocked =
+                    _unpriced(catalog, person).isNotEmpty ||
+                    _kegUnpriced(catalog, person);
                 return Padding(
                   padding: const EdgeInsets.only(left: 8, right: 16),
                   child: FilledButton(
@@ -300,11 +352,57 @@ class _EventBookingScreenState extends ConsumerState<EventBookingScreen> {
                 groups: catalog.groups,
                 lines: lines,
                 trailing: (drink, units) => formatCents(
-                  units * (prices[drink.id]?[person.priceTierId] ?? 0),
+                  units *
+                      (drink.isKeg
+                          ? (_kegCents(drink, person) ?? 0)
+                          : (prices[drink.id]?[person.priceTierId] ?? 0)),
                 ),
+                rowExtra: (drink, units) => drink.isKeg && units > 0
+                    ? _KegPrice(
+                        fieldKey: Key('event-keg-price-${drink.id}'),
+                        controller: _kegField(drink, person),
+                        label: l10n.eventKegPrice,
+                        onChanged: () => setState(() {}),
+                      )
+                    : null,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _KegPrice extends StatelessWidget {
+  const _KegPrice({
+    required this.fieldKey,
+    required this.controller,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final Key fieldKey;
+  final TextEditingController controller;
+  final String label;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.only(left: 8),
+      child: TextField(
+        key: fieldKey,
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9.,]'))],
+        textAlign: TextAlign.end,
+        onChanged: (_) => onChanged(),
+        decoration: InputDecoration(
+          labelText: label,
+          suffixText: '€',
+          isDense: true,
         ),
       ),
     );

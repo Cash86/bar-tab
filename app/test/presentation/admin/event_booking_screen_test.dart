@@ -136,7 +136,14 @@ void main() {
       _drink('d2', 'Wasser', crate: 1),
       _drink('d3', 'Alt Old', active: false),
       _drink('d4', 'Geheim', hidden: true),
-      _drink('d6', 'Fass 30l', keg: true),
+      _drink(
+        'd6',
+        'Fass 30l',
+        keg: true,
+        crate: 1,
+        prices: const {'t1': 12000, 't2': 13050},
+      ),
+      _drink('d7', 'Fass leer', keg: true, crate: 1, prices: const {}),
       _drink('d5', 'Nur Mitglieder', crate: 1, prices: const {'t1': 90}),
     ],
     etag: 'e',
@@ -621,5 +628,92 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Wer trinkt?'), findsOneWidget);
     expect(find.byType(EventBookingScreen), findsNothing);
+  });
+
+  Finder kegPrice(String id) => find.byKey(Key('event-keg-price-$id'));
+
+  testWidgets('a keg line shows its tier price in a labelled field', (
+    tester,
+  ) async {
+    await openEvent(tester);
+    await pick(tester, 'p4');
+    expect(kegPrice('d6'), findsNothing);
+    await enter(tester, 'd6', units: '1');
+    expect(kegPrice('d6'), findsOneWidget);
+    expect(find.text('Einkaufspreis'), findsOneWidget);
+    expect(tester.widget<TextField>(kegPrice('d6')).controller!.text, '130,50');
+    await enter(tester, 'd1', units: '1');
+    expect(kegPrice('d1'), findsNothing);
+  });
+
+  testWidgets('a keg without a tier price starts empty and blocks booking', (
+    tester,
+  ) async {
+    await openEvent(tester);
+    await pick(tester, 'p1');
+    await enter(tester, 'd7', units: '1');
+    expect(tester.widget<TextField>(kegPrice('d7')).controller!.text, '');
+    expect(tester.widget<ButtonStyleButton>(submit()).enabled, isFalse);
+    await tester.enterText(kegPrice('d7'), 'abc');
+    await tester.pump();
+    expect(tester.widget<ButtonStyleButton>(submit()).enabled, isFalse);
+    await tester.enterText(kegPrice('d7'), '99,5');
+    await tester.pump();
+    expect(tester.widget<ButtonStyleButton>(submit()).enabled, isTrue);
+  });
+
+  testWidgets('the entered keg price is sent as the unit price', (
+    tester,
+  ) async {
+    await openEvent(tester);
+    await pick(tester, 'p1');
+    await enter(tester, 'd6', units: '2');
+    await enter(tester, 'd2', units: '1');
+    await tester.enterText(kegPrice('d6'), '99,5');
+    await tester.pump();
+    expect(
+      find.text('Buchen · ${formatCents(2 * 9950 + 100)}'),
+      findsOneWidget,
+    );
+    await book(tester);
+    final byDrink = {
+      for (final i in items(bookingRequests().single)) i['drink_id']: i,
+    };
+    expect(byDrink['d6']!['unit_price_cents'], 9950);
+    expect(byDrink['d6']!['quantity'], 2);
+    expect(byDrink['d2']!['unit_price_cents'], 100);
+  });
+
+  testWidgets('a keg price of 0,00 is allowed', (tester) async {
+    await openEvent(tester);
+    await pick(tester, 'p1');
+    await enter(tester, 'd7', units: '1');
+    await tester.enterText(kegPrice('d7'), '0,00');
+    await tester.pump();
+    expect(tester.widget<ButtonStyleButton>(submit()).enabled, isTrue);
+    await book(tester);
+    expect(items(bookingRequests().single).single['unit_price_cents'], 0);
+  });
+
+  testWidgets('a keg with quantity 0 does not block booking', (tester) async {
+    await openEvent(tester);
+    await pick(tester, 'p1');
+    await enter(tester, 'd2', units: '1');
+    await enter(tester, 'd7', units: '0');
+    expect(tester.widget<ButtonStyleButton>(submit()).enabled, isTrue);
+  });
+
+  testWidgets('choosing another person fills the keg price again', (
+    tester,
+  ) async {
+    await openEvent(tester);
+    await pick(tester, 'p1');
+    await enter(tester, 'd6', units: '1');
+    await tester.enterText(kegPrice('d6'), '5');
+    await tester.tap(find.byKey(const Key('event-change-person')));
+    await tester.pumpAndSettle();
+    await pick(tester, 'p4');
+    await enter(tester, 'd6', units: '1');
+    expect(tester.widget<TextField>(kegPrice('d6')).controller!.text, '130,50');
   });
 }
