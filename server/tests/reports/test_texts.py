@@ -9,7 +9,9 @@ def test_format_cents():
     assert format_cents(150) == "1,50 €"
     assert format_cents(-80) == "−0,80 €"
     assert format_cents(0) == "0,00 €"
-    assert format_cents(123456) == "1234,56 €"
+    assert format_cents(123456) == "1.234,56 €"
+    assert format_cents(-123456) == "−1.234,56 €"
+    assert format_cents(100000000) == "1.000.000,00 €"
 
 
 def make_settlement(preview=False) -> Settlement:
@@ -35,6 +37,7 @@ def make_settlement(preview=False) -> Settlement:
         cancelled_deliveries=[],
         cancelled_bookings=[],
         person_drink={"p1": {"d1": 7}, "p3": {"d1": 1}},
+        tier_names={"t1": "Aktive"},
     )
 
 
@@ -49,7 +52,7 @@ def test_settlement_mail_subject_and_totals():
 
 
 def test_monthly_mail_overdue_line_first():
-    subject, body = monthly_mail(make_settlement(True), "Europe/Berlin", 12, "November 2026")
+    subject, body = monthly_mail(make_settlement(True), 12, "November 2026")
     assert subject == "bar-tab: Zwischenstand November 2026"
     assert body.splitlines()[0] == "Inventur überfällig seit 12 Tagen"
     assert "Zwischenstand, keine Abrechnung" in body
@@ -60,6 +63,6 @@ def test_monthly_mail_overdue_line_first():
 
 
 def test_monthly_mail_without_overdue_line():
-    _, body = monthly_mail(make_settlement(True), "Europe/Berlin", None, "November 2026")
+    _, body = monthly_mail(make_settlement(True), None, "November 2026")
     assert "überfällig" not in body
     assert body.splitlines()[0] == "Zwischenstand, keine Abrechnung"

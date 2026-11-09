@@ -100,6 +100,7 @@ class Settlement:
     cancelled_deliveries: list[StockIn]
     cancelled_bookings: list[BookingIn]
     person_drink: dict[str, dict[str, int]]
+    tier_names: dict[str, str]
 
 
 def effective_valuation_tier(tiers: Iterable[TierIn], chosen_id: str | None) -> TierIn:
@@ -309,6 +310,7 @@ def compute_settlement(
             (b for b in bookings if b.cancelled_at is not None), key=lambda b: b.booked_at
         ),
         person_drink=person_drink,
+        tier_names={t.id: t.name for t in tiers},
     )
 
 
@@ -392,6 +394,7 @@ def settlement_to_json(s: Settlement) -> dict[str, Any]:
         "cancelled_deliveries": [_stock_to_json(x) for x in s.cancelled_deliveries],
         "cancelled_bookings": [_booking_to_json(b) for b in s.cancelled_bookings],
         "person_drink": s.person_drink,
+        "tier_names": s.tier_names,
     }
 
 
@@ -414,4 +417,5 @@ def settlement_from_json(d: dict[str, Any]) -> Settlement:
         cancelled_deliveries=[_stock_from_json(x) for x in d["cancelled_deliveries"]],
         cancelled_bookings=[_booking_from_json(b) for b in d["cancelled_bookings"]],
         person_drink=d["person_drink"],
+        tier_names=d["tier_names"],
     )

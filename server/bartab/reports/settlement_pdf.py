@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
-from bartab.domain.settlement import PersonLine, Settlement
+from bartab.domain.settlement import DrinkLine, PersonLine, Settlement
 from bartab.reports.money import format_cents
 
 FONT_DIR = Path(__file__).parent / "fonts"
@@ -39,11 +39,27 @@ class _Pdf(FPDF):
         self.cell(0, 5.5, text, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         self.set_font(FAMILY, "", 9)
 
-    def table(self, header: list[str], rows: list[list[str]], bold_last: bool = False) -> None:
+    def table(
+        self,
+        header: list[str],
+        rows: list[list[str]],
+        bold_last: bool = False,
+        widths: list[float] | None = None,
+    ) -> None:
         """Rows of text cells; the first column is left aligned, the others right aligned."""
-        first = 70.0
-        rest = (self.epw - first) / max(len(header) - 1, 1) if len(header) > 1 else 0
-        widths = [first if len(header) > 1 else self.epw] + [rest] * (len(header) - 1)
+        if widths is None:
+            if len(header) == 1:
+                widths = [self.epw]
+            else:
+                first = min(70.0, self.epw / 3)
+                widths = [first] + [(self.epw - first) / (len(header) - 1)] * (len(header) - 1)
+
+        def fit(text: str, width: float) -> str:
+            if self.get_string_width(text) <= width - 2:
+                return text
+            while text and self.get_string_width(text + "…") > width - 2:
+                text = text[:-1]
+            return text + "…"
 
         def emit(cells: list[str], bold: bool) -> None:
             self.set_font(FAMILY, "B" if bold else "", 9)
@@ -52,7 +68,7 @@ class _Pdf(FPDF):
                 self.cell(
                     w,
                     5.5,
-                    cell,
+                    fit(cell, w),
                     border="B",
                     align="L" if i == 0 else "R",
                     new_x=XPos.LMARGIN if last else XPos.RIGHT,
@@ -94,7 +110,7 @@ def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
     tier_ids = list(dict.fromkeys(p.tier_id for p in s.persons))
     for tier_id in tier_ids:
         members = [p for p in s.persons if p.tier_id == tier_id]
-        label = s.valuation_tier_name if tier_id == s.valuation_tier_id else tier_id
+        label = s.tier_names.get(tier_id, tier_id)
         pdf.line(f"Preisstufe {label}", bold=True)
         rows = _person_rows(members, group_ids)
         rows.append(
@@ -134,12 +150,12 @@ def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
         "Gezählt",
         "Schwund",
         "Wert",
+        "Hinweis",
     ]
+    shrink_widths = [60.0, 20, 22, 22, 22, 22, 22, 33, 0]
+    shrink_widths[-1] = pdf.epw - sum(shrink_widths[:-1])
 
-    def shrink_row(name: str, line, subtotal: bool = False) -> list[str]:
-        value = format_cents(line.value_cents)
-        if not line.has_price:
-            value += " (kein Preis)"
+    def shrink_row(name: str, line: DrinkLine) -> list[str]:
         counted = "" if line.counted is None else str(line.counted)
         shrink = "" if line.shrinkage is None else str(line.shrinkage)
         return [
@@ -150,7 +166,8 @@ def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
             str(line.expected),
             counted,
             shrink,
-            value,
+            format_cents(line.value_cents),
+            "" if line.has_price else "kein Preis",
         ]
 
     rows: list[list[str]] = []
@@ -159,8 +176,10 @@ def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
             rows.append(shrink_row(d.name, d))
         g = s.group_totals[gid]
         rows.append(shrink_row(f"Summe {g.name}", g))
-    rows.append(["Schwund gesamt", "", "", "", "", "", "", format_cents(s.shrinkage_total_cents)])
-    pdf.table(shrink_header, rows, bold_last=True)
+    rows.append(
+        ["Schwund gesamt", "", "", "", "", "", "", format_cents(s.shrinkage_total_cents), ""]
+    )
+    pdf.table(shrink_header, rows, bold_last=True, widths=shrink_widths)
 
     pdf.heading("Lieferungen")
     if s.deliveries:
@@ -217,6 +236,12 @@ def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
     for p in [*s.persons, *s.hidden]:
         per = s.person_drink.get(p.person_id, {})
         rows.append([p.name, *[str(per.get(d, 0)) for d in drink_ids]])
-    pdf.table(["Person", *[drink_names[d] for d in drink_ids]], rows)
+    first = 50.0
+    each = max((pdf.epw - first) / max(len(drink_ids), 1), 16.0)
+    pdf.table(
+        ["Person", *[drink_names[d] for d in drink_ids]],
+        rows,
+        widths=[first] + [each] * len(drink_ids),
+    )
 
     return bytes(pdf.output())

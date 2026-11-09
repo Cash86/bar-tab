@@ -71,6 +71,7 @@ def test_amount_is_sum_of_quantity_times_frozen_unit_price():
     assert s.persons[0].amount_cents == 470
     assert s.persons[0].quantities_by_group == {"g1": 2, "g2": 1}
     assert s.person_drink == {"p1": {"d1": 2, "d2": 1}}
+    assert s.tier_names == {"t1": "Aktive", "t2": "Gaeste"}
 
 
 def test_cancelled_bookings_and_deliveries_are_excluded():

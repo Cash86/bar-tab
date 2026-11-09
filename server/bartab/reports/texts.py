@@ -28,10 +28,7 @@ def settlement_mail(s: Settlement, tz: str) -> tuple[str, str]:
     return subject, body
 
 
-def monthly_mail(
-    preview: Settlement, tz: str, overdue: int | None, month_label: str
-) -> tuple[str, str]:
-    del tz  # the preview carries no times; kept for a uniform signature with settlement_mail
+def monthly_mail(preview: Settlement, overdue: int | None, month_label: str) -> tuple[str, str]:
     lines: list[str] = []
     if overdue is not None:
         lines += [f"Inventur überfällig seit {overdue} Tagen", ""]

@@ -3,8 +3,10 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 IMAGE=bartab-dev:latest
-if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-  docker build -t "$IMAGE" -f "$ROOT/server/Dockerfile.dev" "$ROOT/server"
+# Rebuild when the dependencies or the image definition changed (sha256 kept as an image label).
+HASH="$(cat "$ROOT/server/pyproject.toml" "$ROOT/server/Dockerfile.dev" | sha256sum | cut -d' ' -f1)"
+if [ "$(docker image inspect -f '{{ index .Config.Labels "bartab.deps" }}' "$IMAGE" 2>/dev/null)" != "$HASH" ]; then
+  docker build --label "bartab.deps=$HASH" -t "$IMAGE" -f "$ROOT/server/Dockerfile.dev" "$ROOT/server"
 fi
 docker run --rm --user "$(id -u):$(id -g)" \
   -e PYTHONDONTWRITEBYTECODE=1 -e HOME=/tmp -e RUFF_CACHE_DIR=/tmp/ruff \
