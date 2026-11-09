@@ -1,0 +1,27 @@
+{
+  "tiers": {"Aktiv": "Members", "AH": "Alumni"},
+  "hidden_tier": "Aktiv",
+  "collective": ["Stammtisch", "Kasse_Fest"],
+  "person_rename": {"max_m": "Max Mustermann"},
+  "groups": {
+    "pils": "Beer",
+    "cola_mix": "Soft drinks",
+    "wasser": "Soft drinks",
+    "fass_pils": "Beer",
+    "schnaps": "Spirits"
+  },
+  "group_order": ["Beer", "Soft drinks", "Spirits"],
+  "kegs": ["fass_pils"],
+  "rename": {"wasser": "Mineral water"},
+  "word_replacements": {"Cola": "Kola", "Mix": "Mischung"},
+  "price_overrides": {"fass_pils": {"Aktiv": 7500, "AH": 7500}},
+  "extra_drinks": [
+    {
+      "name": "Malt beer",
+      "group": "Soft drinks",
+      "crate_size": 20,
+      "prices": {"Aktiv": 60, "AH": 120},
+      "is_keg": false
+    }
+  ]
+}

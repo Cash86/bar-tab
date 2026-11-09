@@ -13,8 +13,8 @@ Requires Docker with Compose.
 
 ```sh
 cp .env.example .env
-# Edit .env: set BARTAB_PUBLIC_URL, BARTAB_INITIAL_ADMIN_PIN and the keys below.
-openssl rand -hex 32   # run once per key: BARTAB_SECRET_KEY and each entry of BARTAB_DEVICE_KEYS
+# Edit .env: set BARTAB_PUBLIC_URL, BARTAB_INITIAL_ADMIN_PIN and BARTAB_DEVICE_KEYS.
+openssl rand -hex 32   # run once per entry of BARTAB_DEVICE_KEYS
 cp docker-compose.override.example.yml docker-compose.override.yml  # pick the local or Traefik variant
 docker compose up -d
 docker compose exec server alembic upgrade head   # optional, the container already migrates on start
@@ -36,7 +36,7 @@ server/tool/test.sh            # pytest, ruff check, ruff format --check
 server/tool/test.sh -k health  # extra arguments are passed to pytest
 ```
 
-Copy `.env.example` to `.env` and adjust it for local runs. A full operator guide will follow.
+Copy `.env.example` to `.env` and adjust it for local runs.
 
 ### App
 
@@ -56,6 +56,81 @@ config and demo data, port 18080, everything removed afterwards). It needs Docke
 ```sh
 app/tool/e2e.sh
 ```
+
+## Operator guide
+
+### Install (host with Traefik)
+
+Requires Docker with Compose and a running Traefik with an external Docker network `proxy`, an
+entrypoint `websecure` and a certificate resolver.
+
+```sh
+git clone <repository-url> /opt/containers/bar-tab && cd /opt/containers/bar-tab
+cp .env.example .env                 # set BARTAB_PUBLIC_URL=https://bar.example.org, admin PIN, keys
+openssl rand -hex 32                 # once per tablet, comma-separated in BARTAB_DEVICE_KEYS
+cp docker-compose.override.example.yml docker-compose.override.yml
+# keep variant (b): remove the `ports` block and uncomment the Traefik labels and networks;
+# set the host rule, <your-certresolver> and (optionally) <your-middlewares>
+docker compose up -d --build
+docker compose ps                    # wait until the server shows "healthy"
+```
+
+The compose healthcheck calls `/api/v1/health`; Traefik only routes to healthy containers.
+Migrations run on container start. The container fixes ownership of `./data` itself.
+
+### Update
+
+```sh
+git pull --ff-only
+docker compose up -d --build
+docker compose ps
+```
+
+### Import legacy data
+
+Only into an empty database. Put the legacy CSV files and your mapping file (see
+[docs/legacy-mapping.example.json](docs/legacy-mapping.example.json) for every key) under
+`./data/import/`; `./data` is mounted as `/data` in the container. Keep these files out of git.
+
+```sh
+docker compose run --rm server python -m bartab.cli import-legacy \
+  --users /data/import/user.csv --drinks /data/import/drink.csv \
+  --mapping /data/import/mapping.json --dry-run     # prints the report, writes nothing
+# if the report looks right, run again without --dry-run
+```
+
+The import is strict: any unknown role, unmapped drink or unmatched name aborts with a message
+and writes nothing.
+
+### Pairing the tablet
+
+See [Tablet](#tablet): enter `https://bar.example.org` and one key from `BARTAB_DEVICE_KEYS`.
+An already paired tablet is re-paired in the admin area ("Server neu koppeln").
+
+### Backup
+
+Take a consistent snapshot of the SQLite database, for example daily from cron on the host
+(needs `sqlite3` installed on the host; `%` must be escaped in crontab):
+
+```cron
+0 3 * * * sqlite3 /opt/containers/bar-tab/data/bartab.db ".backup '/opt/backup/bartab-$(date +\%F).db'"
+```
+
+Without host `sqlite3`, use the Python module inside the container:
+
+```sh
+docker compose exec server python -c "import sqlite3; s=sqlite3.connect('/data/bartab.db'); d=sqlite3.connect('/data/backup.db'); s.backup(d)"
+```
+
+Copy the backups off the machine. A restore is: stop the server, replace `data/bartab.db`, start.
+
+### Cut-over from the paper/legacy system
+
+1. Deploy, then run the import (dry run first) with the local mapping file.
+2. Log in to the admin area with `BARTAB_INITIAL_ADMIN_PIN` and change the PIN.
+3. Re-pair the tablet: admin area, "Server neu koppeln" (or clear the app data and pair on first
+   start; only when no bookings are queued).
+4. Enter the opening count, then start normal operation.
 
 ## Settlement and reports (operator notes)
 
