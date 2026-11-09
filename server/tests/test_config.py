@@ -104,3 +104,27 @@ def ambient_env(monkeypatch, tmp_path_factory):
 def test_settings_fixture_ignores_ambient_env_and_dotenv(ambient_env, settings):
     assert settings.tz == "Europe/Berlin"
     assert settings.smtp_host is None
+
+
+@pytest.mark.parametrize("day", ["0", "29"])
+def test_monthly_report_day_out_of_range_is_rejected(monkeypatch, tmp_path, day):
+    _base_env(monkeypatch, tmp_path, BARTAB_MONTHLY_REPORT_DAY=day)
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_monthly_report_day_28_is_accepted(monkeypatch, tmp_path):
+    _base_env(monkeypatch, tmp_path, BARTAB_MONTHLY_REPORT_DAY="28")
+    assert Settings().monthly_report_day == 28
+
+
+@pytest.mark.parametrize("value", ["24:00", "8:00", "ab", "12:60"])
+def test_monthly_report_time_invalid_is_rejected(monkeypatch, tmp_path, value):
+    _base_env(monkeypatch, tmp_path, BARTAB_MONTHLY_REPORT_TIME=value)
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_monthly_report_time_valid_is_accepted(monkeypatch, tmp_path):
+    _base_env(monkeypatch, tmp_path, BARTAB_MONTHLY_REPORT_TIME="23:59")
+    assert Settings().monthly_report_time == "23:59"

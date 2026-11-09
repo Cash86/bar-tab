@@ -46,3 +46,9 @@ def test_overdue_month_end_clamp():
     last = date(2026, 1, 31)
     assert overdue_days(date(2026, 2, 28), last) is None
     assert overdue_days(date(2026, 3, 1), last) == 1
+
+
+def test_overdue_across_year_boundary():
+    last = date(2026, 12, 15)
+    assert overdue_days(date(2027, 1, 15), last) is None
+    assert overdue_days(date(2027, 1, 16), last) == 1

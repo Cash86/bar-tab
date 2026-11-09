@@ -48,8 +48,8 @@ class Settings(BaseSettings):
     smtp_user: str | None = None
     smtp_password: str | None = None
     smtp_from: str | None = None
-    monthly_report_day: int = 1
-    monthly_report_time: str = "08:00"
+    monthly_report_day: int = Field(default=1, ge=1, le=28)
+    monthly_report_time: str = Field(default="08:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
 
     @field_validator("device_keys")
     @classmethod
