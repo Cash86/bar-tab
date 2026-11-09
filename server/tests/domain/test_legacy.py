@@ -271,3 +271,43 @@ def test_person_rename_unknown_key_aborts():
 def test_person_rename_to_duplicate_aborts():
     with pytest.raises(LegacyError, match="duplicate person"):
         plan(person_rename={"Kim Beispiel": "Jörg Muster"})
+
+
+def test_placeholder_report_skipped_for_overridden_role():
+    p = plan(price_overrides={"teuer": {"Aktiv": 100, "AH": 200}})
+    teuer = next(d for d in p.drinks if d.name == "Teuer")
+    assert teuer.prices == {"Aktive": 100, "Alte": 200}
+    assert not any("Teuer" in line and "placeholder" in line for line in p.report)
+
+
+def test_placeholder_report_kept_for_role_without_override():
+    p = plan(price_overrides={"teuer": {"Aktiv": 100}})
+    lines = [line for line in p.report if "Teuer" in line and "placeholder" in line]
+    assert len(lines) == 1
+    assert "AH" in lines[0]
+
+
+@pytest.mark.parametrize("cents", [-1, PLACEHOLDER_CENTS, PLACEHOLDER_CENTS + 1])
+def test_override_price_out_of_range_aborts(cents):
+    with pytest.raises(LegacyError, match="price_overrides"):
+        parse_mapping(mapping_data(price_overrides={"fass_a": {"Aktiv": cents}}))
+
+
+def test_extra_drink_price_out_of_range_aborts():
+    prices = {"Aktiv": PLACEHOLDER_CENTS}
+    extra = {"name": "Malz", "group": "Limo", "crate_size": 20, "prices": prices}
+    with pytest.raises(LegacyError, match="extra_drinks"):
+        parse_mapping(mapping_data(extra_drinks=[extra]))
+
+
+def test_renames_are_stripped():
+    p = plan(person_rename={"Kim Beispiel": "  Kim B. "}, rename={"fass_a": " Fass Alpha "})
+    assert "Kim B." in [x.name for x in p.persons]
+    assert "Fass Alpha" in [d.name for d in p.drinks]
+
+
+@pytest.mark.parametrize("key", ["person_rename", "rename"])
+def test_blank_rename_aborts(key):
+    legacy = "Kim Beispiel" if key == "person_rename" else "fass_a"
+    with pytest.raises(LegacyError, match=key):
+        parse_mapping(mapping_data(**{key: {legacy: "   "}}))

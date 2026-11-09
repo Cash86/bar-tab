@@ -88,6 +88,15 @@ def _str_dict(value: object, key: str, problems: list[str]) -> dict[str, str]:
     return dict(value)
 
 
+def _stripped_dict(value: object, key: str, problems: list[str]) -> dict[str, str]:
+    result = _str_dict(value, key, problems)
+    stripped = {k: v.strip() for k, v in result.items()}
+    if any(not v for v in stripped.values()):
+        problems.append(f"mapping.{key} values must not be empty")
+        return {}
+    return stripped
+
+
 def _str_list(value: object, key: str, problems: list[str]) -> list[str]:
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
         problems.append(f"mapping.{key} must be a list of strings")
@@ -97,9 +106,11 @@ def _str_list(value: object, key: str, problems: list[str]) -> list[str]:
 
 def _prices(value: object, where: str, problems: list[str]) -> dict[str, int]:
     if not isinstance(value, dict) or not all(
-        isinstance(k, str) and _is_int(v) and v >= 0 for k, v in value.items()
+        isinstance(k, str) and _is_int(v) and 0 <= v < PLACEHOLDER_CENTS for k, v in value.items()
     ):
-        problems.append(f"{where} must map roles to non-negative integer cents")
+        problems.append(
+            f"{where} must map roles to integer cents from 0 to {PLACEHOLDER_CENTS - 1}"
+        )
         return {}
     return dict(value)
 
@@ -165,8 +176,8 @@ def parse_mapping(data: dict) -> Mapping:
         group_order=_str_list(data.get("group_order", []), "group_order", problems),
         collective=_str_list(data.get("collective", []), "collective", problems),
         kegs=_str_list(data.get("kegs", []), "kegs", problems),
-        person_rename=_str_dict(data.get("person_rename", {}), "person_rename", problems),
-        rename=_str_dict(data.get("rename", {}), "rename", problems),
+        person_rename=_stripped_dict(data.get("person_rename", {}), "person_rename", problems),
+        rename=_stripped_dict(data.get("rename", {}), "rename", problems),
         word_replacements=_str_dict(
             data.get("word_replacements", {}), "word_replacements", problems
         ),
@@ -309,6 +320,7 @@ def _plan_drinks(
             problems.append(f"drink {legacy!r}: invalid crate size {crate_text!r}")
             crate = 1
         prices: dict[str, int] = {}
+        overridden = mapping.price_overrides.get(legacy, {})
         for role, text in zip(roles, price_cols, strict=False):
             try:
                 cents = euro_to_cents(text)
@@ -316,10 +328,11 @@ def _plan_drinks(
                 problems.append(f"drink {legacy!r}: {exc}")
                 continue
             if cents >= PLACEHOLDER_CENTS:
-                report.append(f"drink {name!r}: placeholder price for {role} imported as 0")
+                if role not in overridden:
+                    report.append(f"drink {name!r}: placeholder price for {role} imported as 0")
                 cents = 0
             prices[mapping.tiers[role]] = cents
-        for role, cents in mapping.price_overrides.get(legacy, {}).items():
+        for role, cents in overridden.items():
             if role in mapping.tiers:
                 prices[mapping.tiers[role]] = cents
         is_keg = legacy in mapping.kegs
