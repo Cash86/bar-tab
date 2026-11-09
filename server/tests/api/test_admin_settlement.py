@@ -72,10 +72,11 @@ def record(app):
         return session.scalars(select(SettlementRecord)).one()
 
 
-def test_stock_lists_inactive_drink_with_stock(client, admin, seeded):
+def test_stock_lists_inactive_drink_with_stock(client, app, admin, seeded):
     response = client.get(f"{API}/stock", headers=admin)
     assert response.status_code == 200
     assert response.json() == {
+        "period_id": periods(app)[0].id,
         "opening_count_allowed": True,
         "drinks": [
             {
@@ -104,6 +105,15 @@ def test_stock_lists_inactive_drink_with_stock(client, admin, seeded):
             },
         ],
     }
+
+
+def test_stock_names_the_open_period(client, app, admin, seeded, mailer):
+    before = client.get(f"{API}/stock", headers=admin).json()["period_id"]
+    assert before == periods(app)[0].id
+    assert review_and_close(client, admin).status_code == 201
+    after = client.get(f"{API}/stock", headers=admin).json()["period_id"]
+    assert after == next(p.id for p in periods(app) if p.closed_at is None)
+    assert after != before
 
 
 def test_review_totals(client, app, admin, seeded):

@@ -422,6 +422,8 @@ abstract class StockDrinkDto with _$StockDrinkDto {
 @freezed
 abstract class StockDto with _$StockDto {
   const factory StockDto({
+    /// The open period; a count draft belongs to it.
+    required String? periodId,
     required bool openingCountAllowed,
     required List<StockDrinkDto> drinks,
   }) = _StockDto;

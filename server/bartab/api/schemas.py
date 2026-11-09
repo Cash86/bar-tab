@@ -198,6 +198,7 @@ class StockDrinkOut(BaseModel):
 
 
 class StockResponse(BaseModel):
+    period_id: str | None  # the open period; a count draft belongs to it
     opening_count_allowed: bool
     drinks: list[StockDrinkOut]  # the drinks to count, in count order
 

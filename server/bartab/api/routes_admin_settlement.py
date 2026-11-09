@@ -92,6 +92,7 @@ def get_stock(
 ) -> StockResponse:
     allowed, drinks = settlement.stock_overview(session)
     return StockResponse(
+        period_id=settlement.open_period_id(session),
         opening_count_allowed=allowed,
         drinks=[
             StockDrinkOut(

@@ -888,6 +888,7 @@ void main() {
       final (r, s) = await run(
         (a) => a.getStock('t'),
         body: {
+          'period_id': 'pr1',
           'opening_count_allowed': true,
           'drinks': [
             {
@@ -902,6 +903,7 @@ void main() {
         },
       );
       expectAdmin(r, 'GET', 'admin/stock');
+      expect(s.periodId, 'pr1');
       expect(s.openingCountAllowed, isTrue);
       expect(s.drinks.single.groupName, 'Alkoholfrei');
       expect(s.drinks.single.expected, 7);

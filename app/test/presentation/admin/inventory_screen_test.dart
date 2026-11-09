@@ -167,6 +167,51 @@ void main() {
       expect(find.text('Entwurf fortgesetzt'), findsNothing);
     });
 
+    testWidgets('the draft remembers the period it was counted in', (
+      tester,
+    ) async {
+      h.onStock = (_) async => jsonResponse(stockJson(periodId: 'per-1'));
+      await h.open(tester, 'settlement');
+      await h.enter(tester, 'd1', crates: '2');
+      await tester.pump();
+      expect(jsonDecode(h.store.values['count_draft_settlement_period']!), {
+        'period_id': 'per-1',
+      });
+    });
+
+    testWidgets('a draft of the same period is restored', (tester) async {
+      h.store.values['count_draft_settlement'] = jsonEncode({
+        'crates': {'d1': 2},
+        'units': {'d1': 3},
+      });
+      h.store.values['count_draft_settlement_period'] = jsonEncode({
+        'period_id': 'per-1',
+      });
+      h.onStock = (_) async => jsonResponse(stockJson(periodId: 'per-1'));
+      await h.open(tester, 'settlement');
+      expect(find.text('Entwurf fortgesetzt'), findsOneWidget);
+      expect(find.text('= 43'), findsOneWidget);
+    });
+
+    testWidgets('a draft of an earlier period is dropped', (tester) async {
+      // "Status unklar", the admin left; the server had closed the period.
+      h.store.values['count_draft_settlement'] = jsonEncode({
+        'crates': {'d1': 2},
+        'units': {'d1': 3, 'd2': 30, 'd3': 0},
+      });
+      h.store.values['count_draft_settlement_period'] = jsonEncode({
+        'period_id': 'per-1',
+      });
+      h.onStock = (_) async => jsonResponse(stockJson(periodId: 'per-2'));
+      await h.open(tester, 'settlement');
+      expect(find.byKey(const Key('qty-row-d1')), findsOneWidget);
+      expect(find.text('Entwurf fortgesetzt'), findsNothing);
+      expect(find.text('= 43'), findsNothing);
+      expect(enabled(tester, reviewButton()), isFalse);
+      expect(draft('settlement'), isNull);
+      expect(h.store.values['count_draft_settlement_period'], isNull);
+    });
+
     testWidgets('Verwerfen clears the draft after confirmation', (
       tester,
     ) async {

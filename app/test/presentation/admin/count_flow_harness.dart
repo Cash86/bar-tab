@@ -27,7 +27,11 @@ typedef Handler = Future<http.Response> Function(http.Request request);
 
 /// Stock as `GET /admin/stock` answers it: Pils (crate 20) and a hidden keg
 /// in "Bier", Wasser (crate 12) in "Alkoholfrei".
-Map<String, dynamic> stockJson({bool openingAllowed = true}) => {
+Map<String, dynamic> stockJson({
+  bool openingAllowed = true,
+  String? periodId,
+}) => {
+  'period_id': ?periodId,
   'opening_count_allowed': openingAllowed,
   'drinks': [
     {

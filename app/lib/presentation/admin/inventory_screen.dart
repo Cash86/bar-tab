@@ -45,6 +45,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   );
 
   StockDto? _stock;
+
+  /// The open period the counts belong to, saved with the draft.
+  String? _periodId;
   Map<String, int> _crateSizes = const {};
 
   /// Why the flow cannot go on; the list is not shown.
@@ -96,9 +99,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     if (_mode == CountMode.opening && !stock.openingCountAllowed) {
       return _block((l) => l.openingNotAllowed);
     }
-    final draft = await _loadDraft();
+    final draft = await _loadDraft(stock.periodId);
     if (!mounted) return;
     if (draft != null) _lines.restore(draft);
+    _periodId = stock.periodId;
     _lines.addListener(_saveDraft);
     setState(() {
       _stock = stock;
@@ -127,7 +131,12 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   Future<void> _reloadStock() async {
     final stock = await _loadStock();
     if (stock == null || !mounted) return;
-    final listed = {for (final d in stock.drinks) d.drinkId};
+    // Counts of another period (closed meanwhile) are kept for no drink.
+    final listed = {
+      if (stock.periodId == _periodId)
+        for (final d in stock.drinks) d.drinkId,
+    };
+    _periodId = stock.periodId;
     final json = _lines.toJson();
     Map<String, dynamic> keep(Object? raw) => {
       if (raw is Map)
@@ -158,9 +167,19 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
   void _block(_Text reason) => setState(() => _blocked = reason);
 
-  Future<Map<String, dynamic>?> _loadDraft() async {
+  /// The saved draft, unless it was counted in another period than
+  /// [periodId] (that one was closed; its draft is dropped).
+  Future<Map<String, dynamic>?> _loadDraft(String? periodId) async {
+    final store = ref.read(countDraftStoreProvider);
     try {
-      return await ref.read(countDraftStoreProvider).load(_mode);
+      final draft = await store.load(_mode);
+      final period = await store.loadPeriod(_mode);
+      if (draft != null && period != null && period.periodId != periodId) {
+        _log.info('Count draft of period ${period.periodId} dropped');
+        await store.clear(_mode);
+        return null;
+      }
+      return draft;
     } on Object catch (e) {
       _log.warning('Count draft not readable: $e');
       return null;
@@ -170,10 +189,15 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   void _saveDraft() {
     final store = ref.read(countDraftStoreProvider);
     final json = _lines.isEmpty ? null : _lines.toJson();
+    final periodId = _periodId;
+    Future<void> write() async {
+      if (json == null) return store.clear(_mode);
+      await store.save(_mode, json);
+      await store.savePeriod(_mode, periodId);
+    }
+
     _saving = _saving
-        .then(
-          (_) => json == null ? store.clear(_mode) : store.save(_mode, json),
-        )
+        .then((_) => write())
         .catchError((Object e) => _log.warning('Count draft not saved: $e'));
   }
 

@@ -189,7 +189,16 @@ final _cases = <_Case>[
     ).toJson(),
   ]),
   _Case('StockDto', 'StockResponse', [
-    const StockDto(openingCountAllowed: true, drinks: []).toJson(),
+    const StockDto(
+      periodId: 'p',
+      openingCountAllowed: true,
+      drinks: [],
+    ).toJson(),
+    const StockDto(
+      periodId: null,
+      openingCountAllowed: true,
+      drinks: [],
+    ).toJson(),
   ]),
   _Case('DrinkLineDto', 'DrinkLineOut', [
     const DrinkLineDto(

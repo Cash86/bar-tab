@@ -36,6 +36,19 @@ void main() {
     expect(config.values.keys, ['count_draft_opening']);
   });
 
+  test('keeps the period of a draft per mode; clear removes it', () async {
+    expect(await store.loadPeriod(CountMode.settlement), isNull);
+    await store.savePeriod(CountMode.settlement, 'per-1');
+    await store.savePeriod(CountMode.opening, null);
+    expect(await store.loadPeriod(CountMode.settlement), (periodId: 'per-1'));
+    expect(await store.loadPeriod(CountMode.opening), (periodId: null));
+    await store.clear(CountMode.settlement);
+    expect(await store.loadPeriod(CountMode.settlement), isNull);
+    expect(await store.loadPeriod(CountMode.opening), (periodId: null));
+    config.values['count_draft_opening_period'] = '{not json';
+    expect(await store.loadPeriod(CountMode.opening), isNull);
+  });
+
   test('corrupt JSON loads as null', () async {
     config.values['count_draft_opening'] = '{not json';
     expect(await store.load(CountMode.opening), isNull);

@@ -1169,9 +1169,21 @@
           "opening_count_allowed": {
             "title": "Opening Count Allowed",
             "type": "boolean"
+          },
+          "period_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Id"
           }
         },
         "required": [
+          "period_id",
           "opening_count_allowed",
           "drinks"
         ],

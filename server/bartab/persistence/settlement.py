@@ -87,6 +87,11 @@ def _open_period(session: Session) -> Period | None:
     return session.scalars(select(Period).where(Period.closed_at.is_(None))).first()
 
 
+def open_period_id(session: Session) -> str | None:
+    period = _open_period(session)
+    return None if period is None else period.id
+
+
 def _require_open_period(session: Session) -> Period:
     period = _open_period(session)
     if period is None:
