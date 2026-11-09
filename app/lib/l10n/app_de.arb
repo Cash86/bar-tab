@@ -279,6 +279,8 @@
   "settlementClose": "Abrechnung abschließen",
   "settlementCloseConfirm": "Abrechnung jetzt abschließen?",
   "settlementStale": "Daten haben sich geändert – bitte erneut prüfen",
+  "countListChanged": "Getränkeliste hat sich geändert – bitte Zählung prüfen",
+  "@countListChanged": {"description": "The drinks to count changed while reviewing; back on the count screen with the new list."},
   "settlementFailed": "Abrechnung nicht möglich",
   "settlementCloseUnclear": "Status unklar – bitte erneut abschließen",
   "@settlementCloseUnclear": {"description": "The close request got no answer; the period may be closed. A retry with the same review is a safe replay."},

@@ -16,8 +16,23 @@ import 'count_draft.dart';
 
 final _log = Logger('admin');
 
+/// Review refusals that mean the counts no longer match the drinks to count.
+const _countListCodes = {'missing_count', 'unknown_reference'};
+
+/// How the review was left.
+enum ReviewOutcome {
+  /// "Zurück": back to the count as it is.
+  back,
+
+  /// The period is closed.
+  closed,
+
+  /// The server's list of drinks to count no longer matches the counts.
+  countListChanged,
+}
+
 /// Step 3 of the settlement: the server's figures for [counts]; nothing is
-/// stored until "Abrechnung abschließen". Pops with `true` once closed.
+/// stored until "Abrechnung abschließen". Pops with a [ReviewOutcome].
 class SettlementReviewScreen extends ConsumerStatefulWidget {
   const SettlementReviewScreen({super.key, required this.counts});
 
@@ -52,6 +67,15 @@ class _SettlementReviewScreenState
     } on NetworkException catch (e) {
       _log.info('Review unreachable: ${e.message}');
       if (mounted) setState(() => _loadFailure = (l) => l.adminUnreachable);
+    } on RejectedException catch (e) {
+      _log.info('Review refused: ${e.detail}');
+      if (!mounted) return;
+      if (_countListCodes.contains(e.detail)) {
+        // The drinks to count changed (e.g. after a stale close): count again.
+        Navigator.of(context).pop(ReviewOutcome.countListChanged);
+      } else {
+        setState(() => _loadFailure = (l) => l.settlementFailed);
+      }
     } on ApiException catch (e) {
       _log.info('Review failed: ${e.message}');
       if (mounted) setState(() => _loadFailure = (l) => l.settlementFailed);
@@ -115,7 +139,7 @@ class _SettlementReviewScreenState
         MailStatus.skipped => l10n.settlementDoneNoMail,
         MailStatus.pending => l10n.settlementDone,
       });
-      Navigator.of(context).pop(true);
+      Navigator.of(context).pop(ReviewOutcome.closed);
       return;
     } on AdminSessionEndedException {
       // The session listener returns to the PIN prompt.
@@ -164,7 +188,7 @@ class _SettlementReviewScreenState
                 key: const Key('review-back'),
                 onPressed: _busy
                     ? null
-                    : () => Navigator.of(context).pop(false),
+                    : () => Navigator.of(context).pop(ReviewOutcome.back),
                 child: Text(l10n.reviewBack),
               ),
               const SizedBox(width: 8),

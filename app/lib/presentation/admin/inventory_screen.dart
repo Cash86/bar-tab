@@ -55,6 +55,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
   /// A draft was restored on entry.
   bool _restored = false;
+
+  /// The list was reloaded because the drinks to count changed.
+  bool _listChanged = false;
   bool _busy = false;
 
   /// Draft writes, in order.
@@ -88,19 +91,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         _warning = (l) => l.settlementFailedBookings(flush.failed);
       }
     }
-    final StockDto stock;
-    try {
-      stock = await ref
-          .read(adminSessionProvider.notifier)
-          .run((api, token) => api.getStock(token));
-    } on AdminSessionEndedException {
-      return; // The session listener returns to the PIN prompt.
-    } on ApiException catch (e) {
-      _log.info('Stock not loaded: ${e.message}');
-      if (mounted) _block((l) => l.adminUnreachable);
-      return;
-    }
-    if (!mounted) return;
+    final stock = await _loadStock();
+    if (stock == null || !mounted) return;
     if (_mode == CountMode.opening && !stock.openingCountAllowed) {
       return _block((l) => l.openingNotAllowed);
     }
@@ -112,6 +104,45 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       _stock = stock;
       _crateSizes = {for (final d in stock.drinks) d.drinkId: d.crateSize};
       _restored = stock.drinks.any((d) => _lines.hasEntry(d.drinkId));
+    });
+  }
+
+  /// The drinks to count; null (and blocked) when not loaded.
+  Future<StockDto?> _loadStock() async {
+    try {
+      return await ref
+          .read(adminSessionProvider.notifier)
+          .run((api, token) => api.getStock(token));
+    } on AdminSessionEndedException {
+      return null; // The session listener returns to the PIN prompt.
+    } on ApiException catch (e) {
+      _log.info('Stock not loaded: ${e.message}');
+      if (mounted) _block((l) => l.adminUnreachable);
+      return null;
+    }
+  }
+
+  /// The drinks to count changed: shows the new list and keeps the counts of
+  /// the drinks still on it.
+  Future<void> _reloadStock() async {
+    final stock = await _loadStock();
+    if (stock == null || !mounted) return;
+    final listed = {for (final d in stock.drinks) d.drinkId};
+    final json = _lines.toJson();
+    Map<String, dynamic> keep(Object? raw) => {
+      if (raw is Map)
+        for (final e in raw.entries)
+          if (listed.contains(e.key)) e.key as String: e.value,
+    };
+    _lines.restore({
+      'crates': keep(json['crates']),
+      'units': keep(json['units']),
+    });
+    setState(() {
+      _stock = stock;
+      _crateSizes = {for (final d in stock.drinks) d.drinkId: d.crateSize};
+      _restored = false;
+      _listChanged = true;
     });
   }
 
@@ -197,12 +228,19 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 
   Future<void> _review(Map<String, int> counts) async {
-    final closed = await Navigator.of(
-      context,
-    ).push<bool>(adminRoute((_) => SettlementReviewScreen(counts: counts)));
-    if (closed != true || !mounted) return;
-    _lines.removeListener(_saveDraft);
-    Navigator.of(context).pop();
+    final outcome = await Navigator.of(context).push<ReviewOutcome>(
+      adminRoute((_) => SettlementReviewScreen(counts: counts)),
+    );
+    if (!mounted) return;
+    switch (outcome) {
+      case ReviewOutcome.closed:
+        _lines.removeListener(_saveDraft);
+        Navigator.of(context).pop();
+      case ReviewOutcome.countListChanged:
+        await _reloadStock();
+      case ReviewOutcome.back || null:
+        break;
+    }
   }
 
   Future<void> _saveOpening(Map<String, int> counts) async {
@@ -320,6 +358,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final warning = _warning;
     final notes = [
       if (warning != null) warning(l10n),
+      if (_listChanged) l10n.countListChanged,
       if (_restored) l10n.countDraftRestored,
     ];
     return Column(

@@ -173,6 +173,65 @@ void main() {
     expect(body['token'], 'rev-2');
   });
 
+  for (final detail in ['missing_count', 'unknown_reference']) {
+    testWidgets('a changed count list after a stale review ($detail) goes '
+        'back to the count with the new list', (tester) async {
+      h.onClose = (_) async => jsonResponse({'detail': 'stale_review'}, 409);
+      await openReview(tester);
+      // Fass is gone from the list, Radler is new.
+      final changed = stockJson();
+      final drinks = (changed['drinks'] as List).cast<Map<String, dynamic>>();
+      changed['drinks'] = [
+        drinks[0],
+        drinks[2],
+        {
+          'drink_id': 'd4',
+          'name': 'Radler',
+          'group_id': 'g1',
+          'group_name': 'Bier',
+          'crate_size': 20,
+          'expected': 5,
+        },
+      ];
+      h.onStock = (_) async => jsonResponse(changed);
+      h.onReview = (_) async => jsonResponse({'detail': detail}, 422);
+      await close(tester);
+
+      expect(find.byType(SettlementReviewScreen), findsNothing);
+      expect(find.byType(InventoryScreen), findsOneWidget);
+      expect(
+        find.text('Getränkeliste hat sich geändert – bitte Zählung prüfen'),
+        findsOneWidget,
+      );
+      expect(h.requestsTo('admin/stock'), hasLength(2));
+      expect(find.byKey(const Key('qty-row-d4')), findsOneWidget);
+      expect(find.byKey(const Key('qty-row-d2')), findsNothing);
+      // Counts of drinks still listed are kept; the gone one is dropped.
+      expect(find.text('= 43'), findsOneWidget);
+      final draft =
+          jsonDecode(h.store.values['count_draft_settlement']!)
+              as Map<String, dynamic>;
+      expect((draft['units'] as Map).containsKey('d2'), isFalse);
+      expect((draft['units'] as Map)['d1'], 3);
+      expect(
+        tester
+            .widget<ButtonStyleButton>(find.byKey(const Key('count-review')))
+            .enabled,
+        isFalse,
+      );
+
+      await h.enter(tester, 'd4', units: '5');
+      h.onReview = (_) async => jsonResponse(reviewJson(token: 'rev-3'));
+      await tester.tap(find.byKey(const Key('count-review')));
+      await tester.pumpAndSettle();
+      expect(h.countsOf(h.requestsTo('settlement/review').last), {
+        'd1': 43,
+        'd3': 12,
+        'd4': 5,
+      });
+    });
+  }
+
   testWidgets('a lost close answer keeps the review; a retry replays', (
     tester,
   ) async {
