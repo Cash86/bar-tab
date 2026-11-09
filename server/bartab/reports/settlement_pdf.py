@@ -1,0 +1,222 @@
+"""Settlement PDF (fpdf2, bundled DejaVu Sans for umlauts and the minus sign)."""
+
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from fpdf import FPDF
+from fpdf.enums import XPos, YPos
+
+from bartab.domain.settlement import PersonLine, Settlement
+from bartab.reports.money import format_cents
+
+FONT_DIR = Path(__file__).parent / "fonts"
+FAMILY = "DejaVu"
+
+
+def _local(value: datetime, tz: str) -> str:
+    return value.astimezone(ZoneInfo(tz)).strftime("%d.%m.%Y %H:%M")
+
+
+class _Pdf(FPDF):
+    def __init__(self) -> None:
+        super().__init__(orientation="L", format="A4")
+        self.add_font(FAMILY, "", str(FONT_DIR / "DejaVuSans.ttf"))
+        self.add_font(FAMILY, "B", str(FONT_DIR / "DejaVuSans-Bold.ttf"))
+        self.set_auto_page_break(True, margin=12)
+        self.set_margins(12, 12, 12)
+        self.set_font(FAMILY, "", 9)
+        self.add_page()
+
+    def heading(self, text: str) -> None:
+        self.ln(3)
+        self.set_font(FAMILY, "B", 12)
+        self.cell(0, 8, text, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        self.set_font(FAMILY, "", 9)
+
+    def line(self, text: str, bold: bool = False) -> None:
+        self.set_font(FAMILY, "B" if bold else "", 9)
+        self.cell(0, 5.5, text, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        self.set_font(FAMILY, "", 9)
+
+    def table(self, header: list[str], rows: list[list[str]], bold_last: bool = False) -> None:
+        """Rows of text cells; the first column is left aligned, the others right aligned."""
+        first = 70.0
+        rest = (self.epw - first) / max(len(header) - 1, 1) if len(header) > 1 else 0
+        widths = [first if len(header) > 1 else self.epw] + [rest] * (len(header) - 1)
+
+        def emit(cells: list[str], bold: bool) -> None:
+            self.set_font(FAMILY, "B" if bold else "", 9)
+            for i, (cell, w) in enumerate(zip(cells, widths, strict=True)):
+                last = i == len(cells) - 1
+                self.cell(
+                    w,
+                    5.5,
+                    cell,
+                    border="B",
+                    align="L" if i == 0 else "R",
+                    new_x=XPos.LMARGIN if last else XPos.RIGHT,
+                    new_y=YPos.NEXT if last else YPos.TOP,
+                )
+            self.set_font(FAMILY, "", 9)
+
+        emit(header, True)
+        for n, row in enumerate(rows):
+            emit(row, bold_last and n == len(rows) - 1)
+
+
+def _person_rows(people: list[PersonLine], group_ids: list[str]) -> list[list[str]]:
+    return [
+        [
+            p.name,
+            *[str(p.quantities_by_group.get(g, 0)) for g in group_ids],
+            format_cents(p.amount_cents),
+        ]
+        for p in people
+    ]
+
+
+def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
+    pdf = _Pdf()
+    group_ids = list(s.group_totals)
+    group_names = [s.group_totals[g].name for g in group_ids]
+    drink_names = {d.drink_id: d.name for d in s.drinks}
+    person_names = {p.person_id: p.name for p in [*s.persons, *s.hidden]}
+    person_header = ["Person", *group_names, "Betrag"]
+
+    pdf.set_font(FAMILY, "B", 16)
+    pdf.cell(0, 10, "bar-tab Abrechnung", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_font(FAMILY, "", 9)
+    pdf.line(f"Zeitraum: {_local(s.started_at, tz)} – {_local(s.ended_at, tz)}")
+    pdf.line(f"Schwund bewertet mit Preisstufe: {s.valuation_tier_name}")
+
+    pdf.heading("Mitglieder je Preisstufe")
+    tier_ids = list(dict.fromkeys(p.tier_id for p in s.persons))
+    for tier_id in tier_ids:
+        members = [p for p in s.persons if p.tier_id == tier_id]
+        label = s.valuation_tier_name if tier_id == s.valuation_tier_id else tier_id
+        pdf.line(f"Preisstufe {label}", bold=True)
+        rows = _person_rows(members, group_ids)
+        rows.append(
+            [
+                "Zwischensumme",
+                *["" for _ in group_ids],
+                format_cents(sum(p.amount_cents for p in members)),
+            ]
+        )
+        pdf.table(person_header, rows, bold_last=True)
+        pdf.ln(2)
+
+    pdf.heading("Versteckte Konten")
+    if s.hidden:
+        pdf.table(person_header, _person_rows(s.hidden, group_ids))
+    else:
+        pdf.line("keine")
+
+    pdf.heading("Summen")
+    pdf.table(
+        ["", "Betrag"],
+        [
+            ["Mitglieder", format_cents(s.persons_total_cents)],
+            ["Versteckte Konten", format_cents(s.hidden_total_cents)],
+            ["Gesamt", format_cents(s.grand_total_cents)],
+        ],
+        bold_last=True,
+    )
+
+    pdf.heading(f"Schwund (bewertet mit {s.valuation_tier_name})")
+    shrink_header = [
+        "Getränk",
+        "Anfang",
+        "Geliefert",
+        "Gebucht",
+        "Erwartet",
+        "Gezählt",
+        "Schwund",
+        "Wert",
+    ]
+
+    def shrink_row(name: str, line, subtotal: bool = False) -> list[str]:
+        value = format_cents(line.value_cents)
+        if not line.has_price:
+            value += " (kein Preis)"
+        counted = "" if line.counted is None else str(line.counted)
+        shrink = "" if line.shrinkage is None else str(line.shrinkage)
+        return [
+            name,
+            str(line.opening),
+            str(line.delivered),
+            str(line.booked),
+            str(line.expected),
+            counted,
+            shrink,
+            value,
+        ]
+
+    rows: list[list[str]] = []
+    for gid in group_ids:
+        for d in (d for d in s.drinks if d.group_id == gid):
+            rows.append(shrink_row(d.name, d))
+        g = s.group_totals[gid]
+        rows.append(shrink_row(f"Summe {g.name}", g))
+    rows.append(["Schwund gesamt", "", "", "", "", "", "", format_cents(s.shrinkage_total_cents)])
+    pdf.table(shrink_header, rows, bold_last=True)
+
+    pdf.heading("Lieferungen")
+    if s.deliveries:
+        pdf.table(
+            ["Getränk", "Menge", "Erfasst"],
+            [
+                [drink_names.get(x.drink_id, x.drink_id), str(x.quantity), _local(x.created_at, tz)]
+                for x in s.deliveries
+            ],
+        )
+    else:
+        pdf.line("keine")
+
+    pdf.heading("Stornos")
+    pdf.line("Stornierte Buchungen", bold=True)
+    if s.cancelled_bookings:
+        pdf.table(
+            ["Person", "Getränk", "Menge", "Betrag", "Gebucht", "Storniert"],
+            [
+                [
+                    person_names.get(b.person_id, b.person_id),
+                    drink_names.get(b.drink_id, b.drink_id),
+                    str(b.quantity),
+                    format_cents(b.quantity * b.unit_price_cents),
+                    _local(b.booked_at, tz),
+                    _local(b.cancelled_at, tz) if b.cancelled_at else "",
+                ]
+                for b in s.cancelled_bookings
+            ],
+        )
+    else:
+        pdf.line("keine")
+    pdf.line("Stornierte Lieferungen", bold=True)
+    if s.cancelled_deliveries:
+        pdf.table(
+            ["Getränk", "Menge", "Erfasst", "Storniert"],
+            [
+                [
+                    drink_names.get(x.drink_id, x.drink_id),
+                    str(x.quantity),
+                    _local(x.created_at, tz),
+                    _local(x.cancelled_at, tz) if x.cancelled_at else "",
+                ]
+                for x in s.cancelled_deliveries
+            ],
+        )
+    else:
+        pdf.line("keine")
+
+    pdf.add_page()
+    pdf.heading("Anhang: Person × Getränk")
+    drink_ids = [d.drink_id for d in s.drinks]
+    rows = []
+    for p in [*s.persons, *s.hidden]:
+        per = s.person_drink.get(p.person_id, {})
+        rows.append([p.name, *[str(per.get(d, 0)) for d in drink_ids]])
+    pdf.table(["Person", *[drink_names[d] for d in drink_ids]], rows)
+
+    return bytes(pdf.output())

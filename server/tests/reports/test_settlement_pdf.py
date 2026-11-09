@@ -1,0 +1,60 @@
+from datetime import UTC, datetime
+from io import BytesIO
+
+from pypdf import PdfReader
+
+from bartab.domain.settlement import BookingIn, DrinkLine, PersonLine, Settlement, StockIn
+from bartab.reports.settlement_pdf import render_settlement_pdf
+
+T = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
+
+
+def make(no_price=False) -> Settlement:
+    beer = DrinkLine("d1", "Pils", "g1", 10, 5, 7, 8, 6, 2, 120, True)
+    cola = DrinkLine("d2", "Spezi", "g2", 4, 0, 1, 3, 3, 0, 0, not no_price)
+    groups = {
+        "g1": DrinkLine("", "Bier", "g1", 10, 5, 7, 8, 6, 2, 120, True),
+        "g2": DrinkLine("", "Softdrinks", "g2", 4, 0, 1, 3, 3, 0, 0, not no_price),
+    }
+    return Settlement(
+        period_id="per1",
+        started_at=datetime(2026, 10, 1, tzinfo=UTC),
+        ended_at=datetime(2026, 11, 1, tzinfo=UTC),
+        valuation_tier_id="t1",
+        valuation_tier_name="Aktive",
+        persons=[PersonLine("p1", "Jörg Beispiel", "t1", {"g1": 7, "g2": 1}, 123456)],
+        hidden=[PersonLine("p3", "Fass", "t1", {"g1": 1}, 150)],
+        drinks=[beer, cola],
+        group_totals=groups,
+        persons_total_cents=123456,
+        hidden_total_cents=150,
+        grand_total_cents=123606,
+        shrinkage_total_cents=120,
+        deliveries=[StockIn("d1", "delivery", 5, T, None)],
+        cancelled_deliveries=[StockIn("d1", "delivery", 2, T, T)],
+        cancelled_bookings=[BookingIn("p1", "d1", 1, 150, T, T, False)],
+        person_drink={"p1": {"d1": 7, "d2": 1}, "p3": {"d1": 1}},
+    )
+
+
+def text_of(pdf: bytes) -> str:
+    assert pdf.startswith(b"%PDF")
+    return "\n".join(p.extract_text() for p in PdfReader(BytesIO(pdf)).pages)
+
+
+def test_pdf_contains_totals_and_umlauts():
+    text = text_of(render_settlement_pdf(make(), "Europe/Berlin"))
+    assert "Jörg Beispiel" in text
+    assert "1236,06 €" in text
+    assert "Aktive" in text
+    assert "Pils" in text
+
+
+def test_pdf_marks_drink_without_price():
+    text = text_of(render_settlement_pdf(make(no_price=True), "Europe/Berlin"))
+    assert "kein Preis" in text
+
+
+def test_pdf_without_marker_when_all_priced():
+    text = text_of(render_settlement_pdf(make(), "Europe/Berlin"))
+    assert "kein Preis" not in text
