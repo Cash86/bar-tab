@@ -310,6 +310,22 @@ def test_recipients_and_valuation_tier_round_trip(s):
     assert st.get_recipients(s) == []
 
 
+def test_unknown_valuation_tier_is_refused(s):
+    with pytest.raises(st.UnknownTier):
+        st.set_valuation_tier_id(s, "nope")
+    assert st.get_valuation_tier_id(s) is None
+
+
+def test_effective_valuation_tier_id_falls_back_to_the_first_tier(s):
+    assert st.effective_valuation_tier_id(s) == "t1"
+    st.set_valuation_tier_id(s, "t2")
+    assert st.effective_valuation_tier_id(s) == "t2"
+    s.query(Person).filter_by(price_tier_id="t2").delete()
+    s.query(DrinkPrice).filter_by(price_tier_id="t2").delete()
+    s.query(PriceTier).filter_by(id="t2").delete()
+    assert st.effective_valuation_tier_id(s) == "t1"
+
+
 def test_set_mail_status(s, clock):
     _deliver(s, clock, "e1", qty=10)
     row, _ = _review_and_close(s, clock, {"d1": 10, "d2": 0})

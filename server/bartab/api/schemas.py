@@ -186,3 +186,100 @@ class DeliveryOut(BaseModel):
 
 class DeliveriesResponse(BaseModel):
     deliveries: list[DeliveryOut]
+
+
+class StockDrinkOut(BaseModel):
+    drink_id: str
+    name: str
+    group_id: str
+    group_name: str
+    crate_size: int
+    expected: int
+
+
+class StockResponse(BaseModel):
+    opening_count_allowed: bool
+    drinks: list[StockDrinkOut]  # the drinks to count, in count order
+
+
+class CountIn(BaseModel):
+    """Range check (quantity) happens in the route, so it answers invalid_quantity."""
+
+    drink_id: str
+    quantity: int
+
+
+class CountsRequest(BaseModel):
+    counts: list[CountIn]
+
+
+class CloseRequest(CountsRequest):
+    token: str
+
+
+class DrinkLineOut(BaseModel):
+    drink_id: str
+    name: str
+    group_id: str
+    opening: int
+    delivered: int
+    booked: int
+    expected: int
+    counted: int
+    shrinkage: int  # expected - counted, units; negative = more found than expected
+    value_cents: int
+    has_price: bool  # False: no price in the valuation tier, valued at 0
+
+
+class GroupLineOut(BaseModel):
+    group_id: str
+    name: str
+    opening: int
+    delivered: int
+    booked: int
+    expected: int
+    counted: int
+    shrinkage: int
+    value_cents: int
+    has_price: bool  # False when any drink of the group has no price in the valuation tier
+
+
+class SettlementReviewOut(BaseModel):
+    token: str
+    valuation_tier_name: str
+    drinks: list[DrinkLineOut]
+    groups: list[GroupLineOut]
+    persons_total_cents: int
+    hidden_total_cents: int
+    grand_total_cents: int
+    shrinkage_total_cents: int
+
+
+MailStatusOut = Literal["pending", "sent", "failed", "skipped"]
+
+
+class SettlementCloseOut(BaseModel):
+    period_id: str
+    closed_at: datetime
+    mail_status: MailStatusOut
+
+
+class ResendOut(BaseModel):
+    mail_status: MailStatusOut
+
+
+class SettingsResponse(BaseModel):
+    recipients: list[str]
+    valuation_tier_id: str | None  # as chosen; may name a tier that no longer exists
+    effective_valuation_tier_id: str  # the tier the next settlement is valued with
+    last_settlement: SettlementCloseOut | None
+
+
+class RecipientsWrite(BaseModel):
+    """The address syntax check happens in the route, so it answers invalid_email."""
+
+    recipients: list[str]
+
+
+class ValuationTierWrite(BaseModel):
+    tier_id: str

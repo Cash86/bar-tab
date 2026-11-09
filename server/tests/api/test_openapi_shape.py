@@ -28,6 +28,14 @@ OPERATION_IDS = {
     "reorderGroups",
     "reorderPriceTiers",
     "reorderDrinks",
+    "getStock",
+    "reviewSettlement",
+    "closeSettlement",
+    "recordOpeningCount",
+    "resendSettlement",
+    "getSettings",
+    "setRecipients",
+    "setValuationTier",
 }
 
 

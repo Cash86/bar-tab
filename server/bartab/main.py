@@ -9,6 +9,8 @@ from bartab.api import (
     routes_admin_deliveries,
     routes_admin_master_data,
     routes_admin_session,
+    routes_admin_settings,
+    routes_admin_settlement,
     routes_bookings,
     routes_catalog,
     routes_health,
@@ -70,6 +72,8 @@ def create_app(settings: Settings, clock: Clock, mailer: Mailer | None = None) -
     app.include_router(routes_admin_bookings.router, prefix="/api/v1")
     app.include_router(routes_admin_deliveries.router, prefix="/api/v1")
     app.include_router(routes_admin_master_data.router, prefix="/api/v1")
+    app.include_router(routes_admin_settlement.router, prefix="/api/v1")
+    app.include_router(routes_admin_settings.router, prefix="/api/v1")
     app.include_router(routes_catalog.router, prefix="/api/v1")
     app.include_router(routes_bookings.router, prefix="/api/v1")
     app.include_router(routes_rankings.router, prefix="/api/v1")

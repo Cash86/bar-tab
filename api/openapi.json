@@ -268,6 +268,62 @@
         "title": "CatalogResponse",
         "type": "object"
       },
+      "CloseRequest": {
+        "properties": {
+          "counts": {
+            "items": {
+              "$ref": "#/components/schemas/CountIn"
+            },
+            "title": "Counts",
+            "type": "array"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "counts",
+          "token"
+        ],
+        "title": "CloseRequest",
+        "type": "object"
+      },
+      "CountIn": {
+        "description": "Range check (quantity) happens in the route, so it answers invalid_quantity.",
+        "properties": {
+          "drink_id": {
+            "title": "Drink Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "drink_id",
+          "quantity"
+        ],
+        "title": "CountIn",
+        "type": "object"
+      },
+      "CountsRequest": {
+        "properties": {
+          "counts": {
+            "items": {
+              "$ref": "#/components/schemas/CountIn"
+            },
+            "title": "Counts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "counts"
+        ],
+        "title": "CountsRequest",
+        "type": "object"
+      },
       "DeliveriesResponse": {
         "properties": {
           "deliveries": {
@@ -406,6 +462,69 @@
         "title": "DrinkCreate",
         "type": "object"
       },
+      "DrinkLineOut": {
+        "properties": {
+          "booked": {
+            "title": "Booked",
+            "type": "integer"
+          },
+          "counted": {
+            "title": "Counted",
+            "type": "integer"
+          },
+          "delivered": {
+            "title": "Delivered",
+            "type": "integer"
+          },
+          "drink_id": {
+            "title": "Drink Id",
+            "type": "string"
+          },
+          "expected": {
+            "title": "Expected",
+            "type": "integer"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "string"
+          },
+          "has_price": {
+            "title": "Has Price",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "opening": {
+            "title": "Opening",
+            "type": "integer"
+          },
+          "shrinkage": {
+            "title": "Shrinkage",
+            "type": "integer"
+          },
+          "value_cents": {
+            "title": "Value Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "drink_id",
+          "name",
+          "group_id",
+          "opening",
+          "delivered",
+          "booked",
+          "expected",
+          "counted",
+          "shrinkage",
+          "value_cents",
+          "has_price"
+        ],
+        "title": "DrinkLineOut",
+        "type": "object"
+      },
       "DrinkOut": {
         "properties": {
           "crate_size": {
@@ -510,6 +629,64 @@
           "detail"
         ],
         "title": "ErrorResponse",
+        "type": "object"
+      },
+      "GroupLineOut": {
+        "properties": {
+          "booked": {
+            "title": "Booked",
+            "type": "integer"
+          },
+          "counted": {
+            "title": "Counted",
+            "type": "integer"
+          },
+          "delivered": {
+            "title": "Delivered",
+            "type": "integer"
+          },
+          "expected": {
+            "title": "Expected",
+            "type": "integer"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "string"
+          },
+          "has_price": {
+            "title": "Has Price",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "opening": {
+            "title": "Opening",
+            "type": "integer"
+          },
+          "shrinkage": {
+            "title": "Shrinkage",
+            "type": "integer"
+          },
+          "value_cents": {
+            "title": "Value Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group_id",
+          "name",
+          "opening",
+          "delivered",
+          "booked",
+          "expected",
+          "counted",
+          "shrinkage",
+          "value_cents",
+          "has_price"
+        ],
+        "title": "GroupLineOut",
         "type": "object"
       },
       "GroupOut": {
@@ -778,6 +955,229 @@
         "title": "RankingsResponse",
         "type": "object"
       },
+      "RecipientsWrite": {
+        "description": "The address syntax check happens in the route, so it answers invalid_email.",
+        "properties": {
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recipients",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recipients"
+        ],
+        "title": "RecipientsWrite",
+        "type": "object"
+      },
+      "ResendOut": {
+        "properties": {
+          "mail_status": {
+            "enum": [
+              "pending",
+              "sent",
+              "failed",
+              "skipped"
+            ],
+            "title": "Mail Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mail_status"
+        ],
+        "title": "ResendOut",
+        "type": "object"
+      },
+      "SettingsResponse": {
+        "properties": {
+          "effective_valuation_tier_id": {
+            "title": "Effective Valuation Tier Id",
+            "type": "string"
+          },
+          "last_settlement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettlementCloseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recipients",
+            "type": "array"
+          },
+          "valuation_tier_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valuation Tier Id"
+          }
+        },
+        "required": [
+          "recipients",
+          "valuation_tier_id",
+          "effective_valuation_tier_id",
+          "last_settlement"
+        ],
+        "title": "SettingsResponse",
+        "type": "object"
+      },
+      "SettlementCloseOut": {
+        "properties": {
+          "closed_at": {
+            "format": "date-time",
+            "title": "Closed At",
+            "type": "string"
+          },
+          "mail_status": {
+            "enum": [
+              "pending",
+              "sent",
+              "failed",
+              "skipped"
+            ],
+            "title": "Mail Status",
+            "type": "string"
+          },
+          "period_id": {
+            "title": "Period Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period_id",
+          "closed_at",
+          "mail_status"
+        ],
+        "title": "SettlementCloseOut",
+        "type": "object"
+      },
+      "SettlementReviewOut": {
+        "properties": {
+          "drinks": {
+            "items": {
+              "$ref": "#/components/schemas/DrinkLineOut"
+            },
+            "title": "Drinks",
+            "type": "array"
+          },
+          "grand_total_cents": {
+            "title": "Grand Total Cents",
+            "type": "integer"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GroupLineOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "hidden_total_cents": {
+            "title": "Hidden Total Cents",
+            "type": "integer"
+          },
+          "persons_total_cents": {
+            "title": "Persons Total Cents",
+            "type": "integer"
+          },
+          "shrinkage_total_cents": {
+            "title": "Shrinkage Total Cents",
+            "type": "integer"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "valuation_tier_name": {
+            "title": "Valuation Tier Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "valuation_tier_name",
+          "drinks",
+          "groups",
+          "persons_total_cents",
+          "hidden_total_cents",
+          "grand_total_cents",
+          "shrinkage_total_cents"
+        ],
+        "title": "SettlementReviewOut",
+        "type": "object"
+      },
+      "StockDrinkOut": {
+        "properties": {
+          "crate_size": {
+            "title": "Crate Size",
+            "type": "integer"
+          },
+          "drink_id": {
+            "title": "Drink Id",
+            "type": "string"
+          },
+          "expected": {
+            "title": "Expected",
+            "type": "integer"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "string"
+          },
+          "group_name": {
+            "title": "Group Name",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "drink_id",
+          "name",
+          "group_id",
+          "group_name",
+          "crate_size",
+          "expected"
+        ],
+        "title": "StockDrinkOut",
+        "type": "object"
+      },
+      "StockResponse": {
+        "properties": {
+          "drinks": {
+            "items": {
+              "$ref": "#/components/schemas/StockDrinkOut"
+            },
+            "title": "Drinks",
+            "type": "array"
+          },
+          "opening_count_allowed": {
+            "title": "Opening Count Allowed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "opening_count_allowed",
+          "drinks"
+        ],
+        "title": "StockResponse",
+        "type": "object"
+      },
       "TabsResponse": {
         "properties": {
           "period_started_at": {
@@ -844,6 +1244,19 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "ValuationTierWrite": {
+        "properties": {
+          "tier_id": {
+            "title": "Tier Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tier_id"
+        ],
+        "title": "ValuationTierWrite",
         "type": "object"
       }
     },
@@ -1555,6 +1968,63 @@
           }
         ],
         "summary": "Updategroup"
+      }
+    },
+    "/api/v1/admin/opening-count": {
+      "post": {
+        "operationId": "recordOpeningCount",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Recordopeningcount"
       }
     },
     "/api/v1/admin/order/drinks/{group_id}": {
@@ -2333,6 +2803,340 @@
           }
         ],
         "summary": "Openadminsession"
+      }
+    },
+    "/api/v1/admin/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Getsettings"
+      }
+    },
+    "/api/v1/admin/settings/recipients": {
+      "put": {
+        "operationId": "setRecipients",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipientsWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Setrecipients"
+      }
+    },
+    "/api/v1/admin/settings/valuation-tier": {
+      "put": {
+        "operationId": "setValuationTier",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValuationTierWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Setvaluationtier"
+      }
+    },
+    "/api/v1/admin/settlement/close": {
+      "post": {
+        "operationId": "closeSettlement",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementCloseOut"
+                }
+              }
+            },
+            "description": "Replay of an earlier close"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementCloseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Closesettlement"
+      }
+    },
+    "/api/v1/admin/settlement/resend": {
+      "post": {
+        "operationId": "resendSettlement",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResendOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Resendsettlement"
+      }
+    },
+    "/api/v1/admin/settlement/review": {
+      "post": {
+        "operationId": "reviewSettlement",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementReviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Reviewsettlement"
+      }
+    },
+    "/api/v1/admin/stock": {
+      "get": {
+        "operationId": "getStock",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "adminToken": [],
+            "deviceKey": []
+          }
+        ],
+        "summary": "Getstock"
       }
     },
     "/api/v1/bookings": {

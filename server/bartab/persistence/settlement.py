@@ -62,6 +62,10 @@ class MissingCount(Exception):
     """A drink on the list of drinks to count has no count."""
 
 
+class UnknownTier(Exception):
+    """The chosen valuation tier does not exist."""
+
+
 @dataclass(frozen=True)
 class _Inputs:
     persons: list[PersonIn]
@@ -348,4 +352,12 @@ def get_valuation_tier_id(session: Session) -> str | None:
 
 
 def set_valuation_tier_id(session: Session, tier_id: str) -> None:
+    if session.get(PriceTier, tier_id) is None:
+        raise UnknownTier
     set_setting(session, VALUATION_TIER_ID, tier_id)
+
+
+def effective_valuation_tier_id(session: Session) -> str:
+    """The tier the next settlement is valued with (the chosen one, else the first tier)."""
+    tiers = [TierIn(t.id, t.name, t.sort_order, True) for t in session.scalars(select(PriceTier))]
+    return effective_valuation_tier(tiers, get_valuation_tier_id(session)).id
