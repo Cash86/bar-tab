@@ -57,6 +57,22 @@ config and demo data, port 18080, everything removed afterwards). It needs Docke
 app/tool/e2e.sh
 ```
 
+## Settlement and reports (operator notes)
+
+- **Mail:** set `BARTAB_SMTP_HOST`, `_PORT`, `_USER`, `_PASSWORD` and `_FROM`. Port 465 uses
+  implicit TLS; other ports (typically 587) use STARTTLS. Without SMTP settings or recipients
+  nothing is sent and the settlement reports the mail as skipped.
+- **Monthly report:** `BARTAB_MONTHLY_REPORT_DAY` (1-28) and `BARTAB_MONTHLY_REPORT_TIME`
+  (`HH:MM`, server timezone). Invalid values stop the server at startup. Failed or missed sends
+  are retried hourly until the end of the month.
+- **Settlement:** in the admin area, choose the settlement, count the stock per drink, check the
+  review and confirm. The PDF is mailed to the recipients; the counts become the next opening
+  stock.
+- **First settlement:** enter an opening count first (admin area), otherwise the opening stock
+  is zero.
+- **Recipients, valuation tier and re-send:** in the admin area under "Einstellungen"; the last
+  settlement PDF can be sent again there.
+
 ## Tablet
 
 The tablet app is sideloaded; it is not distributed through an app store.

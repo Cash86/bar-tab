@@ -163,6 +163,18 @@ and the mail, so they cannot differ.
 - **Blocking bookings:** only pending (queued or held) bookings block the start of the settlement;
   final `rejected`/`conflict` bookings do not block but are shown as a warning count.
 - **No overdue warning in the app**; the notice lives only in the monthly mail.
+- **Monthly report config:** the day must be 1-28 and the time HH:MM; validated at startup.
+- **Token and count list:** the review/close token ignores the computation time; a changed
+  drinks-to-count list between review and close is a stale review (409).
+- **Count validation:** counts for drinks not in the count list are rejected; the opening count
+  also needs every listed drink; a drink counted twice is rejected (422).
+- **Tiers:** price tiers have no "inactive" state; the valuation fallback applies when the chosen
+  tier no longer exists.
+- **PDF failure:** a failed PDF render after close is reported as a failed mail (re-send available).
+- **Close timeout:** the tablet waits up to 60 s for the close answer; without an answer it shows
+  "Status unklar – bitte erneut abschließen" and a retry replays the same close safely.
+- **Number format:** settlement and PDF show German thousands separators (1.234,56 €).
+- **Recipients:** duplicates are ignored; e-mail syntax is checked by the server.
 
 ## 11. Left to the builder
 
