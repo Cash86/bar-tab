@@ -255,6 +255,21 @@ def test_close_with_failing_mail_still_closes(client, app, admin, seeded, mailer
     assert row.mailed_at is None
 
 
+def test_failing_render_is_a_failed_mail(client, app, admin, seeded, mailer, monkeypatch):
+    def broken(_s, _tz):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("bartab.api.routes_admin_settlement.render_settlement_pdf", broken)
+    recipients(client, admin, "a@example.org")
+    response = review_and_close(client, admin)
+    assert (response.status_code, response.json()["mail_status"]) == (201, "failed")
+    assert [p.closed_at is not None for p in periods(app)].count(True) == 1
+    assert record(app).mail_error == "render failed: RuntimeError"
+    response = client.post(f"{API}/settlement/resend", headers=admin)
+    assert (response.status_code, response.json()) == (200, {"mail_status": "failed"})
+    assert mailer.sent == []
+
+
 def test_mail_is_sent_after_the_close_is_committed(client, app, admin, seeded):
     seen = []
 

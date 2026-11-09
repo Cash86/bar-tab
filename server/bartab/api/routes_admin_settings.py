@@ -57,7 +57,7 @@ def set_recipients(
     _device_id: str = Depends(require_admin),
     session: Session = Depends(get_session),
 ) -> Response:
-    if not all(EMAIL.match(address) for address in body.recipients):
+    if not all(EMAIL.fullmatch(address) for address in body.recipients):
         raise HTTPException(status_code=422, detail="invalid_email")
     settlement.set_recipients(session, list(dict.fromkeys(body.recipients)))
     return Response(status_code=204)

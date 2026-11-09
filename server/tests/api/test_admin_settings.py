@@ -49,7 +49,8 @@ def test_recipients_drop_duplicates_and_keep_order(client, admin, seeded):
 
 
 @pytest.mark.parametrize(
-    "address", ["", "no-at.example.org", "a@b", "a b@example.org", "a@@example.org", "@x.org"]
+    "address",
+    ["", "no-at.example.org", "a@b", "a b@example.org", "a@@example.org", "@x.org", "a@b.c\n"],
 )
 def test_invalid_recipient_is_422_and_nothing_stored(client, admin, seeded, address):
     put_recipients(client, admin, ["ok@example.org"])

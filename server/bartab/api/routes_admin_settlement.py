@@ -1,5 +1,6 @@
 """Admin routes for the inventory, the settlement and its mail."""
 
+import logging
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -30,6 +31,7 @@ from bartab.reports.settlement_pdf import render_settlement_pdf
 from bartab.reports.texts import settlement_mail
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 MAX_COUNT = 99999
 
@@ -53,14 +55,17 @@ def _send(
     """Renders and mails the settlement; runs without touching the database."""
     if not recipients:
         return "skipped", None
-    subject, body = settlement_mail(s, tz)
     filename = f"abrechnung-{s.ended_at.astimezone(ZoneInfo(tz)):%Y-%m-%d}.pdf"
     try:
+        subject, body = settlement_mail(s, tz)
         mailer.send(recipients, subject, body, (filename, render_settlement_pdf(s, tz)))
     except MailNotConfigured:
         return "skipped", None
     except MailError as error:
         return "failed", str(error)
+    except Exception as error:  # the period is closed already; report instead of a 500
+        logger.exception("rendering or sending the settlement failed")
+        return "failed", f"render failed: {type(error).__name__}"
     return "sent", None
 
 
