@@ -144,6 +144,11 @@ and the mail, so they cannot differ.
   survives admin logout (2-min idle), screensaver and app restart, until the settlement is
   confirmed or the draft is discarded. Re-entering the flow offers to continue the draft. The idle
   rules stay unchanged.
+  The draft remembers the open period (`period_id` of `GET /admin/stock`); a draft of another
+  period (closed meanwhile, e.g. after "Status unklar") is dropped, not restored. If the review is
+  refused because the drinks to count changed, the app returns to the count with the new list,
+  keeps the counts of drinks still listed and says "Getränkeliste hat sich geändert – bitte
+  Zählung prüfen".
 - **Stale review:** the review carries a token over the figures (period id + hash). Confirm with a
   token that no longer matches (new sync, storno, delivery, price or tier change meanwhile) is
   refused with 409; the app reloads the review and says so. The same token makes a retried
