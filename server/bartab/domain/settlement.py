@@ -151,12 +151,19 @@ def _drink_stocks(
     }
 
 
+def expected_stock(
+    drinks: Iterable[DrinkIn], stocks: Iterable[StockIn], bookings: Iterable[BookingIn]
+) -> dict[str, int]:
+    """Opening + delivered - booked per drink, cancelled entries left out."""
+    return {d: s.expected for d, s in _drink_stocks(drinks, stocks, bookings, None).items()}
+
+
 def drinks_to_count(
     drinks: Iterable[DrinkIn], stocks: Iterable[StockIn], bookings: Iterable[BookingIn]
 ) -> list[DrinkIn]:
     drinks = list(drinks)
-    by_drink = _drink_stocks(drinks, stocks, bookings, None)
-    return [d for d in drinks if d.is_active or by_drink[d.id].expected != 0]
+    expected = expected_stock(drinks, stocks, bookings)
+    return [d for d in drinks if d.is_active or expected[d.id] != 0]
 
 
 def _line(

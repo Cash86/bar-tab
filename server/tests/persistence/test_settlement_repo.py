@@ -334,3 +334,35 @@ def test_last_settlement_is_the_latest(s, clock):
     second, _ = _review_and_close(s, clock, {"d1": 5, "d2": 0})
     assert first.id != second.id
     assert st.last_settlement(s).id == second.id
+
+
+def test_close_with_changed_count_list_is_stale(s, clock):
+    counts = {"d1": 0, "d2": 0}
+    token = st.review_token(st.review(s, clock, counts))
+    _deliver(s, clock, "e1", drink="d3", qty=2)  # inactive drink gets stock: must be counted now
+    with pytest.raises(st.StaleReview):
+        st.close(s, clock, token, counts)
+    assert s.scalars(select(Period).where(Period.closed_at.is_not(None))).all() == []
+
+    counts = {"d1": 0, "d2": 0, "d3": 2}
+    token = st.review_token(st.review(s, clock, counts))
+    deliveries.cancel_delivery(s, "e1", "dev", clock)  # inactive without stock: not listed now
+    with pytest.raises(st.StaleReview):
+        st.close(s, clock, token, counts)
+    assert s.scalars(select(Period).where(Period.closed_at.is_not(None))).all() == []
+    assert s.scalars(select(SettlementRecord)).all() == []
+
+
+def test_review_does_not_create_a_period(db_session, clock):
+    with pytest.raises(LookupError):
+        st.review(db_session, clock, {})
+    assert db_session.scalars(select(Period)).all() == []
+
+
+def test_last_settlement_follows_the_closing_time(s, clock):
+    first, _ = _review_and_close(s, clock, {"d1": 0, "d2": 0})
+    clock.advance(timedelta(days=30))
+    second, _ = _review_and_close(s, clock, {"d1": 0, "d2": 0})
+    first.created_at = clock.now() + timedelta(days=1)  # row timestamps do not decide
+    s.flush()
+    assert st.last_settlement(s).id == second.id

@@ -19,6 +19,7 @@ from bartab.domain.settlement import (
     compute_settlement,
     drinks_to_count,
     effective_valuation_tier,
+    expected_stock,
     figures_token,
     settlement_from_json,
     settlement_to_json,
@@ -76,6 +77,13 @@ class _Inputs:
 
 def _open_period(session: Session) -> Period | None:
     return session.scalars(select(Period).where(Period.closed_at.is_(None))).first()
+
+
+def _require_open_period(session: Session) -> Period:
+    period = _open_period(session)
+    if period is None:
+        raise LookupError("no open period")
+    return period
 
 
 def _has_closed_period(session: Session) -> bool:
@@ -184,20 +192,14 @@ def stock_overview(session: Session) -> tuple[bool, list[tuple[DrinkIn, int]]]:
     """Whether an opening count is allowed, and the drinks to count with their expected stock."""
     period = _open_period(session)
     inputs = _load(session, None if period is None else period.id)
-    expected: dict[str, int] = {}
-    for stock in inputs.stocks:
-        if stock.cancelled_at is None:
-            expected[stock.drink_id] = expected.get(stock.drink_id, 0) + stock.quantity
-    for booking in inputs.bookings:
-        if booking.cancelled_at is None:
-            expected[booking.drink_id] = expected.get(booking.drink_id, 0) - booking.quantity
-    drinks = [(d, expected.get(d.id, 0)) for d in inputs.to_count()]
+    expected = expected_stock(inputs.drinks, inputs.stocks, inputs.bookings)
+    drinks = [(d, expected[d.id]) for d in inputs.to_count()]
     return not _has_closed_period(session), drinks
 
 
 def review(session: Session, clock: Clock, counts: dict[str, int]) -> Settlement:
     """Settlement figures of the open period for the given counts; stores nothing."""
-    return _compute(session, ensure_open_period(session, clock), counts, clock.now())
+    return _compute(session, _require_open_period(session), counts, clock.now())
 
 
 def _stock_entries(
@@ -232,7 +234,11 @@ def close(
         return existing, False
     period = ensure_open_period(session, clock)
     now = clock.now()
-    settlement = _compute(session, period, counts, now)
+    try:
+        settlement = _compute(session, period, counts, now)
+    except (MissingCount, UnknownDrink) as error:
+        # the list of drinks to count changed since the review
+        raise StaleReview from error
     if review_token(settlement) != token:
         raise StaleReview
 
@@ -291,9 +297,7 @@ def record_opening_count(session: Session, clock: Clock, counts: dict[str, int])
 
 
 def last_inventory_at(session: Session) -> datetime:
-    period = _open_period(session)
-    if period is None:
-        raise LookupError("no open period")
+    period = _require_open_period(session)
     if not _has_closed_period(session):
         latest = session.scalar(
             select(func.max(StockEntry.created_at)).where(
@@ -309,9 +313,9 @@ def last_inventory_at(session: Session) -> datetime:
 
 def last_settlement(session: Session) -> SettlementRecord | None:
     return session.scalars(
-        select(SettlementRecord).order_by(
-            SettlementRecord.created_at.desc(), SettlementRecord.id.desc()
-        )
+        select(SettlementRecord)
+        .join(Period, Period.id == SettlementRecord.period_id)
+        .order_by(Period.closed_at.desc())
     ).first()
 
 

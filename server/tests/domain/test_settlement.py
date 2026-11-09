@@ -11,6 +11,7 @@ from bartab.domain.settlement import (
     compute_settlement,
     drinks_to_count,
     effective_valuation_tier,
+    expected_stock,
     figures_token,
     settlement_from_json,
     settlement_to_json,
@@ -208,3 +209,13 @@ def test_person_with_unknown_tier_is_rejected():
     odd = PersonIn("p8", "Odd", "tx", False, False)
     with pytest.raises(ValueError, match="tier"):
         settle([booking("p8")], persons=[odd])
+
+
+def test_expected_stock_ignores_cancelled_entries():
+    stocks = [
+        stock("d1", qty=10),
+        stock("d1", kind="delivery", qty=5),
+        stock("d1", kind="delivery", qty=7, cancelled=True),
+    ]
+    bookings = [booking(qty=3), booking(qty=2, cancelled=True)]
+    assert expected_stock([BEER, COLA], stocks, bookings) == {"d1": 12, "d2": 0}
