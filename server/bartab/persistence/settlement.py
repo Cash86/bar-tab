@@ -206,6 +206,25 @@ def review(session: Session, clock: Clock, counts: dict[str, int]) -> Settlement
     return _compute(session, _require_open_period(session), counts, clock.now())
 
 
+def open_period_preview(session: Session, clock: Clock) -> Settlement:
+    """Interim figures of the open period without counts (expected stock); stores nothing."""
+    period = _require_open_period(session)
+    inputs = _load(session, period.id)
+    return compute_settlement(
+        period_id=period.id,
+        started_at=period.started_at,
+        ended_at=clock.now(),
+        persons=inputs.persons,
+        tiers=inputs.tiers,
+        drinks=inputs.drinks,
+        bookings=inputs.bookings,
+        stocks=inputs.stocks,
+        prices=inputs.prices,
+        counts=None,
+        valuation_tier=effective_valuation_tier(inputs.tiers, get_valuation_tier_id(session)),
+    )
+
+
 def _stock_entries(
     period_id: str, kind: str, counts: dict[str, int], now: datetime
 ) -> list[StockEntry]:

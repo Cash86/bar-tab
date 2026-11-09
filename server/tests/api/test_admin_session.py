@@ -106,7 +106,7 @@ def test_sessions_do_not_survive_a_new_app(client, settings, clock, device_heade
     from bartab.main import create_app
 
     token = _login(client, device_headers).json()["token"]
-    with TestClient(create_app(settings, clock)) as second:
+    with TestClient(create_app(settings, clock, start_scheduler=False)) as second:
         r = second.get(PING, headers={**device_headers, "X-Admin-Token": token})
     assert r.status_code == 401
     assert r.json() == {"detail": "admin_session_required"}

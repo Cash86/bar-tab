@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -21,6 +22,7 @@ from bartab.domain.clock import Clock, SystemClock
 from bartab.mail import Mailer, SmtpMailer
 from bartab.persistence.db import make_engine, make_session_factory
 from bartab.persistence.repos import ensure_open_period
+from bartab.scheduler import monthly_report_loop
 from bartab.security import AdminSessions, PinLockout, seed_admin_pin
 
 
@@ -44,7 +46,12 @@ def _merge_security(app: FastAPI) -> None:
     app.openapi = openapi  # type: ignore[method-assign]
 
 
-def create_app(settings: Settings, clock: Clock, mailer: Mailer | None = None) -> FastAPI:
+def create_app(
+    settings: Settings,
+    clock: Clock,
+    mailer: Mailer | None = None,
+    start_scheduler: bool = True,
+) -> FastAPI:
     engine = make_engine(settings.db_path)
     session_factory = make_session_factory(engine)
 
@@ -54,7 +61,15 @@ def create_app(settings: Settings, clock: Clock, mailer: Mailer | None = None) -
             seed_admin_pin(session, settings)
             ensure_open_period(session, clock)
             session.commit()
+        task = None
+        if start_scheduler:
+            task = asyncio.create_task(
+                monthly_report_loop(session_factory, settings, clock, app.state.mailer)
+            )
         yield
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
         engine.dispose()
 
     app = FastAPI(

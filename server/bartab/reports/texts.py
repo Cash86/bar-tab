@@ -6,6 +6,26 @@ from zoneinfo import ZoneInfo
 from bartab.domain.settlement import Settlement
 from bartab.reports.money import format_cents
 
+_MONTHS = (
+    "Januar",
+    "Februar",
+    "März",
+    "April",
+    "Mai",
+    "Juni",
+    "Juli",
+    "August",
+    "September",
+    "Oktober",
+    "November",
+    "Dezember",
+)
+
+
+def month_label(value: datetime) -> str:
+    """German "November 2026" for the month of `value` (as given, no conversion)."""
+    return f"{_MONTHS[value.month - 1]} {value.year}"
+
 
 def local_date(value: datetime, tz: str) -> str:
     return value.astimezone(ZoneInfo(tz)).strftime("%d.%m.%Y")

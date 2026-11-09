@@ -39,7 +39,7 @@ def app(settings, clock):
     engine = make_engine(settings.db_path)
     Base.metadata.create_all(engine)
     engine.dispose()
-    return create_app(settings, clock)
+    return create_app(settings, clock, start_scheduler=False)
 
 
 @pytest.fixture
