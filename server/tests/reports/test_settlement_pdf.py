@@ -5,7 +5,12 @@ from io import BytesIO
 from pypdf import PdfReader
 
 from bartab.domain.settlement import BookingIn, DrinkLine, PersonLine, Settlement, StockIn
-from bartab.reports.settlement_pdf import render_settlement_pdf
+from bartab.reports.settlement_pdf import (
+    APPENDIX_FIRST_COL,
+    appendix_blocks,
+    appendix_col_width,
+    render_settlement_pdf,
+)
 
 T = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
 
@@ -88,3 +93,19 @@ def test_pdf_with_many_drinks_renders():
     s = replace(s, drinks=drinks, person_drink={"p1": {d.drink_id: 1 for d in drinks}})
     text = text_of(render_settlement_pdf(s, "Europe/Berlin"))
     assert "Jörg Beispiel" in text
+
+
+def test_pdf_appendix_with_25_drinks_fits_the_page():
+    s = make()
+    drinks = [replace(s.drinks[0], drink_id=f"d{i}", name=f"Drink{i:02d}") for i in range(25)]
+    s = replace(s, drinks=drinks, person_drink={"p1": {d.drink_id: 1 for d in drinks}})
+    text = text_of(render_settlement_pdf(s, "Europe/Berlin"))
+    for d in drinks:
+        assert d.name in text
+
+    epw = 297 - 2 * 12
+    blocks = appendix_blocks(len(drinks), epw)
+    assert len(blocks) > 1
+    assert sorted(i for b in blocks for i in b) == list(range(25))
+    for block in blocks:
+        assert APPENDIX_FIRST_COL + len(block) * appendix_col_width(block, epw) <= epw + 1e-6

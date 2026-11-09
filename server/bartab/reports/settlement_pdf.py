@@ -14,6 +14,20 @@ FONT_DIR = Path(__file__).parent / "fonts"
 FAMILY = "DejaVu"
 
 
+APPENDIX_FIRST_COL = 50.0
+APPENDIX_MIN_COL = 16.0
+
+
+def appendix_blocks(n_drinks: int, epw: float) -> list[list[int]]:
+    """Split drink column indexes into blocks that fit the width with >= 16 mm per column."""
+    per_block = max(int((epw - APPENDIX_FIRST_COL) // APPENDIX_MIN_COL), 1)
+    return [list(range(i, min(i + per_block, n_drinks))) for i in range(0, n_drinks, per_block)]
+
+
+def appendix_col_width(block: list[int], epw: float) -> float:
+    return (epw - APPENDIX_FIRST_COL) / max(len(block), 1)
+
+
 def _local(value: datetime, tz: str) -> str:
     return value.astimezone(ZoneInfo(tz)).strftime("%d.%m.%Y %H:%M")
 
@@ -236,12 +250,14 @@ def render_settlement_pdf(s: Settlement, tz: str) -> bytes:
     for p in [*s.persons, *s.hidden]:
         per = s.person_drink.get(p.person_id, {})
         rows.append([p.name, *[str(per.get(d, 0)) for d in drink_ids]])
-    first = 50.0
-    each = max((pdf.epw - first) / max(len(drink_ids), 1), 16.0)
-    pdf.table(
-        ["Person", *[drink_names[d] for d in drink_ids]],
-        rows,
-        widths=[first] + [each] * len(drink_ids),
-    )
+    for n, block in enumerate(appendix_blocks(len(drink_ids), pdf.epw)):
+        if n:
+            pdf.ln(3)
+        each = min(appendix_col_width(block, pdf.epw), 40.0)
+        pdf.table(
+            ["Person", *[drink_names[drink_ids[i]] for i in block]],
+            [[r[0], *[r[1 + i] for i in block]] for r in rows],
+            widths=[APPENDIX_FIRST_COL] + [each] * len(block),
+        )
 
     return bytes(pdf.output())
