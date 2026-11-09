@@ -993,6 +993,25 @@ void main() {
       });
     });
 
+    test('resendSettlement waits like the close (it mails synchronously)', () {
+      fakeAsync((async) {
+        final api = _api(
+          (r) => Future.delayed(
+            const Duration(seconds: 30),
+            () => _json({'mail_status': 'sent'}),
+          ),
+        );
+        MailStatus? status;
+        Object? error;
+        api
+            .resendSettlement('t')
+            .then((s) => status = s, onError: (Object e) => error = e);
+        async.elapse(const Duration(seconds: 31));
+        expect(error, isNull);
+        expect(status, MailStatus.sent);
+      });
+    });
+
     test('closeSettlement 409 stale_review and already_settled', () async {
       Future<void> expectThrows(String detail, Matcher matcher) async {
         final api = _api((r) async => _json({'detail': detail}, 409));

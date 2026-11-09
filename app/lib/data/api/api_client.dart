@@ -439,12 +439,15 @@ class BarTabApi {
     ValuationTierWriteDto(tierId: tierId).toJson(),
   );
 
+  /// Re-sends the last settlement; the server mails before it answers, so
+  /// this waits as long as [closeSettlement].
   Future<MailStatus> resendSettlement(String token) async => (await _write(
     'POST',
     'admin/settlement/resend',
     token,
     null,
     ResendDto.fromJson,
+    timeout: kCloseSettlementTimeout,
   )).mailStatus;
 
   CountsRequestDto _counts(Map<String, int> counts) => CountsRequestDto(
