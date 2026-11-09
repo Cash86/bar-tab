@@ -187,3 +187,24 @@ def test_snapshot_round_trip():
         {"d1": 3, "d2": 0},
     )
     assert settlement_from_json(settlement_to_json(s)) == s
+
+
+def test_booking_of_unknown_person_is_rejected():
+    with pytest.raises(ValueError, match="person"):
+        settle([booking("nobody")])
+
+
+def test_booking_of_unknown_drink_is_rejected():
+    with pytest.raises(ValueError, match="drink"):
+        settle([booking(drink="nope")])
+
+
+def test_effective_valuation_tier_without_active_tier_is_rejected():
+    with pytest.raises(ValueError, match="active"):
+        effective_valuation_tier([TierIn("t0", "Alt", 0, False)], None)
+
+
+def test_person_with_unknown_tier_is_rejected():
+    odd = PersonIn("p8", "Odd", "tx", False, False)
+    with pytest.raises(ValueError, match="tier"):
+        settle([booking("p8")], persons=[odd])

@@ -107,6 +107,8 @@ def effective_valuation_tier(tiers: Iterable[TierIn], chosen_id: str | None) -> 
     for tier in active:
         if tier.id == chosen_id:
             return tier
+    if not active:
+        raise ValueError("no active price tier")
     return active[0]
 
 
@@ -181,6 +183,15 @@ def _line(
     )
 
 
+def _group_stocks(stocks: Iterable[DrinkStock], previewing: bool) -> dict[str, DrinkStock]:
+    totals = group_totals(stocks)
+    if previewing:
+        return {
+            g: DrinkStock("", g, t.opening, t.delivered, t.booked, None) for g, t in totals.items()
+        }
+    return totals
+
+
 def compute_settlement(
     *,
     period_id: str,
@@ -212,6 +223,7 @@ def compute_settlement(
         price = prices.get((valuation_tier.id, d.id))
         line = _line(d.id, d.name, drink_stocks[d.id], price, counts is None)
         lines.append(line)
+    group_names = {d.group_id: d.group_name for d in to_count}
     group_stocks = _group_stocks(drink_stocks.values(), counts is None)
     group_lines: dict[str, DrinkLine] = {}
     for gid, gs in group_stocks.items():
@@ -219,7 +231,7 @@ def compute_settlement(
         value_by_group[gid] = value
         group_lines[gid] = DrinkLine(
             "",
-            next(d.group_name for d in to_count if d.group_id == gid),
+            group_names[gid],
             gid,
             gs.opening,
             gs.delivered,
@@ -237,8 +249,12 @@ def compute_settlement(
     amount: dict[str, int] = {}
     person_drink: dict[str, dict[str, int]] = {}
     for b in bookings:
-        if b.cancelled_at is not None or b.person_id not in person_by_id:
+        if b.cancelled_at is not None:
             continue
+        if b.person_id not in person_by_id:
+            raise ValueError(f"booking for unknown person: {b.person_id}")
+        if b.drink_id not in group_of:
+            raise ValueError(f"booking for unknown drink: {b.drink_id}")
         groups = qty_by_group.setdefault(b.person_id, {})
         gid = group_of[b.drink_id]
         groups[gid] = groups.get(gid, 0) + b.quantity
@@ -248,7 +264,10 @@ def compute_settlement(
 
     def person_lines(hidden: bool) -> list[PersonLine]:
         chosen = [p for p in persons if p.id in amount and p.is_hidden == hidden]
-        chosen.sort(key=lambda p: (tier_order.get(p.tier_id, 0), p.name))
+        for p in chosen:
+            if p.tier_id not in tier_order:
+                raise ValueError(f"person {p.id} has unknown tier: {p.tier_id}")
+        chosen.sort(key=lambda p: (tier_order[p.tier_id], p.name))
         return [
             PersonLine(p.id, p.name, p.tier_id, qty_by_group[p.id], amount[p.id]) for p in chosen
         ]
@@ -284,15 +303,6 @@ def compute_settlement(
         ),
         person_drink=person_drink,
     )
-
-
-def _group_stocks(stocks: Iterable[DrinkStock], previewing: bool) -> dict[str, DrinkStock]:
-    totals = group_totals(stocks)
-    if previewing:
-        return {
-            g: DrinkStock("", g, t.opening, t.delivered, t.booked, None) for g, t in totals.items()
-        }
-    return totals
 
 
 def figures_token(s: Settlement) -> str:
