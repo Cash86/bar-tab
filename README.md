@@ -17,9 +17,12 @@ cp .env.example .env
 openssl rand -hex 32   # run once per entry of BARTAB_DEVICE_KEYS
 cp docker-compose.override.example.yml docker-compose.override.yml  # pick the local or Traefik variant
 docker compose up -d
-docker compose exec server alembic upgrade head   # optional, the container already migrates on start
-docker compose exec server python -m bartab.cli seed-demo   # optional demo data
+docker compose exec -u bartab server alembic upgrade head   # optional, the container already migrates on start
+docker compose exec -u bartab server python -m bartab.cli seed-demo   # optional demo data
 ```
+
+Always run DB-touching `docker compose exec` commands with `-u bartab`: as root they would create
+root-owned WAL/shm/backup files and the server then fails with "readonly database".
 
 Then open `http://localhost:8000/api/v1/health` (local variant); it returns `{"status":"ok"}`.
 
@@ -76,6 +79,8 @@ docker compose ps                    # wait until the server shows "healthy"
 ```
 
 The compose healthcheck calls `/api/v1/health`; Traefik only routes to healthy containers.
+The example defines only a `websecure` router, so the host's Traefik needs its global
+HTTP-to-HTTPS redirect (or an extra `web` router) for plain-HTTP requests.
 Migrations run on container start. The container fixes ownership of `./data` itself.
 
 ### Update
@@ -93,7 +98,7 @@ Only into an empty database, with the server running. Put the legacy CSV files a
 `./data/import/`; `./data` is mounted as `/data` in the container. Keep these files out of git.
 
 ```sh
-docker compose exec server python -m bartab.cli import-legacy \
+docker compose exec -u bartab server python -m bartab.cli import-legacy \
   --users /data/import/user.csv --drinks /data/import/drink.csv \
   --mapping /data/import/mapping.json --dry-run     # prints the report, writes nothing
 # if the report looks right, run again without --dry-run
@@ -120,7 +125,7 @@ uid 10001 after the container's chown, so run the cron job as root:
 Without host `sqlite3`, use the Python module inside the container:
 
 ```sh
-docker compose exec server python -c "import sqlite3; s=sqlite3.connect('/data/bartab.db'); d=sqlite3.connect('/data/backup.db'); s.backup(d)"
+docker compose exec -u bartab server python -c "import sqlite3; s=sqlite3.connect('/data/bartab.db'); d=sqlite3.connect('/data/backup.db'); s.backup(d)"
 ```
 
 Copy the backups off the machine. A restore is: stop the server, replace `data/bartab.db`, start.
