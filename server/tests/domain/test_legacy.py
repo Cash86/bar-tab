@@ -187,3 +187,56 @@ def test_parse_mapping_rejects_unknown_key():
 def test_parse_mapping_rejects_wrong_type():
     with pytest.raises(LegacyError):
         parse_mapping(mapping_data(kegs="fass_a"))
+
+
+def test_duplicate_tier_names_abort():
+    with pytest.raises(LegacyError, match="duplicate tier"):
+        plan(tiers={"Aktiv": "Aktive", "AH": "aktive"})
+
+
+def test_duplicate_group_order_aborts():
+    with pytest.raises(LegacyError, match="duplicate group"):
+        plan(group_order=["Bier", "Limo", "Bier"])
+
+
+def test_error_lines_are_real_file_lines():
+    users = "Name,Rolle\n\nKim Beispiel,Aktiv\nKaputt,Aktiv,Extra\n"
+    with pytest.raises(LegacyError, match=r"user\.csv line 4"):
+        plan(users=users)
+
+
+def test_euro_to_cents_rejects_non_ascii_digits():
+    with pytest.raises(LegacyError):
+        euro_to_cents("١.٢")
+
+
+def test_decode_strips_utf8_bom():
+    assert decode_legacy(b"\xef\xbb\xbfName,Rolle\n") == "Name,Rolle\n"
+
+
+def test_bom_in_both_files_is_harmless():
+    users = b"\xef\xbb\xbf" + USERS.encode("cp1252")
+    drinks = b"\xef\xbb\xbf" + DRINKS.encode("cp1252")
+    p = build_plan(decode_legacy(users), decode_legacy(drinks), parse_mapping(mapping_data()))
+    assert len(p.persons) == 4
+    assert len(p.drinks) == 6
+
+
+def test_trailing_blank_lines_are_ignored():
+    p = plan(users=USERS + "\n\n", drinks=DRINKS + "\r\n\r\n")
+    assert len(p.persons) == 4
+    assert len(p.drinks) == 6
+
+
+@pytest.mark.parametrize("price", ["1.", "1,20"])
+def test_drink_csv_rejects_malformed_price(price):
+    drinks = DRINKS.replace("bier_hell,Bier,1.2,1.5", f'bier_hell,Bier,"{price}",1.5')
+    with pytest.raises(LegacyError, match="bier_hell"):
+        plan(drinks=drinks)
+
+
+def test_hidden_collective_person_keeps_both_flags():
+    p = plan(collective=["Geist Eins"])
+    ghost = next(x for x in p.persons if x.name == "Geist Eins")
+    assert ghost.is_hidden
+    assert ghost.is_collective

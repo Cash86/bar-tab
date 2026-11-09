@@ -17,7 +17,7 @@ PLACEHOLDER_CENTS = 1_000_000
 HIDDEN = "hidden"
 _USER_COLUMNS = 2
 _DRINK_COLUMNS = 5
-_EURO = re.compile(r"(\d+)(?:\.(\d{1,2}))?")
+_EURO = re.compile(r"([0-9]+)(?:\.([0-9]{1,2}))?")
 
 
 class LegacyError(Exception):
@@ -177,6 +177,8 @@ def parse_mapping(data: dict) -> Mapping:
 
 
 def decode_legacy(raw: bytes) -> str:
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raw = raw[3:]
     try:
         text = raw.decode("cp1252")
     except UnicodeDecodeError as exc:
@@ -200,15 +202,16 @@ def euro_to_cents(text: str) -> int:
 
 
 def _rows(text: str, columns: int, what: str, problems: list[str]) -> list[list[str]]:
-    rows = [r for r in csv.reader(io.StringIO(text)) if any(c.strip() for c in r)]
-    if not rows or len(rows[0]) != columns:
+    reader = csv.reader(io.StringIO(text))
+    numbered = [(reader.line_num, r) for r in reader if any(c.strip() for c in r)]
+    if not numbered or len(numbered[0][1]) != columns:
         problems.append(f"{what}: header must have {columns} columns")
         return []
-    body = rows[1:]
-    for number, row in enumerate(body, start=2):
+    body = numbered[1:]
+    for number, row in body:
         if len(row) != columns:
             problems.append(f"{what} line {number}: expected {columns} columns, got {len(row)}")
-    return [r for r in body if len(r) == columns]
+    return [r for _, r in body if len(r) == columns]
 
 
 def _check_length(kind: str, value: str, limit: int, problems: list[str]) -> None:
@@ -226,8 +229,12 @@ def _check_mapping(mapping: Mapping, problems: list[str]) -> list[str]:
         problems.append(f"mapping.hidden_tier {mapping.hidden_tier!r} is not a role in tiers")
     for tier in mapping.tiers.values():
         _check_length("tier", tier, MAX_TIER, problems)
+    if len({name_key(t) for t in mapping.tiers.values()}) < len(mapping.tiers):
+        problems.append("mapping.tiers: duplicate tier names")
     for group in mapping.group_order:
         _check_length("group", group, MAX_GROUP, problems)
+    if len({name_key(g) for g in mapping.group_order}) < len(mapping.group_order):
+        problems.append("mapping.group_order: duplicate group names")
     for drink, prices in mapping.price_overrides.items():
         unknown = sorted(set(prices) - set(roles))
         if unknown:
