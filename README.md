@@ -5,7 +5,7 @@ or bar staff book drinks on a shared tablet, and the server keeps the running ta
 closes billing periods and sends monthly reports. It replaces paper lists with a simple,
 offline-tolerant tablet app (Flutter) backed by a small Python service (FastAPI).
 
-**Status:** under construction. Not usable yet.
+**Status:** in production use. Planned next: booking from members' own phones.
 
 ## Quick start
 

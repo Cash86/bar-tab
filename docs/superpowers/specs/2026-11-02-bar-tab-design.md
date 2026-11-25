@@ -361,6 +361,7 @@ data, enabling screen pinning.
    amount; the cancelling device is available as `cancelled_by_device_id`).
    **Done** (2026-11-09; details in `2026-11-09-m4-settlement-design.md`).
 5. Legacy import (reports values longer than the maximum lengths), deployment on netcup, README/operator docs; cut-over from the old script.
+   **Done** (2026-11-09; details in `2026-11-09-m5-import-deploy-design.md`).
 6. **Later:** members book from their own phones — personal login, same Flutter app or a phone
    layout of it. Out of scope until 1–5 run in production.
 
